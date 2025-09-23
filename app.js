@@ -10,7 +10,18 @@ app.use(cors());
 app.use(morgan("dev"));
 app.use(express.json());
 
-// Routes
+// Health check endpoint
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "OK",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    env: process.env.NODE_ENV
+  });
+});
+
+// API Routes
 app.use("/api/jugadores", require("./routes/jugadores"));
 app.use("/api/cajeros", require("./routes/cajeros"));
 app.use("/api/salas", require("./routes/salas"));
