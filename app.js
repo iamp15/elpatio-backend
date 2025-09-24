@@ -17,7 +17,7 @@ app.get("/health", (req, res) => {
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     memory: process.memoryUsage(),
-    env: process.env.NODE_ENV
+    env: process.env.NODE_ENV,
   });
 });
 
@@ -30,6 +30,7 @@ app.use("/api/admin/stats", require("./routes/stats"));
 app.use("/api/admin", require("./routes/admin"));
 app.use("/api/payment-config", require("./routes/paymentConfig"));
 app.use("/api/transacciones", require("./routes/transacciones"));
+app.use("/api/webapp", require("./routes/webapp"));
 
 //Manejo de errores
 app.use(require("./middlewares/errorHandler"));

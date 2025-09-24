@@ -337,9 +337,20 @@ exports.obtenerSaldo = async (req, res) => {
     const { telegramId } = req.params;
     const jugador = await Jugador.findOne({ telegramId }, { saldo: 1, _id: 0 });
     if (!jugador)
-      return res.status(404).json({ message: "Jugador no encontrado" });
-    res.json({ saldo: jugador.saldo });
+      return res.status(404).json({ 
+        success: false, 
+        message: "Jugador no encontrado" 
+      });
+    res.json({ 
+      success: true, 
+      saldo: jugador.saldo,
+      message: "Saldo obtenido correctamente"
+    });
   } catch (error) {
-    res.status(500).json({ message: "Error al obtener el saldo" });
+    res.status(500).json({ 
+      success: false, 
+      message: "Error al obtener el saldo",
+      error: error.message 
+    });
   }
 };
