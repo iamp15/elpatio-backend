@@ -84,7 +84,7 @@ router.get(
 router.put(
   "/:transaccionId/asignar-cajero",
   auth,
-  verificarMinimo("admin"),
+  verificarMinimo("cajero"),
   transaccionesController.asignarCajero
 );
 

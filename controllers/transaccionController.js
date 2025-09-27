@@ -158,10 +158,18 @@ exports.obtenerPendientesCajero = async (req, res) => {
 exports.asignarCajero = async (req, res) => {
   try {
     const { transaccionId } = req.params;
-    
+
+    // Debug: Log user info
+    console.log("asignarCajero - User info:", {
+      id: req.user?.id,
+      email: req.user?.email,
+      rol: req.user?.rol
+    });
+
     // Si es un cajero autenticado, usar su ID
     // Si es un admin, permitir especificar cajeroId en el body
-    const cajeroId = req.user.rol === "cajero" ? req.user.id : req.body.cajeroId;
+    const cajeroId =
+      req.user.rol === "cajero" ? req.user.id : req.body.cajeroId;
 
     if (!cajeroId) {
       return res.status(400).json({ mensaje: "ID del cajero requerido" });
