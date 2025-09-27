@@ -4,13 +4,13 @@ const jwt = require("jsonwebtoken");
 // Crear un cajero (solo accesible por admin o superadmin)
 exports.crearCajero = async (req, res) => {
   try {
-    const { 
-      nombreCompleto, 
-      email, 
-      password, 
+    const {
+      nombreCompleto,
+      email,
+      password,
       telefonoContacto,
       datosPagoMovil,
-      foto 
+      foto,
     } = req.body;
 
     // Crear manualmente para evitar campos maliciosos

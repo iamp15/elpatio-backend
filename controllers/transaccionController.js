@@ -158,7 +158,14 @@ exports.obtenerPendientesCajero = async (req, res) => {
 exports.asignarCajero = async (req, res) => {
   try {
     const { transaccionId } = req.params;
-    const { cajeroId } = req.body;
+    
+    // Si es un cajero autenticado, usar su ID
+    // Si es un admin, permitir especificar cajeroId en el body
+    const cajeroId = req.user.rol === "cajero" ? req.user.id : req.body.cajeroId;
+
+    if (!cajeroId) {
+      return res.status(400).json({ mensaje: "ID del cajero requerido" });
+    }
 
     // Validar transacción
     const transaccion = await Transaccion.findById(transaccionId);
@@ -692,6 +699,83 @@ exports.procesarTransaccionAutomatica = async (req, res) => {
   } finally {
     console.log("🔍 [DEBUG] Cerrando sesión");
     await session.endSession();
+  }
+};
+
+/**
+ * Obtener estado de transacción con datos del cajero (para polling)
+ * GET /api/transacciones/:transaccionId/estado
+ */
+exports.obtenerEstadoTransaccion = async (req, res) => {
+  try {
+    const { transaccionId } = req.params;
+    const telegramId = req.headers["x-telegram-id"];
+
+    if (!telegramId) {
+      return res.status(401).json({
+        mensaje: "X-Telegram-ID header requerido",
+      });
+    }
+
+    // Buscar transacción con datos del cajero poblados
+    const transaccion = await Transaccion.findById(transaccionId)
+      .populate("cajeroId", "nombreCompleto telefonoContacto datosPagoMovil")
+      .populate("jugadorId", "telegramId")
+      .select(
+        "estado cajeroId fechaAsignacionCajero monto referencia categoria tipo jugadorId"
+      )
+      .lean();
+
+    if (!transaccion) {
+      return res.status(404).json({
+        mensaje: "Transacción no encontrada",
+      });
+    }
+
+    // Verificar que la transacción pertenece al usuario
+    if (
+      transaccion.jugadorId &&
+      transaccion.jugadorId.telegramId !== telegramId
+    ) {
+      return res.status(403).json({
+        mensaje: "No tienes permisos para ver esta transacción",
+      });
+    }
+
+    // Preparar respuesta base
+    const respuesta = {
+      estado: transaccion.estado,
+      cajeroAsignado: !!transaccion.cajeroId,
+      monto: transaccion.monto,
+      referencia: transaccion.referencia,
+      categoria: transaccion.categoria,
+      tipo: transaccion.tipo,
+      fechaAsignacion: transaccion.fechaAsignacionCajero,
+    };
+
+    // Si hay cajero asignado, incluir sus datos bancarios
+    if (transaccion.cajeroId) {
+      respuesta.cajero = {
+        _id: transaccion.cajeroId._id,
+        nombre: transaccion.cajeroId.nombreCompleto,
+        telefono: transaccion.cajeroId.telefonoContacto,
+        datosPago: {
+          banco: transaccion.cajeroId.datosPagoMovil.banco,
+          cedula: {
+            prefijo: transaccion.cajeroId.datosPagoMovil.cedula.prefijo,
+            numero: transaccion.cajeroId.datosPagoMovil.cedula.numero,
+          },
+          telefono: transaccion.cajeroId.datosPagoMovil.telefono,
+        },
+      };
+    }
+
+    res.json(respuesta);
+  } catch (error) {
+    res.status(500).json({
+      mensaje: "Error obteniendo estado de transacción",
+      error: error.message,
+    });
   }
 };
 

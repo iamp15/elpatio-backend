@@ -282,6 +282,15 @@ router.get(
 );
 
 /**
+ * Obtener estado de transacción (para polling de apps)
+ * GET /api/transacciones/:transaccionId/estado
+ */
+router.get(
+  "/:transaccionId/estado",
+  transaccionesController.obtenerEstadoTransaccion
+);
+
+/**
  * Obtener detalles de una transacción específica
  * GET /api/transacciones/:transaccionId
  */
