@@ -4,17 +4,22 @@ const jwt = require("jsonwebtoken");
 // Crear un cajero (solo accesible por admin o superadmin)
 exports.crearCajero = async (req, res) => {
   try {
-    const { nombreCompleto, email, password, banco, cedula, telefono, foto } =
-      req.body;
+    const { 
+      nombreCompleto, 
+      email, 
+      password, 
+      telefonoContacto,
+      datosPagoMovil,
+      foto 
+    } = req.body;
 
     // Crear manualmente para evitar campos maliciosos
     const nuevoCajero = new Cajero({
       nombreCompleto,
       email,
+      telefonoContacto,
       password, // Se hashea automáticamente en el modelo
-      banco,
-      cedula,
-      telefono,
+      datosPagoMovil,
       foto,
     });
 
@@ -26,9 +31,8 @@ exports.crearCajero = async (req, res) => {
         _id: nuevoCajero._id,
         nombreCompleto,
         email,
-        banco,
-        cedula,
-        telefono,
+        telefonoContacto,
+        datosPagoMovil,
         foto,
       },
     });
@@ -78,7 +82,7 @@ exports.loginCajero = async (req, res) => {
 exports.obtenerCajeros = async (req, res) => {
   try {
     const cajeros = await Cajero.find().select(
-      "_id nombreCompleto email banco cedula telefono foto"
+      "_id nombreCompleto email telefonoContacto datosPagoMovil foto"
     ); // Evitamos exponer la contraseña
     res.json(cajeros);
   } catch (error) {
@@ -95,7 +99,7 @@ exports.obtenerMiPerfil = async (req, res) => {
     const cajeroId = req.user.id;
 
     const cajero = await Cajero.findById(cajeroId).select(
-      "_id nombreCompleto email banco cedula telefono foto"
+      "_id nombreCompleto email telefonoContacto datosPagoMovil foto"
     );
 
     if (!cajero) {
