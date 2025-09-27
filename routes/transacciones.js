@@ -317,9 +317,9 @@ router.get("/:transaccionId", auth, async (req, res) => {
     const esAdmin = ["admin", "superadmin"].includes(req.user?.rol);
     const esCajeroAsignado =
       transaccion.cajeroId &&
-      transaccion.cajeroId._id.toString() === req.user?._id?.toString();
+      transaccion.cajeroId._id.toString() === req.user?.id?.toString();
     const esJugadorPropietario =
-      transaccion.jugadorId._id.toString() === req.user?._id?.toString();
+      transaccion.jugadorId._id.toString() === req.user?.id?.toString();
 
     if (!esAdmin && !esCajeroAsignado && !esJugadorPropietario) {
       return res

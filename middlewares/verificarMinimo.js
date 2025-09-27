@@ -6,17 +6,8 @@ const verificarMinimo = (rolMinimo) => {
     const nivelUsuario = configRoles.niveles[rolUsuario];
     const nivelRequerido = configRoles.niveles[rolMinimo];
 
-    // Debug: Log permission check
-    console.log("verificarMinimo - Permission check:", {
-      rolUsuario,
-      nivelUsuario,
-      rolMinimo,
-      nivelRequerido,
-      userInfo: req.user
-    });
 
     if (nivelUsuario === undefined || nivelUsuario < nivelRequerido) {
-      console.log("verificarMinimo - Access denied");
       return res.status(403).json({ mensaje: "Acceso denegado" });
     }
 
