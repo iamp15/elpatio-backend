@@ -474,6 +474,26 @@ class DepositoWebSocketController {
   // ===== MÉTODOS AUXILIARES =====
 
   /**
+   * Buscar socket ID del jugador por telegramId (maneja string/número)
+   */
+  buscarJugadorConectado(telegramId) {
+    // Intentar con el valor original
+    let socketId = this.socketManager.connectedUsers.get(telegramId);
+    
+    // Si no se encuentra, intentar con el telegramId como número
+    if (!socketId) {
+      socketId = this.socketManager.connectedUsers.get(parseInt(telegramId));
+    }
+    
+    // Si no se encuentra, intentar con el telegramId como string
+    if (!socketId) {
+      socketId = this.socketManager.connectedUsers.get(telegramId.toString());
+    }
+    
+    return socketId;
+  }
+
+  /**
    * Notificar a todos los cajeros sobre nueva solicitud
    */
   async notificarCajerosNuevaSolicitud(transaccion, jugador) {
@@ -518,13 +538,17 @@ class DepositoWebSocketController {
    * Notificar al jugador que su solicitud fue aceptada
    */
   async notificarJugadorSolicitudAceptada(transaccion, cajero) {
-    const jugadorSocketId = this.socketManager.connectedUsers.get(
-      transaccion.telegramId
-    );
+    const jugadorSocketId = this.buscarJugadorConectado(transaccion.telegramId);
 
     if (!jugadorSocketId) {
       console.log(
         "⚠️ [DEPOSITO] Jugador no conectado para notificar aceptación"
+      );
+      console.log(
+        `🔍 [DEPOSITO] Buscando jugador con telegramId: ${transaccion.telegramId} (tipo: ${typeof transaccion.telegramId})`
+      );
+      console.log(
+        `🔍 [DEPOSITO] Jugadores conectados: ${Array.from(this.socketManager.connectedUsers.keys())}`
       );
       return;
     }
@@ -592,9 +616,7 @@ class DepositoWebSocketController {
    * Notificar al jugador que su depósito fue completado
    */
   async notificarJugadorDepositoCompletado(transaccion, saldoNuevo) {
-    const jugadorSocketId = this.socketManager.connectedUsers.get(
-      transaccion.telegramId
-    );
+    const jugadorSocketId = this.buscarJugadorConectado(transaccion.telegramId);
 
     if (!jugadorSocketId) {
       console.log(
@@ -622,9 +644,7 @@ class DepositoWebSocketController {
    * Notificar al jugador que su depósito fue rechazado
    */
   async notificarJugadorDepositoRechazado(transaccion, motivo) {
-    const jugadorSocketId = this.socketManager.connectedUsers.get(
-      transaccion.telegramId
-    );
+    const jugadorSocketId = this.buscarJugadorConectado(transaccion.telegramId);
 
     if (!jugadorSocketId) {
       console.log("⚠️ [DEPOSITO] Jugador no conectado para notificar rechazo");
