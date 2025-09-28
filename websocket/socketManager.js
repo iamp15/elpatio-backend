@@ -235,6 +235,7 @@ class SocketManager {
       // Registrar conexión
       this.connectedUsers.set(telegramId, socket.id);
       socket.telegramId = telegramId;
+      socket.jugadorId = jugador._id; // Agregar jugadorId al socket
       socket.userType = "jugador";
 
       console.log(
@@ -247,7 +248,9 @@ class SocketManager {
         success: true,
         message: "Autenticación exitosa",
         user: {
+          id: jugador._id,
           telegramId: jugador.telegramId,
+          nombre: jugador.nickname || jugador.firstName || "Usuario",
           nickname: jugador.nickname,
           firstName: jugador.firstName,
           username: jugador.username,
