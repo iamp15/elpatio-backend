@@ -21,6 +21,16 @@ app.get("/health", (req, res) => {
   });
 });
 
+// Ruta para servir el archivo de prueba de WebSocket
+app.get("/test-websocket", (req, res) => {
+  res.sendFile(__dirname + "/test-websocket.html");
+});
+
+// Ruta para servir el archivo de prueba de WebSocket en Railway
+app.get("/test-websocket-railway", (req, res) => {
+  res.sendFile(__dirname + "/test-websocket-railway.html");
+});
+
 // API Routes
 app.use("/api/jugadores", require("./routes/jugadores"));
 app.use("/api/cajeros", require("./routes/cajeros"));
@@ -31,6 +41,7 @@ app.use("/api/admin", require("./routes/admin"));
 app.use("/api/payment-config", require("./routes/paymentConfig"));
 app.use("/api/transacciones", require("./routes/transacciones"));
 app.use("/api/webapp", require("./routes/webapp"));
+app.use("/api/websocket", require("./routes/websocket"));
 
 //Manejo de errores
 app.use(require("./middlewares/errorHandler"));

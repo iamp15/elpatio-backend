@@ -1,6 +1,7 @@
 const app = require("./app");
 const connectDB = require("./config/db");
 const mongoose = require("mongoose");
+const socketManager = require("./websocket/socketManager");
 
 const PORT = process.env.PORT || 3000;
 
@@ -52,6 +53,17 @@ connectDB()
     // Configurar timeout del servidor
     server.keepAliveTimeout = 65000;
     server.headersTimeout = 66000;
+
+    // Inicializar WebSocket
+    socketManager.initialize(server);
+
+    // Hacer disponible el socketManager globalmente
+    app.set("socketManager", socketManager);
+
+    // Endpoint para estadísticas de WebSocket
+    app.get("/api/websocket/stats", (req, res) => {
+      res.json(socketManager.getStats());
+    });
   })
   .catch((error) => {
     console.error("❌ Error al iniciar servidor:", error);

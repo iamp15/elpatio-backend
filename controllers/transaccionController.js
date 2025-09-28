@@ -159,7 +159,6 @@ exports.asignarCajero = async (req, res) => {
   try {
     const { transaccionId } = req.params;
 
-
     // Si es un cajero autenticado, usar su ID
     // Si es un admin, permitir especificar cajeroId en el body
     const cajeroId =
