@@ -41,6 +41,11 @@ app.get("/test-deposito-websocket", (req, res) => {
   res.sendFile(__dirname + "/test-deposito-websocket.html");
 });
 
+// Ruta para servir el archivo de prueba de integración HTTP + WebSocket
+app.get("/test-http-websocket", (req, res) => {
+  res.sendFile(__dirname + "/test-http-websocket.html");
+});
+
 // API Routes
 app.use("/api/jugadores", require("./routes/jugadores"));
 app.use("/api/cajeros", require("./routes/cajeros"));

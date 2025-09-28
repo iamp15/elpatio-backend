@@ -3,6 +3,7 @@ const Jugador = require("../models/Jugador");
 const Cajero = require("../models/Cajero");
 const mongoose = require("mongoose");
 const { registrarLog } = require("../utils/logHelper");
+const websocketHelper = require("../utils/websocketHelper");
 
 // ===== ENDPOINTS PARA SOLICITUDES DE CAJERO =====
 
@@ -73,6 +74,15 @@ exports.crearSolicitudCajero = async (req, res) => {
     });
 
     await transaccion.save();
+
+    // Emitir evento WebSocket si hay usuarios conectados
+    websocketHelper.initialize(req.app.get('socketManager'));
+    websocketHelper.logWebSocketStats("Nueva solicitud creada");
+    
+    // Solo emitir si es una transacción de depósito/retiro
+    if (["deposito", "retiro"].includes(transaccion.categoria)) {
+      await websocketHelper.emitNuevaSolicitudDeposito(transaccion, jugador);
+    }
 
     res.status(201).json({
       mensaje: "Solicitud creada exitosamente",
@@ -210,6 +220,19 @@ exports.asignarCajero = async (req, res) => {
       },
     });
 
+    // Emitir evento WebSocket si hay usuarios conectados
+    websocketHelper.initialize(req.app.get('socketManager'));
+    websocketHelper.logWebSocketStats("Cajero asignado");
+    
+    // Solo emitir si es una transacción de depósito/retiro
+    if (["deposito", "retiro"].includes(transaccion.categoria)) {
+      // Obtener datos del jugador para la notificación
+      const jugador = await Jugador.findById(transaccion.jugadorId);
+      if (jugador) {
+        await websocketHelper.emitCajeroAsignado(transaccion, cajero);
+      }
+    }
+
     res.json({
       mensaje: "Cajero asignado exitosamente",
       transaccion: {
@@ -266,6 +289,15 @@ exports.confirmarPagoUsuario = async (req, res) => {
     };
 
     await transaccion.save();
+
+    // Emitir evento WebSocket si hay usuarios conectados
+    websocketHelper.initialize(req.app.get('socketManager'));
+    websocketHelper.logWebSocketStats("Pago confirmado por usuario");
+    
+    // Solo emitir si es una transacción de depósito/retiro
+    if (["deposito", "retiro"].includes(transaccion.categoria)) {
+      await websocketHelper.emitPagoConfirmadoUsuario(transaccion);
+    }
 
     res.json({
       mensaje: "Pago confirmado por el usuario",
@@ -372,6 +404,15 @@ exports.confirmarPorCajero = async (req, res) => {
 
     await session.commitTransaction();
 
+    // Emitir evento WebSocket si hay usuarios conectados
+    websocketHelper.initialize(req.app.get('socketManager'));
+    websocketHelper.logWebSocketStats("Transacción completada por cajero");
+    
+    // Solo emitir si es una transacción de depósito/retiro
+    if (["deposito", "retiro"].includes(transaccion.categoria)) {
+      await websocketHelper.emitTransaccionCompletada(transaccion, jugador);
+    }
+
     res.json({
       mensaje: "Transacción confirmada y procesada exitosamente",
       transaccion: {
@@ -426,6 +467,18 @@ exports.rechazarTransaccion = async (req, res) => {
         cajeroId: req.user?._id,
       },
     });
+
+    // Emitir evento WebSocket si hay usuarios conectados
+    websocketHelper.initialize(req.app.get('socketManager'));
+    websocketHelper.logWebSocketStats("Transacción rechazada");
+    
+    // Solo emitir si es una transacción de depósito/retiro
+    if (["deposito", "retiro"].includes(transaccion.categoria)) {
+      const jugador = await Jugador.findById(transaccion.jugadorId);
+      if (jugador) {
+        await websocketHelper.emitTransaccionRechazada(transaccion, jugador, motivo);
+      }
+    }
 
     res.json({
       mensaje: "Transacción rechazada exitosamente",

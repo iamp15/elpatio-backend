@@ -611,10 +611,10 @@ class DepositoWebSocketController {
   async notificarCajeroVerificarPago(transaccion) {
     // Extraer el ID del cajero (puede ser un objeto o un ID)
     let cajeroId = transaccion.cajeroId;
-    if (typeof cajeroId === 'object' && cajeroId._id) {
+    if (typeof cajeroId === "object" && cajeroId._id) {
       cajeroId = cajeroId._id;
     }
-    
+
     const cajeroSocketId = this.buscarCajeroConectado(cajeroId);
 
     if (!cajeroSocketId) {
