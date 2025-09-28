@@ -2,11 +2,14 @@
  * Módulo básico de gestión de WebSockets
  */
 
+const DepositoWebSocketController = require("./depositoController");
+
 class SocketManager {
   constructor() {
     this.io = null;
     this.connectedUsers = new Map(); // telegramId -> socketId
     this.connectedCajeros = new Map(); // cajeroId -> socketId
+    this.depositoController = null; // Controlador de depósitos
   }
 
   /**
@@ -33,6 +36,9 @@ class SocketManager {
       allowEIO3: true, // Compatibilidad con versiones anteriores
     });
 
+    // Inicializar controlador de depósitos
+    this.depositoController = new DepositoWebSocketController(this);
+    
     this.setupEventHandlers();
     console.log("🔌 WebSocket server inicializado");
   }
@@ -89,6 +95,48 @@ class SocketManager {
 
       socket.on("rechazar-deposito", (data) => {
         this.handleRechazarDeposito(socket, data);
+      });
+
+      // ===== EVENTOS DE DEPÓSITOS =====
+      
+      // Solicitar depósito (jugador)
+      socket.on("solicitar-deposito", async (data) => {
+        try {
+          await this.depositoController.solicitarDeposito(socket, data);
+        } catch (error) {
+          console.error("❌ Error en solicitar-deposito:", error);
+          socket.emit("error", { message: "Error interno del servidor" });
+        }
+      });
+
+      // Aceptar solicitud (cajero)
+      socket.on("aceptar-solicitud", async (data) => {
+        try {
+          await this.depositoController.aceptarSolicitud(socket, data);
+        } catch (error) {
+          console.error("❌ Error en aceptar-solicitud:", error);
+          socket.emit("error", { message: "Error interno del servidor" });
+        }
+      });
+
+      // Confirmar pago (jugador)
+      socket.on("confirmar-pago-jugador", async (data) => {
+        try {
+          await this.depositoController.confirmarPagoJugador(socket, data);
+        } catch (error) {
+          console.error("❌ Error en confirmar-pago-jugador:", error);
+          socket.emit("error", { message: "Error interno del servidor" });
+        }
+      });
+
+      // Verificar pago (cajero)
+      socket.on("verificar-pago-cajero", async (data) => {
+        try {
+          await this.depositoController.verificarPagoCajero(socket, data);
+        } catch (error) {
+          console.error("❌ Error en verificar-pago-cajero:", error);
+          socket.emit("error", { message: "Error interno del servidor" });
+        }
       });
 
       // Manejar desconexión
@@ -255,7 +303,9 @@ class SocketManager {
       socket.cajeroId = decoded.id;
       socket.userType = "cajero";
 
-      console.log(`🏦 Cajero autenticado: ${cajero.nombreCompleto} (${decoded.id})`);
+      console.log(
+        `🏦 Cajero autenticado: ${cajero.nombreCompleto} (${decoded.id})`
+      );
 
       return {
         success: true,
