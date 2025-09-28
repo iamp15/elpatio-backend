@@ -255,14 +255,14 @@ class SocketManager {
       socket.cajeroId = decoded.id;
       socket.userType = "cajero";
 
-      console.log(`🏦 Cajero autenticado: ${cajero.nombre} (${decoded.id})`);
+      console.log(`🏦 Cajero autenticado: ${cajero.nombreCompleto} (${decoded.id})`);
 
       return {
         success: true,
         message: "Autenticación exitosa",
         user: {
           id: cajero._id,
-          nombre: cajero.nombre,
+          nombre: cajero.nombreCompleto,
           email: cajero.email,
         },
       };
