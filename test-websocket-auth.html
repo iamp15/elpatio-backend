@@ -73,7 +73,8 @@
         background-color: #6c757d;
         cursor: not-allowed;
       }
-      input, textarea {
+      input,
+      textarea {
         width: 100%;
         padding: 8px;
         margin: 5px 0;
@@ -92,61 +93,88 @@
   </head>
   <body>
     <h1>🧪 Prueba WebSocket - Autenticación y Comunicación</h1>
-    
+
     <div class="container">
       <!-- Panel Jugador -->
       <div class="panel jugador">
         <h2>👤 Jugador (Depósitos)</h2>
-        
-        <div id="jugador-status" class="status disconnected">❌ Desconectado</div>
-        
+
+        <div id="jugador-status" class="status disconnected">
+          ❌ Desconectado
+        </div>
+
         <div>
           <button onclick="conectarJugador()">Conectar</button>
           <button onclick="desconectarJugador()">Desconectar</button>
         </div>
-        
+
         <div>
           <h3>Autenticación</h3>
-          <input type="text" id="jugador-telegramId" placeholder="Telegram ID" value="123456789">
-          <textarea id="jugador-initData" placeholder="Init Data (simulado)">user=%7B%22id%22%3A123456789%7D&auth_date=1234567890&hash=abc123</textarea>
+          <input
+            type="text"
+            id="jugador-telegramId"
+            placeholder="Telegram ID"
+            value="123456789"
+          />
+          <textarea id="jugador-initData" placeholder="Init Data (simulado)">
+user=%7B%22id%22%3A123456789%7D&auth_date=1234567890&hash=abc123</textarea
+          >
           <button onclick="autenticarJugador()">Autenticar Jugador</button>
         </div>
-        
+
         <div>
           <h3>Solicitar Depósito</h3>
-          <input type="number" id="jugador-monto" placeholder="Monto" value="100">
-          <input type="text" id="jugador-metodo" placeholder="Método" value="Pago Móvil">
+          <input
+            type="number"
+            id="jugador-monto"
+            placeholder="Monto"
+            value="100"
+          />
+          <input
+            type="text"
+            id="jugador-metodo"
+            placeholder="Método"
+            value="Pago Móvil"
+          />
           <button onclick="solicitarDeposito()">Solicitar Depósito</button>
         </div>
-        
+
         <div id="jugador-messages" class="messages"></div>
       </div>
-      
+
       <!-- Panel Cajero -->
       <div class="panel cajero">
         <h2>🏦 Cajero</h2>
-        
-        <div id="cajero-status" class="status disconnected">❌ Desconectado</div>
-        
+
+        <div id="cajero-status" class="status disconnected">
+          ❌ Desconectado
+        </div>
+
         <div>
           <button onclick="conectarCajero()">Conectar</button>
           <button onclick="desconectarCajero()">Desconectar</button>
         </div>
-        
+
         <div>
           <h3>Autenticación</h3>
-          <textarea id="cajero-token" placeholder="JWT Token">eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4OGUyYjU0NDRlYTNmNTE0YWNmN2JkOSIsImVtYWlsIjoiYm90QGVscGF0aW8uZ2FtZXMiLCJyb2wiOiJib3QiLCJpYXQiOjE3NTkwNzMwNzcsImV4cCI6MTc1OTY3Nzg3N30.BLvKIlRw2pwY9pDWlCKJreYBQNUMPJERguBwJNEsjzU</textarea>
+           <textarea id="cajero-token" placeholder="JWT Token">
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4OGUyYjU0NDRlYTNmNTE0YWNmN2JkOSIsImVtYWlsIjoiYm90QGVscGF0aW8uZ2FtZXMiLCJyb2wiOiJib3QiLCJpYXQiOjE3NTkwODcwODgsImV4cCI6MTc1OTY5MTg4OH0.OKIwcuGwkBjZAN_YJ91jIU2__XrSePOfpSku4ItUeYg</textarea
+           >
           <button onclick="autenticarCajero()">Autenticar Cajero</button>
         </div>
-        
+
         <div>
           <h3>Acciones</h3>
-          <input type="text" id="cajero-socketId" placeholder="Socket ID del Jugador">
+          <input
+            type="text"
+            id="cajero-socketId"
+            placeholder="Socket ID del Jugador"
+          />
           <button onclick="atenderDeposito()">Atender Depósito</button>
           <button onclick="confirmarDeposito()">Confirmar Depósito</button>
           <button onclick="rechazarDeposito()">Rechazar Depósito</button>
         </div>
-        
+
         <div id="cajero-messages" class="messages"></div>
       </div>
     </div>
@@ -154,59 +182,63 @@
     <script>
       let jugadorSocket = null;
       let cajeroSocket = null;
-      
+
       // Detectar URL del servidor
-      const isRailway = window.location.hostname.includes('railway.app');
-      const socketUrl = isRailway 
-        ? 'https://elpatio-backend-production.up.railway.app'
-        : 'http://localhost:3001';
+      const isRailway = window.location.hostname.includes("railway.app");
+      const socketUrl = isRailway
+        ? "https://elpatio-backend-production.up.railway.app"
+        : "http://localhost:3001";
 
       // === JUGADOR ===
       function conectarJugador() {
         if (jugadorSocket) {
-          addJugadorMessage('Ya hay una conexión activa');
+          addJugadorMessage("Ya hay una conexión activa");
           return;
         }
 
         addJugadorMessage(`Conectando a: ${socketUrl}`);
         jugadorSocket = io(socketUrl, {
-          transports: ['websocket', 'polling'],
+          transports: ["websocket", "polling"],
           timeout: 20000,
-          forceNew: true
+          forceNew: true,
         });
 
-        jugadorSocket.on('connect', () => {
-          addJugadorMessage('✅ Conectado al servidor WebSocket');
+        jugadorSocket.on("connect", () => {
+          addJugadorMessage("✅ Conectado al servidor WebSocket");
           updateJugadorStatus(true);
         });
 
-        jugadorSocket.on('disconnect', (reason) => {
+        jugadorSocket.on("disconnect", (reason) => {
           addJugadorMessage(`❌ Desconectado: ${reason}`);
           updateJugadorStatus(false);
         });
 
-        jugadorSocket.on('auth-result', (result) => {
+        jugadorSocket.on("auth-result", (result) => {
           if (result.success) {
-            addJugadorMessage(`🔐 Autenticado: ${result.user.nickname || result.user.firstName}`);
+            addJugadorMessage(
+              `🔐 Autenticado: ${result.user.nickname || result.user.firstName}`
+            );
             updateJugadorStatus(true, true);
           } else {
             addJugadorMessage(`❌ Error de autenticación: ${result.message}`);
           }
         });
 
-        jugadorSocket.on('deposito-atendido', (data) => {
-          addJugadorMessage(`🏦 Depósito atendido por cajero: ${data.cajeroId}`);
+        jugadorSocket.on("deposito-atendido", (data) => {
+          addJugadorMessage(
+            `🏦 Depósito atendido por cajero: ${data.cajeroId}`
+          );
         });
 
-        jugadorSocket.on('deposito-confirmado', (data) => {
+        jugadorSocket.on("deposito-confirmado", (data) => {
           addJugadorMessage(`✅ Depósito confirmado: ${data.transaccionId}`);
         });
 
-        jugadorSocket.on('deposito-rechazado', (data) => {
+        jugadorSocket.on("deposito-rechazado", (data) => {
           addJugadorMessage(`❌ Depósito rechazado: ${data.motivo}`);
         });
 
-        jugadorSocket.on('error', (error) => {
+        jugadorSocket.on("error", (error) => {
           addJugadorMessage(`❌ Error: ${error.message}`);
         });
       }
@@ -216,68 +248,68 @@
           jugadorSocket.disconnect();
           jugadorSocket = null;
           updateJugadorStatus(false);
-          addJugadorMessage('Desconectado manualmente');
+          addJugadorMessage("Desconectado manualmente");
         }
       }
 
       function autenticarJugador() {
         if (!jugadorSocket || !jugadorSocket.connected) {
-          addJugadorMessage('❌ No hay conexión activa');
+          addJugadorMessage("❌ No hay conexión activa");
           return;
         }
 
-        const telegramId = document.getElementById('jugador-telegramId').value;
-        const initData = document.getElementById('jugador-initData').value;
+        const telegramId = document.getElementById("jugador-telegramId").value;
+        const initData = document.getElementById("jugador-initData").value;
 
         addJugadorMessage(`🔐 Autenticando jugador: ${telegramId}`);
-        jugadorSocket.emit('authenticate-jugador', {
+        jugadorSocket.emit("authenticate-jugador", {
           telegramId: parseInt(telegramId),
-          initData
+          initData,
         });
       }
 
       function solicitarDeposito() {
         if (!jugadorSocket || !jugadorSocket.connected) {
-          addJugadorMessage('❌ No hay conexión activa');
+          addJugadorMessage("❌ No hay conexión activa");
           return;
         }
 
-        const monto = document.getElementById('jugador-monto').value;
-        const metodo = document.getElementById('jugador-metodo').value;
+        const monto = document.getElementById("jugador-monto").value;
+        const metodo = document.getElementById("jugador-metodo").value;
 
         addJugadorMessage(`💰 Solicitando depósito: $${monto} - ${metodo}`);
-        jugadorSocket.emit('solicitar-deposito', {
+        jugadorSocket.emit("solicitar-deposito", {
           monto: parseFloat(monto),
           metodo,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
       }
 
       // === CAJERO ===
       function conectarCajero() {
         if (cajeroSocket) {
-          addCajeroMessage('Ya hay una conexión activa');
+          addCajeroMessage("Ya hay una conexión activa");
           return;
         }
 
         addCajeroMessage(`Conectando a: ${socketUrl}`);
         cajeroSocket = io(socketUrl, {
-          transports: ['websocket', 'polling'],
+          transports: ["websocket", "polling"],
           timeout: 20000,
-          forceNew: true
+          forceNew: true,
         });
 
-        cajeroSocket.on('connect', () => {
-          addCajeroMessage('✅ Conectado al servidor WebSocket');
+        cajeroSocket.on("connect", () => {
+          addCajeroMessage("✅ Conectado al servidor WebSocket");
           updateCajeroStatus(true);
         });
 
-        cajeroSocket.on('disconnect', (reason) => {
+        cajeroSocket.on("disconnect", (reason) => {
           addCajeroMessage(`❌ Desconectado: ${reason}`);
           updateCajeroStatus(false);
         });
 
-        cajeroSocket.on('auth-result', (result) => {
+        cajeroSocket.on("auth-result", (result) => {
           if (result.success) {
             addCajeroMessage(`🔐 Autenticado: ${result.user.nombre}`);
             updateCajeroStatus(true, true);
@@ -286,16 +318,18 @@
           }
         });
 
-        cajeroSocket.on('nueva-solicitud-deposito', (data) => {
-          addCajeroMessage(`💰 Nueva solicitud de depósito de jugador ${data.jugadorId}`);
+        cajeroSocket.on("nueva-solicitud-deposito", (data) => {
+          addCajeroMessage(
+            `💰 Nueva solicitud de depósito de jugador ${data.jugadorId}`
+          );
           addCajeroMessage(`   Monto: $${data.monto} - Método: ${data.metodo}`);
           addCajeroMessage(`   Socket ID: ${data.socketId}`);
-          
+
           // Auto-llenar el socket ID para facilitar las pruebas
-          document.getElementById('cajero-socketId').value = data.socketId;
+          document.getElementById("cajero-socketId").value = data.socketId;
         });
 
-        cajeroSocket.on('error', (error) => {
+        cajeroSocket.on("error", (error) => {
           addCajeroMessage(`❌ Error: ${error.message}`);
         });
       }
@@ -305,131 +339,141 @@
           cajeroSocket.disconnect();
           cajeroSocket = null;
           updateCajeroStatus(false);
-          addCajeroMessage('Desconectado manualmente');
+          addCajeroMessage("Desconectado manualmente");
         }
       }
 
       function autenticarCajero() {
         if (!cajeroSocket || !cajeroSocket.connected) {
-          addCajeroMessage('❌ No hay conexión activa');
+          addCajeroMessage("❌ No hay conexión activa");
           return;
         }
 
-        const token = document.getElementById('cajero-token').value;
-        addCajeroMessage('🔐 Autenticando cajero...');
-        cajeroSocket.emit('authenticate-cajero', { token });
+        const token = document.getElementById("cajero-token").value;
+        addCajeroMessage("🔐 Autenticando cajero...");
+        cajeroSocket.emit("authenticate-cajero", { token });
       }
 
       function atenderDeposito() {
         if (!cajeroSocket || !cajeroSocket.connected) {
-          addCajeroMessage('❌ No hay conexión activa');
+          addCajeroMessage("❌ No hay conexión activa");
           return;
         }
 
-        const jugadorSocketId = document.getElementById('cajero-socketId').value;
+        const jugadorSocketId =
+          document.getElementById("cajero-socketId").value;
         if (!jugadorSocketId) {
-          addCajeroMessage('❌ Ingresa el Socket ID del jugador');
+          addCajeroMessage("❌ Ingresa el Socket ID del jugador");
           return;
         }
 
-        addCajeroMessage(`🏦 Atendiendo depósito del jugador: ${jugadorSocketId}`);
-        cajeroSocket.emit('atender-deposito', {
+        addCajeroMessage(
+          `🏦 Atendiendo depósito del jugador: ${jugadorSocketId}`
+        );
+        cajeroSocket.emit("atender-deposito", {
           jugadorSocketId,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
       }
 
       function confirmarDeposito() {
         if (!cajeroSocket || !cajeroSocket.connected) {
-          addCajeroMessage('❌ No hay conexión activa');
+          addCajeroMessage("❌ No hay conexión activa");
           return;
         }
 
-        const jugadorSocketId = document.getElementById('cajero-socketId').value;
+        const jugadorSocketId =
+          document.getElementById("cajero-socketId").value;
         if (!jugadorSocketId) {
-          addCajeroMessage('❌ Ingresa el Socket ID del jugador');
+          addCajeroMessage("❌ Ingresa el Socket ID del jugador");
           return;
         }
 
-        const transaccionId = 'TXN_' + Date.now();
+        const transaccionId = "TXN_" + Date.now();
         addCajeroMessage(`✅ Confirmando depósito: ${transaccionId}`);
-        cajeroSocket.emit('confirmar-deposito', {
+        cajeroSocket.emit("confirmar-deposito", {
           jugadorSocketId,
-          transaccionId
+          transaccionId,
         });
       }
 
       function rechazarDeposito() {
         if (!cajeroSocket || !cajeroSocket.connected) {
-          addCajeroMessage('❌ No hay conexión activa');
+          addCajeroMessage("❌ No hay conexión activa");
           return;
         }
 
-        const jugadorSocketId = document.getElementById('cajero-socketId').value;
+        const jugadorSocketId =
+          document.getElementById("cajero-socketId").value;
         if (!jugadorSocketId) {
-          addCajeroMessage('❌ Ingresa el Socket ID del jugador');
+          addCajeroMessage("❌ Ingresa el Socket ID del jugador");
           return;
         }
 
-        const motivo = prompt('Motivo del rechazo:') || 'Motivo no especificado';
+        const motivo =
+          prompt("Motivo del rechazo:") || "Motivo no especificado";
         addCajeroMessage(`❌ Rechazando depósito: ${motivo}`);
-        cajeroSocket.emit('rechazar-deposito', {
+        cajeroSocket.emit("rechazar-deposito", {
           jugadorSocketId,
-          motivo
+          motivo,
         });
       }
 
       // === UTILIDADES ===
       function addJugadorMessage(message) {
-        const messagesDiv = document.getElementById('jugador-messages');
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'message';
+        const messagesDiv = document.getElementById("jugador-messages");
+        const messageDiv = document.createElement("div");
+        messageDiv.className = "message";
         messageDiv.innerHTML = `<strong>[${new Date().toLocaleTimeString()}]</strong> ${message}`;
         messagesDiv.appendChild(messageDiv);
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
       }
 
       function addCajeroMessage(message) {
-        const messagesDiv = document.getElementById('cajero-messages');
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'message';
+        const messagesDiv = document.getElementById("cajero-messages");
+        const messageDiv = document.createElement("div");
+        messageDiv.className = "message";
         messageDiv.innerHTML = `<strong>[${new Date().toLocaleTimeString()}]</strong> ${message}`;
         messagesDiv.appendChild(messageDiv);
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
       }
 
       function updateJugadorStatus(connected, authenticated = false) {
-        const statusDiv = document.getElementById('jugador-status');
+        const statusDiv = document.getElementById("jugador-status");
         if (authenticated) {
-          statusDiv.className = 'status authenticated';
-          statusDiv.textContent = '🔐 Autenticado';
+          statusDiv.className = "status authenticated";
+          statusDiv.textContent = "🔐 Autenticado";
         } else if (connected) {
-          statusDiv.className = 'status connected';
-          statusDiv.textContent = '✅ Conectado';
+          statusDiv.className = "status connected";
+          statusDiv.textContent = "✅ Conectado";
         } else {
-          statusDiv.className = 'status disconnected';
-          statusDiv.textContent = '❌ Desconectado';
+          statusDiv.className = "status disconnected";
+          statusDiv.textContent = "❌ Desconectado";
         }
       }
 
       function updateCajeroStatus(connected, authenticated = false) {
-        const statusDiv = document.getElementById('cajero-status');
+        const statusDiv = document.getElementById("cajero-status");
         if (authenticated) {
-          statusDiv.className = 'status authenticated';
-          statusDiv.textContent = '🔐 Autenticado';
+          statusDiv.className = "status authenticated";
+          statusDiv.textContent = "🔐 Autenticado";
         } else if (connected) {
-          statusDiv.className = 'status connected';
-          statusDiv.textContent = '✅ Conectado';
+          statusDiv.className = "status connected";
+          statusDiv.textContent = "✅ Conectado";
         } else {
-          statusDiv.className = 'status disconnected';
-          statusDiv.textContent = '❌ Desconectado';
+          statusDiv.className = "status disconnected";
+          statusDiv.textContent = "❌ Desconectado";
         }
       }
 
       // Inicializar
       window.onload = () => {
-        addJugadorMessage(`Página cargada. Servidor: ${isRailway ? 'Railway' : 'Local'}`);
-        addCajeroMessage(`Página cargada. Servidor: ${isRailway ? 'Railway' : 'Local'}`);
+        addJugadorMessage(
+          `Página cargada. Servidor: ${isRailway ? "Railway" : "Local"}`
+        );
+        addCajeroMessage(
+          `Página cargada. Servidor: ${isRailway ? "Railway" : "Local"}`
+        );
       };
     </script>
   </body>
