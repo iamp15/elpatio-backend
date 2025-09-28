@@ -494,6 +494,27 @@ class DepositoWebSocketController {
   }
 
   /**
+   * Buscar socket ID del cajero por cajeroId (maneja ObjectId/string)
+   */
+  buscarCajeroConectado(cajeroId) {
+    // Intentar con el valor original
+    let socketId = this.socketManager.connectedCajeros.get(cajeroId);
+    
+    // Si no se encuentra, intentar con el cajeroId como string
+    if (!socketId) {
+      socketId = this.socketManager.connectedCajeros.get(cajeroId.toString());
+    }
+    
+    // Si no se encuentra, intentar con el cajeroId como ObjectId
+    if (!socketId && typeof cajeroId === 'string') {
+      const mongoose = require('mongoose');
+      socketId = this.socketManager.connectedCajeros.get(new mongoose.Types.ObjectId(cajeroId));
+    }
+    
+    return socketId;
+  }
+
+  /**
    * Notificar a todos los cajeros sobre nueva solicitud
    */
   async notificarCajerosNuevaSolicitud(transaccion, jugador) {
@@ -545,10 +566,14 @@ class DepositoWebSocketController {
         "⚠️ [DEPOSITO] Jugador no conectado para notificar aceptación"
       );
       console.log(
-        `🔍 [DEPOSITO] Buscando jugador con telegramId: ${transaccion.telegramId} (tipo: ${typeof transaccion.telegramId})`
+        `🔍 [DEPOSITO] Buscando jugador con telegramId: ${
+          transaccion.telegramId
+        } (tipo: ${typeof transaccion.telegramId})`
       );
       console.log(
-        `🔍 [DEPOSITO] Jugadores conectados: ${Array.from(this.socketManager.connectedUsers.keys())}`
+        `🔍 [DEPOSITO] Jugadores conectados: ${Array.from(
+          this.socketManager.connectedUsers.keys()
+        )}`
       );
       return;
     }
@@ -582,13 +607,17 @@ class DepositoWebSocketController {
    * Notificar al cajero que debe verificar el pago
    */
   async notificarCajeroVerificarPago(transaccion) {
-    const cajeroSocketId = this.socketManager.connectedCajeros.get(
-      transaccion.cajeroId
-    );
+    const cajeroSocketId = this.buscarCajeroConectado(transaccion.cajeroId);
 
     if (!cajeroSocketId) {
       console.log(
         "⚠️ [DEPOSITO] Cajero no conectado para notificar verificación"
+      );
+      console.log(
+        `🔍 [DEPOSITO] Buscando cajero con cajeroId: ${transaccion.cajeroId} (tipo: ${typeof transaccion.cajeroId})`
+      );
+      console.log(
+        `🔍 [DEPOSITO] Cajeros conectados: ${Array.from(this.socketManager.connectedCajeros.keys())}`
       );
       return;
     }
