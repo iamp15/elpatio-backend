@@ -34,6 +34,9 @@ class SocketManager {
       },
       transports: ["websocket", "polling"],
       allowEIO3: true, // Compatibilidad con versiones anteriores
+      pingTimeout: 60000, // 60 segundos
+      pingInterval: 25000, // 25 segundos
+      upgradeTimeout: 10000, // 10 segundos
     });
 
     // Inicializar controlador de depósitos

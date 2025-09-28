@@ -13,7 +13,7 @@ const auth = require("../middlewares/auth"); // autenticación general
 router.post(
   "/solicitud",
   auth,
-  verificarMinimo("bot"),
+  verificarMinimo("cajero"),
   transaccionesController.crearSolicitudCajero
 );
 
@@ -21,7 +21,7 @@ router.post(
 router.put(
   "/:id/confirmar-pago-usuario",
   auth,
-  verificarMinimo("bot"),
+  verificarMinimo("cajero"),
   transaccionesController.confirmarPagoUsuario
 );
 

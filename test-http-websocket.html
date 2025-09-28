@@ -406,10 +406,10 @@
         if (!socket || !isConnected) return;
 
         log("🔐 Enviando autenticación como cajero...");
-         socket.emit("authenticate-cajero", {
-           token:
-             "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ODQzMTk1Y2NmNDZmOTgxYmU3ZGYyMCIsImVtYWlsIjoibHVpc0BlamVtcGxvLmNvbSIsInJvbCI6ImNhamVybyIsImlhdCI6MTc1OTA4ODYwOSwiZXhwIjoxNzU5MTc1MDA5fQ.YAO4X_HaNOFrYSHODyORdyN27TwmBeBALSkABh8-WAU",
-         });
+        socket.emit("authenticate-cajero", {
+          token:
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ODQzMTk1Y2NmNDZmOTgxYmU3ZGYyMCIsImVtYWlsIjoibHVpc0BlamVtcGxvLmNvbSIsInJvbCI6ImNhamVybyIsImlhdCI6MTc1OTA4ODYwOSwiZXhwIjoxNzU5MTc1MDA5fQ.YAO4X_HaNOFrYSHODyORdyN27TwmBeBALSkABh8-WAU",
+        });
       }
 
       function toggleListening() {
