@@ -76,9 +76,9 @@ exports.crearSolicitudCajero = async (req, res) => {
     await transaccion.save();
 
     // Emitir evento WebSocket si hay usuarios conectados
-    websocketHelper.initialize(req.app.get('socketManager'));
+    websocketHelper.initialize(req.app.get("socketManager"));
     websocketHelper.logWebSocketStats("Nueva solicitud creada");
-    
+
     // Solo emitir si es una transacción de depósito/retiro
     if (["deposito", "retiro"].includes(transaccion.categoria)) {
       await websocketHelper.emitNuevaSolicitudDeposito(transaccion, jugador);
@@ -221,9 +221,9 @@ exports.asignarCajero = async (req, res) => {
     });
 
     // Emitir evento WebSocket si hay usuarios conectados
-    websocketHelper.initialize(req.app.get('socketManager'));
+    websocketHelper.initialize(req.app.get("socketManager"));
     websocketHelper.logWebSocketStats("Cajero asignado");
-    
+
     // Solo emitir si es una transacción de depósito/retiro
     if (["deposito", "retiro"].includes(transaccion.categoria)) {
       // Obtener datos del jugador para la notificación
@@ -291,9 +291,9 @@ exports.confirmarPagoUsuario = async (req, res) => {
     await transaccion.save();
 
     // Emitir evento WebSocket si hay usuarios conectados
-    websocketHelper.initialize(req.app.get('socketManager'));
+    websocketHelper.initialize(req.app.get("socketManager"));
     websocketHelper.logWebSocketStats("Pago confirmado por usuario");
-    
+
     // Solo emitir si es una transacción de depósito/retiro
     if (["deposito", "retiro"].includes(transaccion.categoria)) {
       await websocketHelper.emitPagoConfirmadoUsuario(transaccion);
@@ -405,9 +405,9 @@ exports.confirmarPorCajero = async (req, res) => {
     await session.commitTransaction();
 
     // Emitir evento WebSocket si hay usuarios conectados
-    websocketHelper.initialize(req.app.get('socketManager'));
+    websocketHelper.initialize(req.app.get("socketManager"));
     websocketHelper.logWebSocketStats("Transacción completada por cajero");
-    
+
     // Solo emitir si es una transacción de depósito/retiro
     if (["deposito", "retiro"].includes(transaccion.categoria)) {
       await websocketHelper.emitTransaccionCompletada(transaccion, jugador);
@@ -469,14 +469,18 @@ exports.rechazarTransaccion = async (req, res) => {
     });
 
     // Emitir evento WebSocket si hay usuarios conectados
-    websocketHelper.initialize(req.app.get('socketManager'));
+    websocketHelper.initialize(req.app.get("socketManager"));
     websocketHelper.logWebSocketStats("Transacción rechazada");
-    
+
     // Solo emitir si es una transacción de depósito/retiro
     if (["deposito", "retiro"].includes(transaccion.categoria)) {
       const jugador = await Jugador.findById(transaccion.jugadorId);
       if (jugador) {
-        await websocketHelper.emitTransaccionRechazada(transaccion, jugador, motivo);
+        await websocketHelper.emitTransaccionRechazada(
+          transaccion,
+          jugador,
+          motivo
+        );
       }
     }
 

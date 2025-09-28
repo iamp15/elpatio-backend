@@ -1,518 +1,653 @@
 <!DOCTYPE html>
 <html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Test HTTP + WebSocket Integration</title>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }
-        .container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
-        .panel {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .panel h2 {
-            margin-top: 0;
-            color: #333;
-        }
-        .status {
-            padding: 10px;
-            border-radius: 4px;
-            margin: 10px 0;
-            font-weight: bold;
-        }
-        .status.connected { background-color: #d4edda; color: #155724; }
-        .status.disconnected { background-color: #f8d7da; color: #721c24; }
-        .status.authenticated { background-color: #cce5ff; color: #004085; }
-        button {
-            background-color: #007bff;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
-            cursor: pointer;
-            margin: 5px;
-        }
-        button:hover { background-color: #0056b3; }
-        button:disabled { background-color: #6c757d; cursor: not-allowed; }
-        .log {
-            background-color: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            padding: 10px;
-            height: 300px;
-            overflow-y: auto;
-            font-family: monospace;
-            font-size: 12px;
-        }
-        .form-group {
-            margin: 10px 0;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        .form-group input, .form-group select {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        .test-section {
-            border: 1px solid #ddd;
-            padding: 15px;
-            margin: 10px 0;
-            border-radius: 4px;
-        }
-        .test-section h3 {
-            margin-top: 0;
-            color: #495057;
-        }
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+      }
+      .panel {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .panel h2 {
+        margin-top: 0;
+        color: #333;
+      }
+      .status {
+        padding: 10px;
+        border-radius: 4px;
+        margin: 10px 0;
+        font-weight: bold;
+      }
+      .status.connected {
+        background-color: #d4edda;
+        color: #155724;
+      }
+      .status.disconnected {
+        background-color: #f8d7da;
+        color: #721c24;
+      }
+      .status.authenticated {
+        background-color: #cce5ff;
+        color: #004085;
+      }
+      button {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        margin: 5px;
+      }
+      button:hover {
+        background-color: #0056b3;
+      }
+      button:disabled {
+        background-color: #6c757d;
+        cursor: not-allowed;
+      }
+      .log {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 10px;
+        height: 300px;
+        overflow-y: auto;
+        font-family: monospace;
+        font-size: 12px;
+      }
+      .form-group {
+        margin: 10px 0;
+      }
+      .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+      .form-group input,
+      .form-group select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-sizing: border-box;
+      }
+      .test-section {
+        border: 1px solid #ddd;
+        padding: 15px;
+        margin: 10px 0;
+        border-radius: 4px;
+      }
+      .test-section h3 {
+        margin-top: 0;
+        color: #495057;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <h1>🧪 Test HTTP + WebSocket Integration</h1>
-    <p>Esta página prueba la integración entre APIs HTTP y WebSocket para transacciones de depósitos.</p>
+    <p>
+      Esta página prueba la integración entre APIs HTTP y WebSocket para
+      transacciones de depósitos.
+    </p>
 
     <div class="container">
-        <!-- Panel WebSocket -->
-        <div class="panel">
-            <h2>🔌 WebSocket Connection</h2>
-            <div id="ws-status" class="status disconnected">Desconectado</div>
-            <button id="connect-btn" onclick="connectWebSocket()">Conectar WebSocket</button>
-            <button id="disconnect-btn" onclick="disconnectWebSocket()" disabled>Desconectar</button>
-            
-            <div class="test-section">
-                <h3>Autenticación</h3>
-                <button onclick="authenticateAsJugador()" id="auth-jugador-btn" disabled>Autenticar como Jugador</button>
-                <button onclick="authenticateAsCajero()" id="auth-cajero-btn" disabled>Autenticar como Cajero</button>
-                <div id="auth-status" class="status disconnected">No autenticado</div>
-            </div>
+      <!-- Panel WebSocket -->
+      <div class="panel">
+        <h2>🔌 WebSocket Connection</h2>
+        <div id="ws-status" class="status disconnected">Desconectado</div>
+        <button id="connect-btn" onclick="connectWebSocket()">
+          Conectar WebSocket
+        </button>
+        <button id="disconnect-btn" onclick="disconnectWebSocket()" disabled>
+          Desconectar
+        </button>
 
-            <div class="test-section">
-                <h3>Escuchar Eventos</h3>
-                <button onclick="toggleListening()" id="listen-btn" disabled>Iniciar Escucha</button>
-                <div id="listening-status" class="status disconnected">No escuchando</div>
-            </div>
+        <div class="test-section">
+          <h3>Autenticación</h3>
+          <button
+            onclick="authenticateAsJugador()"
+            id="auth-jugador-btn"
+            disabled
+          >
+            Autenticar como Jugador
+          </button>
+          <button
+            onclick="authenticateAsCajero()"
+            id="auth-cajero-btn"
+            disabled
+          >
+            Autenticar como Cajero
+          </button>
+          <div id="auth-status" class="status disconnected">No autenticado</div>
         </div>
 
-        <!-- Panel HTTP API -->
-        <div class="panel">
-            <h2>🌐 HTTP API Tests</h2>
-            <div id="http-status" class="status disconnected">Listo para pruebas</div>
-            
-            <div class="test-section">
-                <h3>Crear Solicitud de Depósito</h3>
-                <div class="form-group">
-                    <label>Jugador ID:</label>
-                    <input type="text" id="jugador-id" value="688e2b5444ea3f514acf7bd9" placeholder="ID del jugador">
-                </div>
-                <div class="form-group">
-                    <label>Monto:</label>
-                    <input type="number" id="monto" value="50" placeholder="Monto del depósito">
-                </div>
-                <div class="form-group">
-                    <label>Método de Pago:</label>
-                    <select id="metodo-pago">
-                        <option value="pago_movil">Pago Móvil</option>
-                        <option value="transferencia">Transferencia</option>
-                        <option value="efectivo">Efectivo</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Descripción:</label>
-                    <input type="text" id="descripcion" value="Depósito de prueba HTTP" placeholder="Descripción">
-                </div>
-                <button onclick="crearSolicitudHTTP()" id="crear-solicitud-btn">Crear Solicitud HTTP</button>
-            </div>
-
-            <div class="test-section">
-                <h3>Asignar Cajero</h3>
-                <div class="form-group">
-                    <label>Transacción ID:</label>
-                    <input type="text" id="transaccion-id" placeholder="ID de la transacción">
-                </div>
-                <div class="form-group">
-                    <label>Cajero ID:</label>
-                    <input type="text" id="cajero-id" value="68843195ccf46f981be7df20" placeholder="ID del cajero">
-                </div>
-                <button onclick="asignarCajeroHTTP()" id="asignar-cajero-btn">Asignar Cajero HTTP</button>
-            </div>
-
-            <div class="test-section">
-                <h3>Confirmar Pago</h3>
-                <div class="form-group">
-                    <label>Transacción ID:</label>
-                    <input type="text" id="confirmar-transaccion-id" placeholder="ID de la transacción">
-                </div>
-                <div class="form-group">
-                    <label>Banco Origen:</label>
-                    <input type="text" id="banco-origen" value="Mercantil" placeholder="Banco origen">
-                </div>
-                <div class="form-group">
-                    <label>Teléfono Origen:</label>
-                    <input type="text" id="telefono-origen" value="0414-1234567" placeholder="Teléfono origen">
-                </div>
-                <div class="form-group">
-                    <label>Número Referencia:</label>
-                    <input type="text" id="numero-referencia" value="REF-HTTP-123" placeholder="Número de referencia">
-                </div>
-                <button onclick="confirmarPagoHTTP()" id="confirmar-pago-btn">Confirmar Pago HTTP</button>
-            </div>
-
-            <div class="test-section">
-                <h3>Completar Transacción</h3>
-                <div class="form-group">
-                    <label>Transacción ID:</label>
-                    <input type="text" id="completar-transaccion-id" placeholder="ID de la transacción">
-                </div>
-                <button onclick="completarTransaccionHTTP()" id="completar-transaccion-btn">Completar Transacción HTTP</button>
-            </div>
+        <div class="test-section">
+          <h3>Escuchar Eventos</h3>
+          <button onclick="toggleListening()" id="listen-btn" disabled>
+            Iniciar Escucha
+          </button>
+          <div id="listening-status" class="status disconnected">
+            No escuchando
+          </div>
         </div>
+      </div>
+
+      <!-- Panel HTTP API -->
+      <div class="panel">
+        <h2>🌐 HTTP API Tests</h2>
+        <div id="http-status" class="status disconnected">
+          Listo para pruebas
+        </div>
+
+        <div class="test-section">
+          <h3>Crear Solicitud de Depósito</h3>
+          <div class="form-group">
+            <label>Jugador ID:</label>
+            <input
+              type="text"
+              id="jugador-id"
+              value="688e2b5444ea3f514acf7bd9"
+              placeholder="ID del jugador"
+            />
+          </div>
+          <div class="form-group">
+            <label>Monto:</label>
+            <input
+              type="number"
+              id="monto"
+              value="50"
+              placeholder="Monto del depósito"
+            />
+          </div>
+          <div class="form-group">
+            <label>Método de Pago:</label>
+            <select id="metodo-pago">
+              <option value="pago_movil">Pago Móvil</option>
+              <option value="transferencia">Transferencia</option>
+              <option value="efectivo">Efectivo</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Descripción:</label>
+            <input
+              type="text"
+              id="descripcion"
+              value="Depósito de prueba HTTP"
+              placeholder="Descripción"
+            />
+          </div>
+          <button onclick="crearSolicitudHTTP()" id="crear-solicitud-btn">
+            Crear Solicitud HTTP
+          </button>
+        </div>
+
+        <div class="test-section">
+          <h3>Asignar Cajero</h3>
+          <div class="form-group">
+            <label>Transacción ID:</label>
+            <input
+              type="text"
+              id="transaccion-id"
+              placeholder="ID de la transacción"
+            />
+          </div>
+          <div class="form-group">
+            <label>Cajero ID:</label>
+            <input
+              type="text"
+              id="cajero-id"
+              value="68843195ccf46f981be7df20"
+              placeholder="ID del cajero"
+            />
+          </div>
+          <button onclick="asignarCajeroHTTP()" id="asignar-cajero-btn">
+            Asignar Cajero HTTP
+          </button>
+        </div>
+
+        <div class="test-section">
+          <h3>Confirmar Pago</h3>
+          <div class="form-group">
+            <label>Transacción ID:</label>
+            <input
+              type="text"
+              id="confirmar-transaccion-id"
+              placeholder="ID de la transacción"
+            />
+          </div>
+          <div class="form-group">
+            <label>Banco Origen:</label>
+            <input
+              type="text"
+              id="banco-origen"
+              value="Mercantil"
+              placeholder="Banco origen"
+            />
+          </div>
+          <div class="form-group">
+            <label>Teléfono Origen:</label>
+            <input
+              type="text"
+              id="telefono-origen"
+              value="0414-1234567"
+              placeholder="Teléfono origen"
+            />
+          </div>
+          <div class="form-group">
+            <label>Número Referencia:</label>
+            <input
+              type="text"
+              id="numero-referencia"
+              value="REF-HTTP-123"
+              placeholder="Número de referencia"
+            />
+          </div>
+          <button onclick="confirmarPagoHTTP()" id="confirmar-pago-btn">
+            Confirmar Pago HTTP
+          </button>
+        </div>
+
+        <div class="test-section">
+          <h3>Completar Transacción</h3>
+          <div class="form-group">
+            <label>Transacción ID:</label>
+            <input
+              type="text"
+              id="completar-transaccion-id"
+              placeholder="ID de la transacción"
+            />
+          </div>
+          <button
+            onclick="completarTransaccionHTTP()"
+            id="completar-transaccion-btn"
+          >
+            Completar Transacción HTTP
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Log Panel -->
     <div class="panel">
-        <h2>📋 Log de Eventos</h2>
-        <button onclick="clearLog()">Limpiar Log</button>
-        <div id="log" class="log"></div>
+      <h2>📋 Log de Eventos</h2>
+      <button onclick="clearLog()">Limpiar Log</button>
+      <div id="log" class="log"></div>
     </div>
 
     <script>
-        let socket = null;
-        let isConnected = false;
-        let isAuthenticated = false;
-        let isListening = false;
-        let currentUser = null;
+      let socket = null;
+      let isConnected = false;
+      let isAuthenticated = false;
+      let isListening = false;
+      let currentUser = null;
 
-        // Configuración
-        const BACKEND_URL = window.location.hostname === 'localhost' 
-            ? 'http://localhost:3001' 
-            : 'https://elpatio-backend-production.up.railway.app';
+      // Configuración
+      const BACKEND_URL =
+        window.location.hostname === "localhost"
+          ? "http://localhost:3001"
+          : "https://elpatio-backend-production.up.railway.app";
 
-        // WebSocket Functions
-        function connectWebSocket() {
-            if (socket) {
-                socket.disconnect();
+      // WebSocket Functions
+      function connectWebSocket() {
+        if (socket) {
+          socket.disconnect();
+        }
+
+        log("🔌 Conectando al servidor WebSocket...");
+        socket = io(BACKEND_URL, {
+          transports: ["websocket", "polling"],
+        });
+
+        socket.on("connect", () => {
+          isConnected = true;
+          updateWebSocketStatus("connected", "Conectado");
+          document.getElementById("connect-btn").disabled = true;
+          document.getElementById("disconnect-btn").disabled = false;
+          document.getElementById("auth-jugador-btn").disabled = false;
+          document.getElementById("auth-cajero-btn").disabled = false;
+          document.getElementById("listen-btn").disabled = false;
+          log("✅ Conectado al servidor WebSocket");
+        });
+
+        socket.on("disconnect", (reason) => {
+          isConnected = false;
+          isAuthenticated = false;
+          updateWebSocketStatus("disconnected", "Desconectado");
+          updateAuthStatus("disconnected", "No autenticado");
+          document.getElementById("connect-btn").disabled = false;
+          document.getElementById("disconnect-btn").disabled = true;
+          document.getElementById("auth-jugador-btn").disabled = true;
+          document.getElementById("auth-cajero-btn").disabled = true;
+          document.getElementById("listen-btn").disabled = true;
+          log(`❌ Desconectado del servidor WebSocket. Razón: ${reason}`);
+        });
+
+        socket.on("auth-result", (data) => {
+          if (data.success) {
+            isAuthenticated = true;
+            currentUser = data.user;
+            updateAuthStatus(
+              "authenticated",
+              `Autenticado: ${data.user.nombre || data.user.nombreCompleto}`
+            );
+            log(
+              `✅ Autenticación exitosa: ${
+                data.user.nombre || data.user.nombreCompleto
+              }`
+            );
+          } else {
+            log(`❌ Error de autenticación: ${data.message}`);
+          }
+        });
+
+        // Eventos de depósitos
+        socket.on("nueva-solicitud-deposito", (data) => {
+          log(
+            `📋 [WS] Nueva solicitud de depósito: ${data.jugador.nombre} - $${data.monto}`
+          );
+        });
+
+        socket.on("solicitud-aceptada", (data) => {
+          log(`✅ [WS] Solicitud aceptada por: ${data.cajero.nombreCompleto}`);
+        });
+
+        socket.on("verificar-pago", (data) => {
+          log(`🔍 [WS] Verificar pago de: ${data.jugador.nombre}`);
+        });
+
+        socket.on("deposito-completado", (data) => {
+          log(`🎉 [WS] Depósito completado! Nuevo saldo: ${data.saldoNuevo}`);
+        });
+
+        socket.on("deposito-rechazado", (data) => {
+          log(`❌ [WS] Depósito rechazado: ${data.motivo}`);
+        });
+
+        socket.on("error", (data) => {
+          log(`❌ [WS] Error: ${data.message}`);
+        });
+      }
+
+      function disconnectWebSocket() {
+        if (socket) {
+          socket.disconnect();
+          socket = null;
+        }
+      }
+
+      function authenticateAsJugador() {
+        if (!socket || !isConnected) return;
+
+        log("🔐 Enviando autenticación como jugador...");
+        socket.emit("authenticate-jugador", {
+          telegramId: 123456789,
+          initData: "test-data",
+        });
+      }
+
+      function authenticateAsCajero() {
+        if (!socket || !isConnected) return;
+
+        log("🔐 Enviando autenticación como cajero...");
+         socket.emit("authenticate-cajero", {
+           token:
+             "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ODQzMTk1Y2NmNDZmOTgxYmU3ZGYyMCIsImVtYWlsIjoibHVpc0BlamVtcGxvLmNvbSIsInJvbCI6ImNhamVybyIsImlhdCI6MTc1OTA4ODYwOSwiZXhwIjoxNzU5MTc1MDA5fQ.YAO4X_HaNOFrYSHODyORdyN27TwmBeBALSkABh8-WAU",
+         });
+      }
+
+      function toggleListening() {
+        if (!socket || !isConnected) return;
+
+        isListening = !isListening;
+        if (isListening) {
+          updateListeningStatus("authenticated", "Escuchando eventos");
+          log("👂 Iniciando escucha de eventos WebSocket");
+        } else {
+          updateListeningStatus("disconnected", "No escuchando");
+          log("🔇 Deteniendo escucha de eventos WebSocket");
+        }
+      }
+
+      // HTTP API Functions
+      async function crearSolicitudHTTP() {
+        const jugadorId = document.getElementById("jugador-id").value;
+        const monto = document.getElementById("monto").value;
+        const metodoPago = document.getElementById("metodo-pago").value;
+        const descripcion = document.getElementById("descripcion").value;
+
+        if (!jugadorId || !monto) {
+          log("❌ [HTTP] Faltan datos requeridos");
+          return;
+        }
+
+        try {
+          log(`🌐 [HTTP] Creando solicitud de depósito: $${monto}`);
+
+          const response = await fetch(
+            `${BACKEND_URL}/api/transacciones/solicitud`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization:
+                  "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ODQzMTk1Y2NmNDZmOTgxYmU3ZGYyMCIsImVtYWlsIjoibHVpc0BlamVtcGxvLmNvbSIsInJvbCI6ImNhamVybyIsImlhdCI6MTc1OTA4ODYwOSwiZXhwIjoxNzU5MTc1MDA5fQ.YAO4X_HaNOFrYSHODyORdyN27TwmBeBALSkABh8-WAU",
+              },
+              body: JSON.stringify({
+                jugadorId: jugadorId,
+                tipo: "credito",
+                categoria: "deposito",
+                monto: parseFloat(monto),
+                descripcion: descripcion,
+                metodoPago: metodoPago,
+              }),
             }
+          );
 
-            log('🔌 Conectando al servidor WebSocket...');
-            socket = io(BACKEND_URL, {
-                transports: ['websocket', 'polling']
-            });
+          const data = await response.json();
 
-            socket.on('connect', () => {
-                isConnected = true;
-                updateWebSocketStatus('connected', 'Conectado');
-                document.getElementById('connect-btn').disabled = true;
-                document.getElementById('disconnect-btn').disabled = false;
-                document.getElementById('auth-jugador-btn').disabled = false;
-                document.getElementById('auth-cajero-btn').disabled = false;
-                document.getElementById('listen-btn').disabled = false;
-                log('✅ Conectado al servidor WebSocket');
-            });
+          if (response.ok) {
+            log(`✅ [HTTP] Solicitud creada: ${data.transaccion._id}`);
+            document.getElementById("transaccion-id").value =
+              data.transaccion._id;
+            document.getElementById("confirmar-transaccion-id").value =
+              data.transaccion._id;
+            document.getElementById("completar-transaccion-id").value =
+              data.transaccion._id;
+          } else {
+            log(`❌ [HTTP] Error: ${data.mensaje}`);
+          }
+        } catch (error) {
+          log(`❌ [HTTP] Error de conexión: ${error.message}`);
+        }
+      }
 
-            socket.on('disconnect', (reason) => {
-                isConnected = false;
-                isAuthenticated = false;
-                updateWebSocketStatus('disconnected', 'Desconectado');
-                updateAuthStatus('disconnected', 'No autenticado');
-                document.getElementById('connect-btn').disabled = false;
-                document.getElementById('disconnect-btn').disabled = true;
-                document.getElementById('auth-jugador-btn').disabled = true;
-                document.getElementById('auth-cajero-btn').disabled = true;
-                document.getElementById('listen-btn').disabled = true;
-                log(`❌ Desconectado del servidor WebSocket. Razón: ${reason}`);
-            });
+      async function asignarCajeroHTTP() {
+        const transaccionId = document.getElementById("transaccion-id").value;
+        const cajeroId = document.getElementById("cajero-id").value;
 
-            socket.on('auth-result', (data) => {
-                if (data.success) {
-                    isAuthenticated = true;
-                    currentUser = data.user;
-                    updateAuthStatus('authenticated', `Autenticado: ${data.user.nombre || data.user.nombreCompleto}`);
-                    log(`✅ Autenticación exitosa: ${data.user.nombre || data.user.nombreCompleto}`);
-                } else {
-                    log(`❌ Error de autenticación: ${data.message}`);
-                }
-            });
-
-            // Eventos de depósitos
-            socket.on('nueva-solicitud-deposito', (data) => {
-                log(`📋 [WS] Nueva solicitud de depósito: ${data.jugador.nombre} - $${data.monto}`);
-            });
-
-            socket.on('solicitud-aceptada', (data) => {
-                log(`✅ [WS] Solicitud aceptada por: ${data.cajero.nombreCompleto}`);
-            });
-
-            socket.on('verificar-pago', (data) => {
-                log(`🔍 [WS] Verificar pago de: ${data.jugador.nombre}`);
-            });
-
-            socket.on('deposito-completado', (data) => {
-                log(`🎉 [WS] Depósito completado! Nuevo saldo: ${data.saldoNuevo}`);
-            });
-
-            socket.on('deposito-rechazado', (data) => {
-                log(`❌ [WS] Depósito rechazado: ${data.motivo}`);
-            });
-
-            socket.on('error', (data) => {
-                log(`❌ [WS] Error: ${data.message}`);
-            });
+        if (!transaccionId || !cajeroId) {
+          log("❌ [HTTP] Faltan datos requeridos");
+          return;
         }
 
-        function disconnectWebSocket() {
-            if (socket) {
-                socket.disconnect();
-                socket = null;
+        try {
+          log(`🌐 [HTTP] Asignando cajero a transacción: ${transaccionId}`);
+
+          const response = await fetch(
+            `${BACKEND_URL}/api/transacciones/${transaccionId}/asignar-cajero`,
+            {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization:
+                  "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ODQzMTk1Y2NmNDZmOTgxYmU3ZGYyMCIsImVtYWlsIjoibHVpc0BlamVtcGxvLmNvbSIsInJvbCI6ImNhamVybyIsImlhdCI6MTc1OTA4ODYwOSwiZXhwIjoxNzU5MTc1MDA5fQ.YAO4X_HaNOFrYSHODyORdyN27TwmBeBALSkABh8-WAU",
+              },
+              body: JSON.stringify({
+                cajeroId: cajeroId,
+              }),
             }
+          );
+
+          const data = await response.json();
+
+          if (response.ok) {
+            log(`✅ [HTTP] Cajero asignado: ${data.cajero.nombreCompleto}`);
+          } else {
+            log(`❌ [HTTP] Error: ${data.mensaje}`);
+          }
+        } catch (error) {
+          log(`❌ [HTTP] Error de conexión: ${error.message}`);
+        }
+      }
+
+      async function confirmarPagoHTTP() {
+        const transaccionId = document.getElementById(
+          "confirmar-transaccion-id"
+        ).value;
+        const bancoOrigen = document.getElementById("banco-origen").value;
+        const telefonoOrigen = document.getElementById("telefono-origen").value;
+        const numeroReferencia =
+          document.getElementById("numero-referencia").value;
+
+        if (!transaccionId) {
+          log("❌ [HTTP] Faltan datos requeridos");
+          return;
         }
 
-        function authenticateAsJugador() {
-            if (!socket || !isConnected) return;
-            
-            log('🔐 Enviando autenticación como jugador...');
-            socket.emit('authenticate-jugador', {
-                telegramId: 123456789,
-                initData: 'test-data'
-            });
-        }
+        try {
+          log(`🌐 [HTTP] Confirmando pago para transacción: ${transaccionId}`);
 
-        function authenticateAsCajero() {
-            if (!socket || !isConnected) return;
-            
-            log('🔐 Enviando autenticación como cajero...');
-            socket.emit('authenticate-cajero', {
-                token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ODQzMTk1Y2NmNDZmOTgxYmU3ZGYyMCIsImVtYWlsIjoibHVpc0BlamVtcGxvLmNvbSIsInJvbCI6ImJvdCIsImlhdCI6MTczNTQ5NzQ0MCwiZXhwIjoxNzM2MTAyMjQwfQ.8QZ8QZ8QZ8QZ8QZ8QZ8QZ8QZ8QZ8QZ8QZ8QZ8QZ8Q'
-            });
-        }
-
-        function toggleListening() {
-            if (!socket || !isConnected) return;
-            
-            isListening = !isListening;
-            if (isListening) {
-                updateListeningStatus('authenticated', 'Escuchando eventos');
-                log('👂 Iniciando escucha de eventos WebSocket');
-            } else {
-                updateListeningStatus('disconnected', 'No escuchando');
-                log('🔇 Deteniendo escucha de eventos WebSocket');
+          const response = await fetch(
+            `${BACKEND_URL}/api/transacciones/${transaccionId}/confirmar-pago-usuario`,
+            {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization:
+                  "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ODQzMTk1Y2NmNDZmOTgxYmU3ZGYyMCIsImVtYWlsIjoibHVpc0BlamVtcGxvLmNvbSIsInJvbCI6ImNhamVybyIsImlhdCI6MTc1OTA4ODYwOSwiZXhwIjoxNzU5MTc1MDA5fQ.YAO4X_HaNOFrYSHODyORdyN27TwmBeBALSkABh8-WAU",
+              },
+              body: JSON.stringify({
+                bancoOrigen: bancoOrigen,
+                telefonoOrigen: telefonoOrigen,
+                numeroReferencia: numeroReferencia,
+                fechaPago: new Date().toISOString().split("T")[0],
+                metodoPago: "pago_movil",
+              }),
             }
+          );
+
+          const data = await response.json();
+
+          if (response.ok) {
+            log(`✅ [HTTP] Pago confirmado por usuario`);
+          } else {
+            log(`❌ [HTTP] Error: ${data.mensaje}`);
+          }
+        } catch (error) {
+          log(`❌ [HTTP] Error de conexión: ${error.message}`);
+        }
+      }
+
+      async function completarTransaccionHTTP() {
+        const transaccionId = document.getElementById(
+          "completar-transaccion-id"
+        ).value;
+
+        if (!transaccionId) {
+          log("❌ [HTTP] Faltan datos requeridos");
+          return;
         }
 
-        // HTTP API Functions
-        async function crearSolicitudHTTP() {
-            const jugadorId = document.getElementById('jugador-id').value;
-            const monto = document.getElementById('monto').value;
-            const metodoPago = document.getElementById('metodo-pago').value;
-            const descripcion = document.getElementById('descripcion').value;
+        try {
+          log(`🌐 [HTTP] Completando transacción: ${transaccionId}`);
 
-            if (!jugadorId || !monto) {
-                log('❌ [HTTP] Faltan datos requeridos');
-                return;
+          const response = await fetch(
+            `${BACKEND_URL}/api/transacciones/${transaccionId}/confirmar`,
+            {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization:
+                  "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ODQzMTk1Y2NmNDZmOTgxYmU3ZGYyMCIsImVtYWlsIjoibHVpc0BlamVtcGxvLmNvbSIsInJvbCI6ImNhamVybyIsImlhdCI6MTc1OTA4ODYwOSwiZXhwIjoxNzU5MTc1MDA5fQ.YAO4X_HaNOFrYSHODyORdyN27TwmBeBALSkABh8-WAU",
+              },
+              body: JSON.stringify({
+                metodoPago: "pago_movil",
+                numeroReferencia: "REF-HTTP-123",
+                bancoOrigen: "Mercantil",
+                bancoDestino: "El Patio",
+                comprobanteUrl: "http://example.com/comprobante.jpg",
+                notas: "Transacción completada via HTTP API",
+                telefonoOrigen: "0414-1234567",
+                cedulaOrigen: "12345678",
+              }),
             }
+          );
 
-            try {
-                log(`🌐 [HTTP] Creando solicitud de depósito: $${monto}`);
-                
-                const response = await fetch(`${BACKEND_URL}/api/transacciones/solicitud`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ODQzMTk1Y2NmNDZmOTgxYmU3ZGYyMCIsImVtYWlsIjoibHVpc0BlamVtcGxvLmNvbSIsInJvbCI6ImJvdCIsImlhdCI6MTczNTQ5NzQ0MCwiZXhwIjoxNzM2MTAyMjQwfQ.8QZ8QZ8QZ8QZ8QZ8QZ8QZ8QZ8QZ8QZ8QZ8QZ8QZ8Q'
-                    },
-                    body: JSON.stringify({
-                        jugadorId: jugadorId,
-                        tipo: 'credito',
-                        categoria: 'deposito',
-                        monto: parseFloat(monto),
-                        descripcion: descripcion,
-                        metodoPago: metodoPago
-                    })
-                });
+          const data = await response.json();
 
-                const data = await response.json();
-                
-                if (response.ok) {
-                    log(`✅ [HTTP] Solicitud creada: ${data.transaccion._id}`);
-                    document.getElementById('transaccion-id').value = data.transaccion._id;
-                    document.getElementById('confirmar-transaccion-id').value = data.transaccion._id;
-                    document.getElementById('completar-transaccion-id').value = data.transaccion._id;
-                } else {
-                    log(`❌ [HTTP] Error: ${data.mensaje}`);
-                }
-            } catch (error) {
-                log(`❌ [HTTP] Error de conexión: ${error.message}`);
-            }
+          if (response.ok) {
+            log(`✅ [HTTP] Transacción completada exitosamente`);
+          } else {
+            log(`❌ [HTTP] Error: ${data.mensaje}`);
+          }
+        } catch (error) {
+          log(`❌ [HTTP] Error de conexión: ${error.message}`);
         }
+      }
 
-        async function asignarCajeroHTTP() {
-            const transaccionId = document.getElementById('transaccion-id').value;
-            const cajeroId = document.getElementById('cajero-id').value;
+      // Utility Functions
+      function updateWebSocketStatus(className, text) {
+        const status = document.getElementById("ws-status");
+        status.className = `status ${className}`;
+        status.textContent = text;
+      }
 
-            if (!transaccionId || !cajeroId) {
-                log('❌ [HTTP] Faltan datos requeridos');
-                return;
-            }
+      function updateAuthStatus(className, text) {
+        const status = document.getElementById("auth-status");
+        status.className = `status ${className}`;
+        status.textContent = text;
+      }
 
-            try {
-                log(`🌐 [HTTP] Asignando cajero a transacción: ${transaccionId}`);
-                
-                const response = await fetch(`${BACKEND_URL}/api/transacciones/${transaccionId}/asignar-cajero`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ODQzMTk1Y2NmNDZmOTgxYmU3ZGYyMCIsImVtYWlsIjoibHVpc0BlamVtcGxvLmNvbSIsInJvbCI6ImJvdCIsImlhdCI6MTczNTQ5NzQ0MCwiZXhwIjoxNzM2MTAyMjQwfQ.8QZ8QZ8QZ8QZ8QZ8QZ8QZ8QZ8QZ8QZ8QZ8QZ8QZ8Q'
-                    },
-                    body: JSON.stringify({
-                        cajeroId: cajeroId
-                    })
-                });
+      function updateListeningStatus(className, text) {
+        const status = document.getElementById("listening-status");
+        status.className = `status ${className}`;
+        status.textContent = text;
+      }
 
-                const data = await response.json();
-                
-                if (response.ok) {
-                    log(`✅ [HTTP] Cajero asignado: ${data.cajero.nombreCompleto}`);
-                } else {
-                    log(`❌ [HTTP] Error: ${data.mensaje}`);
-                }
-            } catch (error) {
-                log(`❌ [HTTP] Error de conexión: ${error.message}`);
-            }
-        }
+      function log(message) {
+        const logElement = document.getElementById("log");
+        const timestamp = new Date().toLocaleTimeString();
+        logElement.innerHTML += `[${timestamp}] ${message}<br>`;
+        logElement.scrollTop = logElement.scrollHeight;
+      }
 
-        async function confirmarPagoHTTP() {
-            const transaccionId = document.getElementById('confirmar-transaccion-id').value;
-            const bancoOrigen = document.getElementById('banco-origen').value;
-            const telefonoOrigen = document.getElementById('telefono-origen').value;
-            const numeroReferencia = document.getElementById('numero-referencia').value;
+      function clearLog() {
+        document.getElementById("log").innerHTML = "";
+      }
 
-            if (!transaccionId) {
-                log('❌ [HTTP] Faltan datos requeridos');
-                return;
-            }
-
-            try {
-                log(`🌐 [HTTP] Confirmando pago para transacción: ${transaccionId}`);
-                
-                const response = await fetch(`${BACKEND_URL}/api/transacciones/${transaccionId}/confirmar-pago-usuario`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ODQzMTk1Y2NmNDZmOTgxYmU3ZGYyMCIsImVtYWlsIjoibHVpc0BlamVtcGxvLmNvbSIsInJvbCI6ImJvdCIsImlhdCI6MTczNTQ5NzQ0MCwiZXhwIjoxNzM2MTAyMjQwfQ.8QZ8QZ8QZ8QZ8QZ8QZ8QZ8QZ8QZ8QZ8QZ8QZ8QZ8Q'
-                    },
-                    body: JSON.stringify({
-                        bancoOrigen: bancoOrigen,
-                        telefonoOrigen: telefonoOrigen,
-                        numeroReferencia: numeroReferencia,
-                        fechaPago: new Date().toISOString().split('T')[0],
-                        metodoPago: 'pago_movil'
-                    })
-                });
-
-                const data = await response.json();
-                
-                if (response.ok) {
-                    log(`✅ [HTTP] Pago confirmado por usuario`);
-                } else {
-                    log(`❌ [HTTP] Error: ${data.mensaje}`);
-                }
-            } catch (error) {
-                log(`❌ [HTTP] Error de conexión: ${error.message}`);
-            }
-        }
-
-        async function completarTransaccionHTTP() {
-            const transaccionId = document.getElementById('completar-transaccion-id').value;
-
-            if (!transaccionId) {
-                log('❌ [HTTP] Faltan datos requeridos');
-                return;
-            }
-
-            try {
-                log(`🌐 [HTTP] Completando transacción: ${transaccionId}`);
-                
-                const response = await fetch(`${BACKEND_URL}/api/transacciones/${transaccionId}/confirmar`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ODQzMTk1Y2NmNDZmOTgxYmU3ZGYyMCIsImVtYWlsIjoibHVpc0BlamVtcGxvLmNvbSIsInJvbCI6ImJvdCIsImlhdCI6MTczNTQ5NzQ0MCwiZXhwIjoxNzM2MTAyMjQwfQ.8QZ8QZ8QZ8QZ8QZ8QZ8QZ8QZ8QZ8QZ8QZ8QZ8QZ8Q'
-                    },
-                    body: JSON.stringify({
-                        metodoPago: 'pago_movil',
-                        numeroReferencia: 'REF-HTTP-123',
-                        bancoOrigen: 'Mercantil',
-                        bancoDestino: 'El Patio',
-                        comprobanteUrl: 'http://example.com/comprobante.jpg',
-                        notas: 'Transacción completada via HTTP API',
-                        telefonoOrigen: '0414-1234567',
-                        cedulaOrigen: '12345678'
-                    })
-                });
-
-                const data = await response.json();
-                
-                if (response.ok) {
-                    log(`✅ [HTTP] Transacción completada exitosamente`);
-                } else {
-                    log(`❌ [HTTP] Error: ${data.mensaje}`);
-                }
-            } catch (error) {
-                log(`❌ [HTTP] Error de conexión: ${error.message}`);
-            }
-        }
-
-        // Utility Functions
-        function updateWebSocketStatus(className, text) {
-            const status = document.getElementById('ws-status');
-            status.className = `status ${className}`;
-            status.textContent = text;
-        }
-
-        function updateAuthStatus(className, text) {
-            const status = document.getElementById('auth-status');
-            status.className = `status ${className}`;
-            status.textContent = text;
-        }
-
-        function updateListeningStatus(className, text) {
-            const status = document.getElementById('listening-status');
-            status.className = `status ${className}`;
-            status.textContent = text;
-        }
-
-        function log(message) {
-            const logElement = document.getElementById('log');
-            const timestamp = new Date().toLocaleTimeString();
-            logElement.innerHTML += `[${timestamp}] ${message}<br>`;
-            logElement.scrollTop = logElement.scrollHeight;
-        }
-
-        function clearLog() {
-            document.getElementById('log').innerHTML = '';
-        }
-
-        // Auto-connect on page load
-        window.onload = function() {
-            log('📄 Página cargada. Haz clic en "Conectar WebSocket" para comenzar las pruebas.');
-        };
+      // Auto-connect on page load
+      window.onload = function () {
+        log(
+          '📄 Página cargada. Haz clic en "Conectar WebSocket" para comenzar las pruebas.'
+        );
+      };
     </script>
-</body>
+  </body>
 </html>

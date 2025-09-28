@@ -20,7 +20,7 @@ class WebSocketHelper {
    */
   getSocketManager(req) {
     if (!this.socketManager) {
-      this.socketManager = req.app.get('socketManager');
+      this.socketManager = req.app.get("socketManager");
     }
     return this.socketManager;
   }
@@ -34,8 +34,13 @@ class WebSocketHelper {
     try {
       const depositoController = this.socketManager.depositoController;
       if (depositoController) {
-        await depositoController.notificarCajerosNuevaSolicitud(transaccion, jugador);
-        console.log("📡 [HTTP→WS] Nueva solicitud de depósito emitida via WebSocket");
+        await depositoController.notificarCajerosNuevaSolicitud(
+          transaccion,
+          jugador
+        );
+        console.log(
+          "📡 [HTTP→WS] Nueva solicitud de depósito emitida via WebSocket"
+        );
       }
     } catch (error) {
       console.error("❌ [HTTP→WS] Error emitiendo nueva solicitud:", error);
@@ -51,7 +56,10 @@ class WebSocketHelper {
     try {
       const depositoController = this.socketManager.depositoController;
       if (depositoController) {
-        await depositoController.notificarJugadorSolicitudAceptada(transaccion, cajero);
+        await depositoController.notificarJugadorSolicitudAceptada(
+          transaccion,
+          cajero
+        );
         console.log("📡 [HTTP→WS] Cajero asignado emitido via WebSocket");
       }
     } catch (error) {
@@ -69,7 +77,9 @@ class WebSocketHelper {
       const depositoController = this.socketManager.depositoController;
       if (depositoController) {
         await depositoController.notificarCajeroVerificarPago(transaccion);
-        console.log("📡 [HTTP→WS] Pago confirmado por usuario emitido via WebSocket");
+        console.log(
+          "📡 [HTTP→WS] Pago confirmado por usuario emitido via WebSocket"
+        );
       }
     } catch (error) {
       console.error("❌ [HTTP→WS] Error emitiendo pago confirmado:", error);
@@ -85,11 +95,19 @@ class WebSocketHelper {
     try {
       const depositoController = this.socketManager.depositoController;
       if (depositoController) {
-        await depositoController.notificarJugadorDepositoCompletado(transaccion, jugador);
-        console.log("📡 [HTTP→WS] Transacción completada emitida via WebSocket");
+        await depositoController.notificarJugadorDepositoCompletado(
+          transaccion,
+          jugador
+        );
+        console.log(
+          "📡 [HTTP→WS] Transacción completada emitida via WebSocket"
+        );
       }
     } catch (error) {
-      console.error("❌ [HTTP→WS] Error emitiendo transacción completada:", error);
+      console.error(
+        "❌ [HTTP→WS] Error emitiendo transacción completada:",
+        error
+      );
     }
   }
 
@@ -102,11 +120,18 @@ class WebSocketHelper {
     try {
       const depositoController = this.socketManager.depositoController;
       if (depositoController) {
-        await depositoController.notificarJugadorDepositoRechazado(transaccion, jugador, motivo);
+        await depositoController.notificarJugadorDepositoRechazado(
+          transaccion,
+          jugador,
+          motivo
+        );
         console.log("📡 [HTTP→WS] Transacción rechazada emitida via WebSocket");
       }
     } catch (error) {
-      console.error("❌ [HTTP→WS] Error emitiendo transacción rechazada:", error);
+      console.error(
+        "❌ [HTTP→WS] Error emitiendo transacción rechazada:",
+        error
+      );
     }
   }
 
@@ -121,7 +146,9 @@ class WebSocketHelper {
     return {
       jugadoresConectados: this.socketManager.connectedUsers.size,
       cajerosConectados: this.socketManager.connectedCajeros.size,
-      totalConexiones: this.socketManager.connectedUsers.size + this.socketManager.connectedCajeros.size
+      totalConexiones:
+        this.socketManager.connectedUsers.size +
+        this.socketManager.connectedCajeros.size,
     };
   }
 
@@ -130,7 +157,9 @@ class WebSocketHelper {
    */
   logWebSocketStats(context = "") {
     const stats = this.getWebSocketStats();
-    console.log(`📊 [HTTP→WS] ${context} - Jugadores: ${stats.jugadoresConectados}, Cajeros: ${stats.cajerosConectados}`);
+    console.log(
+      `📊 [HTTP→WS] ${context} - Jugadores: ${stats.jugadoresConectados}, Cajeros: ${stats.cajerosConectados}`
+    );
   }
 }
 
