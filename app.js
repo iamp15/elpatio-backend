@@ -36,6 +36,11 @@ app.get("/test-websocket-auth", (req, res) => {
   res.sendFile(__dirname + "/test-websocket-auth.html");
 });
 
+// Ruta para servir el archivo de prueba del sistema de depósitos WebSocket
+app.get("/test-deposito-websocket", (req, res) => {
+  res.sendFile(__dirname + "/test-deposito-websocket.html");
+});
+
 // API Routes
 app.use("/api/jugadores", require("./routes/jugadores"));
 app.use("/api/cajeros", require("./routes/cajeros"));

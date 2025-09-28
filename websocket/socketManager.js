@@ -38,7 +38,7 @@ class SocketManager {
 
     // Inicializar controlador de depósitos
     this.depositoController = new DepositoWebSocketController(this);
-    
+
     this.setupEventHandlers();
     console.log("🔌 WebSocket server inicializado");
   }
@@ -98,7 +98,7 @@ class SocketManager {
       });
 
       // ===== EVENTOS DE DEPÓSITOS =====
-      
+
       // Solicitar depósito (jugador)
       socket.on("solicitar-deposito", async (data) => {
         try {

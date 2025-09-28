@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test WebSocket - Sistema de Depósitos</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .panel {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            border: 2px solid #e0e0e0;
+        }
+        
+        .panel.jugador {
+            border-color: #4CAF50;
+        }
+        
+        .panel.cajero {
+            border-color: #2196F3;
+        }
+        
+        .panel h2 {
+            margin: 0 0 20px 0;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .panel.jugador h2 {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+        }
+        
+        .panel.cajero h2 {
+            background: linear-gradient(45deg, #2196F3, #1976D2);
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-weight: bold;
+            text-align: center;
+        }
+        
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.authenticated {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .form-group {
+            margin: 15px 0;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            margin: 5px;
+            transition: all 0.3s ease;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            margin-top: 20px;
+        }
+        
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-radius: 4px;
+        }
+        
+        .log-entry.info {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+        
+        .log-entry.success {
+            background: #e8f5e8;
+            color: #2e7d32;
+        }
+        
+        .log-entry.error {
+            background: #ffebee;
+            color: #c62828;
+        }
+        
+        .log-entry.warning {
+            background: #fff3e0;
+            color: #ef6c00;
+        }
+        
+        .transaction-info {
+            background: #f0f8ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        
+        .transaction-info h4 {
+            margin: 0 0 10px 0;
+            color: #1976d2;
+        }
+        
+        .transaction-info p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        
+        .bank-info {
+            background: #f3e5f5;
+            border: 1px solid #ce93d8;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        
+        .bank-info h4 {
+            margin: 0 0 10px 0;
+            color: #7b1fa2;
+        }
+        
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .full-width {
+            grid-column: 1 / -1;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Panel del Jugador -->
+        <div class="panel jugador">
+            <h2>🎮 Jugador (Telegram)</h2>
+            
+            <div id="jugador-status" class="status disconnected">
+                Desconectado
+            </div>
+            
+            <div class="form-group">
+                <label>Telegram ID:</label>
+                <input type="text" id="jugador-telegram-id" value="123456789" placeholder="ID de Telegram">
+            </div>
+            
+            <div class="form-group">
+                <label>Init Data (simulado):</label>
+                <textarea id="jugador-init-data" rows="3" placeholder="Datos de autenticación de Telegram">user=%7B%22id%22%3A123456789%7D&auth_date=1234567890&hash=abc123</textarea>
+            </div>
+            
+            <div class="controls">
+                <button id="jugador-connect">Conectar</button>
+                <button id="jugador-disconnect" disabled>Desconectar</button>
+                <button id="jugador-auth" disabled>Autenticar</button>
+            </div>
+            
+            <hr>
+            
+            <h3>💰 Solicitar Depósito</h3>
+            
+            <div class="form-group">
+                <label>Monto:</label>
+                <input type="number" id="deposito-monto" value="100" min="1" placeholder="Monto a depositar">
+            </div>
+            
+            <div class="form-group">
+                <label>Método de Pago:</label>
+                <select id="deposito-metodo">
+                    <option value="pago_movil">Pago Móvil</option>
+                    <option value="transferencia">Transferencia</option>
+                    <option value="efectivo">Efectivo</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Descripción:</label>
+                <input type="text" id="deposito-descripcion" value="Depósito para jugar" placeholder="Descripción del depósito">
+            </div>
+            
+            <div class="controls">
+                <button id="solicitar-deposito" disabled>Solicitar Depósito</button>
+            </div>
+            
+            <div id="jugador-transaction-info" class="transaction-info" style="display: none;">
+                <h4>📋 Información de Transacción</h4>
+                <p><strong>ID:</strong> <span id="jugador-transaction-id"></span></p>
+                <p><strong>Referencia:</strong> <span id="jugador-transaction-ref"></span></p>
+                <p><strong>Monto:</strong> <span id="jugador-transaction-monto"></span></p>
+                <p><strong>Estado:</strong> <span id="jugador-transaction-estado"></span></p>
+            </div>
+            
+            <div id="jugador-bank-info" class="bank-info" style="display: none;">
+                <h4>🏦 Datos Bancarios del Cajero</h4>
+                <p><strong>Cajero:</strong> <span id="cajero-nombre"></span></p>
+                <p><strong>Teléfono:</strong> <span id="cajero-telefono"></span></p>
+                <p><strong>Banco:</strong> <span id="cajero-banco"></span></p>
+                <p><strong>Cédula:</strong> <span id="cajero-cedula"></span></p>
+                <p><strong>Teléfono Pago:</strong> <span id="cajero-telefono-pago"></span></p>
+                
+                <hr>
+                
+                <h4>💳 Confirmar Pago</h4>
+                <div class="form-group">
+                    <label>Banco Origen:</label>
+                    <input type="text" id="pago-banco-origen" value="Mercantil" placeholder="Banco desde donde envías">
+                </div>
+                
+                <div class="form-group">
+                    <label>Teléfono Origen:</label>
+                    <input type="text" id="pago-telefono-origen" value="0414-9876543" placeholder="Tu teléfono">
+                </div>
+                
+                <div class="form-group">
+                    <label>Número de Referencia:</label>
+                    <input type="text" id="pago-referencia" value="REF123456" placeholder="Número de referencia del pago">
+                </div>
+                
+                <div class="controls">
+                    <button id="confirmar-pago" disabled>Confirmar Pago</button>
+                </div>
+            </div>
+            
+            <div class="log" id="jugador-log"></div>
+        </div>
+        
+        <!-- Panel del Cajero -->
+        <div class="panel cajero">
+            <h2>🏦 Cajero (Web)</h2>
+            
+            <div id="cajero-status" class="status disconnected">
+                Desconectado
+            </div>
+            
+            <div class="form-group">
+                <label>JWT Token:</label>
+                <textarea id="cajero-token" rows="3" placeholder="Token JWT del cajero">eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ODQzMTk1Y2NmNDZmOTgxYmU3ZGYyMCIsImVtYWlsIjoibHVpc0BlamVtcGxvLmNvbSIsInJvbCI6ImNhamVybyIsImlhdCI6MTc1OTA4ODYwOSwiZXhwIjoxNzU5MTc1MDA5fQ.YAO4X_HaNOFrYSHODyORdyN27TwmBeBALSkABh8-WAU</textarea>
+            </div>
+            
+            <div class="controls">
+                <button id="cajero-connect">Conectar</button>
+                <button id="cajero-disconnect" disabled>Desconectar</button>
+                <button id="cajero-auth" disabled>Autenticar</button>
+            </div>
+            
+            <hr>
+            
+            <h3>📋 Solicitudes Pendientes</h3>
+            
+            <div id="solicitudes-pendientes">
+                <p style="text-align: center; color: #666; font-style: italic;">
+                    No hay solicitudes pendientes
+                </p>
+            </div>
+            
+            <div id="cajero-transaction-info" class="transaction-info" style="display: none;">
+                <h4>📋 Transacción Asignada</h4>
+                <p><strong>ID:</strong> <span id="cajero-transaction-id"></span></p>
+                <p><strong>Jugador:</strong> <span id="cajero-jugador-nombre"></span></p>
+                <p><strong>Telegram ID:</strong> <span id="cajero-jugador-telegram"></span></p>
+                <p><strong>Monto:</strong> <span id="cajero-transaction-monto"></span></p>
+                <p><strong>Estado:</strong> <span id="cajero-transaction-estado"></span></p>
+                
+                <div class="controls">
+                    <button id="aceptar-solicitud" disabled>Aceptar Solicitud</button>
+                </div>
+            </div>
+            
+            <div id="cajero-verificacion" class="bank-info" style="display: none;">
+                <h4>🔍 Verificar Pago</h4>
+                <p><strong>Jugador:</strong> <span id="verificacion-jugador"></span></p>
+                <p><strong>Monto:</strong> <span id="verificacion-monto"></span></p>
+                <p><strong>Banco Origen:</strong> <span id="verificacion-banco"></span></p>
+                <p><strong>Teléfono Origen:</strong> <span id="verificacion-telefono"></span></p>
+                <p><strong>Referencia:</strong> <span id="verificacion-referencia"></span></p>
+                
+                <div class="form-group">
+                    <label>Notas:</label>
+                    <textarea id="verificacion-notas" rows="3" placeholder="Notas sobre la verificación"></textarea>
+                </div>
+                
+                <div class="controls">
+                    <button id="confirmar-pago-cajero" style="background: #4CAF50;">✅ Confirmar Pago</button>
+                    <button id="rechazar-pago-cajero" style="background: #f44336;">❌ Rechazar Pago</button>
+                </div>
+            </div>
+            
+            <div class="log" id="cajero-log"></div>
+        </div>
+        
+        <!-- Panel de Control General -->
+        <div class="panel full-width">
+            <h2>🎛️ Control General</h2>
+            
+            <div class="controls">
+                <button id="test-completo">🧪 Test Completo Automático</button>
+                <button id="limpiar-logs">🧹 Limpiar Logs</button>
+                <button id="estadisticas">📊 Ver Estadísticas</button>
+            </div>
+            
+            <div class="log" id="general-log"></div>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales
+        let jugadorSocket = null;
+        let cajeroSocket = null;
+        let currentTransactionId = null;
+        
+        // URLs del servidor
+        const SERVER_URL = window.location.origin;
+        
+        // Elementos del DOM
+        const elements = {
+            // Jugador
+            jugadorStatus: document.getElementById('jugador-status'),
+            jugadorConnect: document.getElementById('jugador-connect'),
+            jugadorDisconnect: document.getElementById('jugador-disconnect'),
+            jugadorAuth: document.getElementById('jugador-auth'),
+            solicitarDeposito: document.getElementById('solicitar-deposito'),
+            confirmarPago: document.getElementById('confirmar-pago'),
+            jugadorLog: document.getElementById('jugador-log'),
+            
+            // Cajero
+            cajeroStatus: document.getElementById('cajero-status'),
+            cajeroConnect: document.getElementById('cajero-connect'),
+            cajeroDisconnect: document.getElementById('cajero-disconnect'),
+            cajeroAuth: document.getElementById('cajero-auth'),
+            aceptarSolicitud: document.getElementById('aceptar-solicitud'),
+            confirmarPagoCajero: document.getElementById('confirmar-pago-cajero'),
+            rechazarPagoCajero: document.getElementById('rechazar-pago-cajero'),
+            cajeroLog: document.getElementById('cajero-log'),
+            
+            // General
+            generalLog: document.getElementById('general-log'),
+            testCompleto: document.getElementById('test-completo'),
+            limpiarLogs: document.getElementById('limpiar-logs'),
+            estadisticas: document.getElementById('estadisticas')
+        };
+        
+        // Función para agregar logs
+        function addLog(container, message, type = 'info') {
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            logEntry.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            container.appendChild(logEntry);
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        // Función para actualizar estado
+        function updateStatus(element, status, message) {
+            element.className = `status ${status}`;
+            element.textContent = message;
+        }
+        
+        // ===== JUGADOR =====
+        
+        function connectJugador() {
+            if (jugadorSocket) {
+                addLog(elements.jugadorLog, 'Ya hay una conexión activa', 'warning');
+                return;
+            }
+            
+            jugadorSocket = io(SERVER_URL);
+            
+            jugadorSocket.on('connect', () => {
+                updateStatus(elements.jugadorStatus, 'connected', 'Conectado');
+                elements.jugadorConnect.disabled = true;
+                elements.jugadorDisconnect.disabled = false;
+                elements.jugadorAuth.disabled = false;
+                addLog(elements.jugadorLog, '✅ Conectado al servidor WebSocket', 'success');
+            });
+            
+            jugadorSocket.on('disconnect', () => {
+                updateStatus(elements.jugadorStatus, 'disconnected', 'Desconectado');
+                elements.jugadorConnect.disabled = false;
+                elements.jugadorDisconnect.disabled = true;
+                elements.jugadorAuth.disabled = true;
+                elements.solicitarDeposito.disabled = true;
+                addLog(elements.jugadorLog, '❌ Desconectado del servidor', 'error');
+            });
+            
+            jugadorSocket.on('auth-result', (data) => {
+                if (data.success) {
+                    updateStatus(elements.jugadorStatus, 'authenticated', `Autenticado: ${data.user.nombre}`);
+                    elements.solicitarDeposito.disabled = false;
+                    addLog(elements.jugadorLog, `✅ Autenticación exitosa: ${data.user.nombre}`, 'success');
+                } else {
+                    addLog(elements.jugadorLog, `❌ Error de autenticación: ${data.message}`, 'error');
+                }
+            });
+            
+            jugadorSocket.on('solicitud-creada', (data) => {
+                currentTransactionId = data.transaccionId;
+                document.getElementById('jugador-transaction-id').textContent = data.transaccionId;
+                document.getElementById('jugador-transaction-ref').textContent = data.referencia;
+                document.getElementById('jugador-transaction-monto').textContent = data.monto;
+                document.getElementById('jugador-transaction-estado').textContent = data.estado;
+                document.getElementById('jugador-transaction-info').style.display = 'block';
+                addLog(elements.jugadorLog, `✅ Solicitud creada: ${data.transaccionId}`, 'success');
+            });
+            
+            jugadorSocket.on('solicitud-aceptada', (data) => {
+                document.getElementById('cajero-nombre').textContent = data.cajero.nombre;
+                document.getElementById('cajero-telefono').textContent = data.cajero.telefono;
+                document.getElementById('cajero-banco').textContent = data.cajero.datosPago.banco;
+                document.getElementById('cajero-cedula').textContent = `${data.cajero.datosPago.cedula.prefijo}-${data.cajero.datosPago.cedula.numero}`;
+                document.getElementById('cajero-telefono-pago').textContent = data.cajero.datosPago.telefono;
+                document.getElementById('jugador-bank-info').style.display = 'block';
+                elements.confirmarPago.disabled = false;
+                addLog(elements.jugadorLog, `✅ Solicitud aceptada por: ${data.cajero.nombre}`, 'success');
+            });
+            
+            jugadorSocket.on('pago-confirmado', (data) => {
+                addLog(elements.jugadorLog, `✅ Pago confirmado, esperando verificación`, 'success');
+            });
+            
+            jugadorSocket.on('deposito-completado', (data) => {
+                addLog(elements.jugadorLog, `🎉 ¡Depósito completado! Nuevo saldo: ${data.saldoNuevo}`, 'success');
+                addLog(elements.generalLog, `🎉 Transacción completada exitosamente`, 'success');
+            });
+            
+            jugadorSocket.on('deposito-rechazado', (data) => {
+                addLog(elements.jugadorLog, `❌ Depósito rechazado: ${data.motivo}`, 'error');
+            });
+            
+            jugadorSocket.on('error', (data) => {
+                addLog(elements.jugadorLog, `❌ Error: ${data.message}`, 'error');
+            });
+        }
+        
+        function disconnectJugador() {
+            if (jugadorSocket) {
+                jugadorSocket.disconnect();
+                jugadorSocket = null;
+            }
+        }
+        
+        function authenticateJugador() {
+            const telegramId = document.getElementById('jugador-telegram-id').value;
+            const initData = document.getElementById('jugador-init-data').value;
+            
+            if (!telegramId || !initData) {
+                addLog(elements.jugadorLog, '❌ Faltan datos de autenticación', 'error');
+                return;
+            }
+            
+            jugadorSocket.emit('authenticate-jugador', {
+                telegramId: parseInt(telegramId),
+                initData: initData
+            });
+            
+            addLog(elements.jugadorLog, '🔐 Enviando autenticación...', 'info');
+        }
+        
+        function solicitarDeposito() {
+            const monto = document.getElementById('deposito-monto').value;
+            const metodoPago = document.getElementById('deposito-metodo').value;
+            const descripcion = document.getElementById('deposito-descripcion').value;
+            
+            if (!monto || !metodoPago || !descripcion) {
+                addLog(elements.jugadorLog, '❌ Faltan datos del depósito', 'error');
+                return;
+            }
+            
+            jugadorSocket.emit('solicitar-deposito', {
+                monto: parseFloat(monto),
+                metodoPago: metodoPago,
+                descripcion: descripcion
+            });
+            
+            addLog(elements.jugadorLog, `💰 Solicitando depósito de ${monto} por ${metodoPago}`, 'info');
+        }
+        
+        function confirmarPago() {
+            const bancoOrigen = document.getElementById('pago-banco-origen').value;
+            const telefonoOrigen = document.getElementById('pago-telefono-origen').value;
+            const referencia = document.getElementById('pago-referencia').value;
+            
+            if (!bancoOrigen || !telefonoOrigen || !referencia) {
+                addLog(elements.jugadorLog, '❌ Faltan datos del pago', 'error');
+                return;
+            }
+            
+            jugadorSocket.emit('confirmar-pago-jugador', {
+                transaccionId: currentTransactionId,
+                datosPago: {
+                    bancoOrigen: bancoOrigen,
+                    telefonoOrigen: telefonoOrigen,
+                    numeroReferencia: referencia,
+                    fechaPago: new Date().toISOString().split('T')[0]
+                }
+            });
+            
+            addLog(elements.jugadorLog, `💳 Confirmando pago con referencia: ${referencia}`, 'info');
+        }
+        
+        // ===== CAJERO =====
+        
+        function connectCajero() {
+            if (cajeroSocket) {
+                addLog(elements.cajeroLog, 'Ya hay una conexión activa', 'warning');
+                return;
+            }
+            
+            cajeroSocket = io(SERVER_URL);
+            
+            cajeroSocket.on('connect', () => {
+                updateStatus(elements.cajeroStatus, 'connected', 'Conectado');
+                elements.cajeroConnect.disabled = true;
+                elements.cajeroDisconnect.disabled = false;
+                elements.cajeroAuth.disabled = false;
+                addLog(elements.cajeroLog, '✅ Conectado al servidor WebSocket', 'success');
+            });
+            
+            cajeroSocket.on('disconnect', () => {
+                updateStatus(elements.cajeroStatus, 'disconnected', 'Desconectado');
+                elements.cajeroConnect.disabled = false;
+                elements.cajeroDisconnect.disabled = true;
+                elements.cajeroAuth.disabled = true;
+                elements.aceptarSolicitud.disabled = true;
+                addLog(elements.cajeroLog, '❌ Desconectado del servidor', 'error');
+            });
+            
+            cajeroSocket.on('auth-result', (data) => {
+                if (data.success) {
+                    updateStatus(elements.cajeroStatus, 'authenticated', `Autenticado: ${data.user.nombre}`);
+                    addLog(elements.cajeroLog, `✅ Autenticación exitosa: ${data.user.nombre}`, 'success');
+                } else {
+                    addLog(elements.cajeroLog, `❌ Error de autenticación: ${data.message}`, 'error');
+                }
+            });
+            
+            cajeroSocket.on('nueva-solicitud-deposito', (data) => {
+                document.getElementById('cajero-transaction-id').textContent = data.transaccionId;
+                document.getElementById('cajero-jugador-nombre').textContent = data.jugador.nombre;
+                document.getElementById('cajero-jugador-telegram').textContent = data.jugador.telegramId;
+                document.getElementById('cajero-transaction-monto').textContent = data.monto;
+                document.getElementById('cajero-transaction-estado').textContent = 'pendiente';
+                document.getElementById('cajero-transaction-info').style.display = 'block';
+                elements.aceptarSolicitud.disabled = false;
+                addLog(elements.cajeroLog, `📋 Nueva solicitud de ${data.jugador.nombre} por ${data.monto}`, 'info');
+            });
+            
+            cajeroSocket.on('solicitud-aceptada', (data) => {
+                addLog(elements.cajeroLog, `✅ Solicitud aceptada para jugador: ${data.jugador.nombre}`, 'success');
+            });
+            
+            cajeroSocket.on('verificar-pago', (data) => {
+                document.getElementById('verificacion-jugador').textContent = data.jugador.nombre;
+                document.getElementById('verificacion-monto').textContent = data.monto;
+                document.getElementById('verificacion-banco').textContent = data.datosPago.bancoOrigen;
+                document.getElementById('verificacion-telefono').textContent = data.datosPago.telefonoOrigen;
+                document.getElementById('verificacion-referencia').textContent = data.datosPago.numeroReferencia;
+                document.getElementById('cajero-verificacion').style.display = 'block';
+                addLog(elements.cajeroLog, `🔍 Verificar pago de ${data.jugador.nombre}`, 'info');
+            });
+            
+            cajeroSocket.on('deposito-completado', (data) => {
+                addLog(elements.cajeroLog, `✅ Depósito completado. Nuevo saldo del jugador: ${data.saldoNuevo}`, 'success');
+            });
+            
+            cajeroSocket.on('deposito-rechazado', (data) => {
+                addLog(elements.cajeroLog, `❌ Depósito rechazado: ${data.motivo}`, 'error');
+            });
+            
+            cajeroSocket.on('error', (data) => {
+                addLog(elements.cajeroLog, `❌ Error: ${data.message}`, 'error');
+            });
+        }
+        
+        function disconnectCajero() {
+            if (cajeroSocket) {
+                cajeroSocket.disconnect();
+                cajeroSocket = null;
+            }
+        }
+        
+        function authenticateCajero() {
+            const token = document.getElementById('cajero-token').value;
+            
+            if (!token) {
+                addLog(elements.cajeroLog, '❌ Falta el token JWT', 'error');
+                return;
+            }
+            
+            cajeroSocket.emit('authenticate-cajero', {
+                token: token
+            });
+            
+            addLog(elements.cajeroLog, '🔐 Enviando autenticación...', 'info');
+        }
+        
+        function aceptarSolicitud() {
+            cajeroSocket.emit('aceptar-solicitud', {
+                transaccionId: currentTransactionId
+            });
+            
+            addLog(elements.cajeroLog, `✅ Aceptando solicitud: ${currentTransactionId}`, 'info');
+        }
+        
+        function verificarPago(confirmado) {
+            const notas = document.getElementById('verificacion-notas').value;
+            
+            cajeroSocket.emit('verificar-pago-cajero', {
+                transaccionId: currentTransactionId,
+                confirmado: confirmado,
+                notas: notas
+            });
+            
+            addLog(elements.cajeroLog, `${confirmado ? '✅' : '❌'} ${confirmado ? 'Confirmando' : 'Rechazando'} pago`, 'info');
+        }
+        
+        // ===== FUNCIONES GENERALES =====
+        
+        function testCompleto() {
+            addLog(elements.generalLog, '🧪 Iniciando test completo automático...', 'info');
+            
+            // Paso 1: Conectar jugador
+            setTimeout(() => {
+                connectJugador();
+                addLog(elements.generalLog, '1️⃣ Conectando jugador...', 'info');
+            }, 1000);
+            
+            // Paso 2: Autenticar jugador
+            setTimeout(() => {
+                authenticateJugador();
+                addLog(elements.generalLog, '2️⃣ Autenticando jugador...', 'info');
+            }, 2000);
+            
+            // Paso 3: Conectar cajero
+            setTimeout(() => {
+                connectCajero();
+                addLog(elements.generalLog, '3️⃣ Conectando cajero...', 'info');
+            }, 3000);
+            
+            // Paso 4: Autenticar cajero
+            setTimeout(() => {
+                authenticateCajero();
+                addLog(elements.generalLog, '4️⃣ Autenticando cajero...', 'info');
+            }, 4000);
+            
+            // Paso 5: Solicitar depósito
+            setTimeout(() => {
+                solicitarDeposito();
+                addLog(elements.generalLog, '5️⃣ Solicitando depósito...', 'info');
+            }, 5000);
+            
+            // Paso 6: Aceptar solicitud
+            setTimeout(() => {
+                aceptarSolicitud();
+                addLog(elements.generalLog, '6️⃣ Aceptando solicitud...', 'info');
+            }, 6000);
+            
+            // Paso 7: Confirmar pago
+            setTimeout(() => {
+                confirmarPago();
+                addLog(elements.generalLog, '7️⃣ Confirmando pago...', 'info');
+            }, 7000);
+            
+            // Paso 8: Verificar pago
+            setTimeout(() => {
+                verificarPago(true);
+                addLog(elements.generalLog, '8️⃣ Verificando pago...', 'info');
+            }, 8000);
+        }
+        
+        function limpiarLogs() {
+            elements.jugadorLog.innerHTML = '';
+            elements.cajeroLog.innerHTML = '';
+            elements.generalLog.innerHTML = '';
+            addLog(elements.generalLog, '🧹 Logs limpiados', 'info');
+        }
+        
+        function verEstadisticas() {
+            fetch(`${SERVER_URL}/api/websocket/stats`)
+                .then(response => response.json())
+                .then(data => {
+                    addLog(elements.generalLog, `📊 Estadísticas: ${JSON.stringify(data, null, 2)}`, 'info');
+                })
+                .catch(error => {
+                    addLog(elements.generalLog, `❌ Error obteniendo estadísticas: ${error.message}`, 'error');
+                });
+        }
+        
+        // ===== EVENT LISTENERS =====
+        
+        // Jugador
+        elements.jugadorConnect.addEventListener('click', connectJugador);
+        elements.jugadorDisconnect.addEventListener('click', disconnectJugador);
+        elements.jugadorAuth.addEventListener('click', authenticateJugador);
+        elements.solicitarDeposito.addEventListener('click', solicitarDeposito);
+        elements.confirmarPago.addEventListener('click', confirmarPago);
+        
+        // Cajero
+        elements.cajeroConnect.addEventListener('click', connectCajero);
+        elements.cajeroDisconnect.addEventListener('click', disconnectCajero);
+        elements.cajeroAuth.addEventListener('click', authenticateCajero);
+        elements.aceptarSolicitud.addEventListener('click', aceptarSolicitud);
+        elements.confirmarPagoCajero.addEventListener('click', () => verificarPago(true));
+        elements.rechazarPagoCajero.addEventListener('click', () => verificarPago(false));
+        
+        // General
+        elements.testCompleto.addEventListener('click', testCompleto);
+        elements.limpiarLogs.addEventListener('click', limpiarLogs);
+        elements.estadisticas.addEventListener('click', verEstadisticas);
+        
+        // Inicialización
+        addLog(elements.generalLog, '🚀 Página de prueba cargada. Lista para probar el sistema de depósitos WebSocket.', 'success');
+        addLog(elements.generalLog, `🌐 Servidor: ${SERVER_URL}`, 'info');
+    </script>
+</body>
+</html>
