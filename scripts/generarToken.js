@@ -7,11 +7,11 @@ function generarToken() {
     const payload = {
       id: "688e2b5444ea3f514acf7bd9", // ID del bot (puedes cambiarlo si es necesario)
       email: "bot@elpatio.games",
-      rol: "bot"
+      rol: "bot",
     };
 
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
-      expiresIn: "7d" // Token válido por 7 días
+      expiresIn: "7d", // Token válido por 7 días
     });
 
     console.log("🔑 Token JWT generado:");
@@ -20,7 +20,7 @@ function generarToken() {
     console.log(`📧 Email: ${payload.email}`);
     console.log(`🤖 Rol: ${payload.rol}`);
     console.log(`⏰ Expira en: 7 días`);
-    
+
     return token;
   } catch (error) {
     console.error("❌ Error generando token:", error.message);
