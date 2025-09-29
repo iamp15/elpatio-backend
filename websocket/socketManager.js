@@ -4,6 +4,7 @@
 
 const DepositoWebSocketController = require("./depositoController");
 const RoomsManager = require("./roomsManager");
+const ConnectionStateManager = require("./connectionStateManager");
 
 class SocketManager {
   constructor() {
@@ -12,6 +13,7 @@ class SocketManager {
     this.connectedCajeros = new Map(); // cajeroId -> socketId
     this.depositoController = null; // Controlador de depósitos
     this.roomsManager = null; // Manager de rooms
+    this.connectionStateManager = null; // Manager de estado de conexión
   }
 
   /**
@@ -43,9 +45,12 @@ class SocketManager {
 
     // Inicializar controlador de depósitos
     this.depositoController = new DepositoWebSocketController(this);
-
+    
     // Inicializar manager de rooms
     this.roomsManager = new RoomsManager(this);
+    
+    // Inicializar manager de estado de conexión
+    this.connectionStateManager = new ConnectionStateManager(this);
 
     this.setupEventHandlers();
     console.log("🔌 WebSocket server inicializado");
@@ -190,6 +195,38 @@ class SocketManager {
         this.handleTestNotificationTransaccion(socket, data);
       });
 
+      // ===== EVENTOS DE DASHBOARD DE ESTADO =====
+
+      // Obtener estado completo del sistema
+      socket.on("obtener-estado-completo", () => {
+        this.handleObtenerEstadoCompleto(socket);
+      });
+
+      // Obtener solo estadísticas
+      socket.on("obtener-estadisticas", () => {
+        this.handleObtenerEstadisticas(socket);
+      });
+
+      // Obtener estado de cajeros
+      socket.on("obtener-estado-cajeros", () => {
+        this.handleObtenerEstadoCajeros(socket);
+      });
+
+      // Obtener estado de jugadores
+      socket.on("obtener-estado-jugadores", () => {
+        this.handleObtenerEstadoJugadores(socket);
+      });
+
+      // Obtener estado de transacciones
+      socket.on("obtener-estado-transacciones", () => {
+        this.handleObtenerEstadoTransacciones(socket);
+      });
+
+      // Unirse al dashboard de administración
+      socket.on("unirse-dashboard", () => {
+        this.handleUnirseDashboard(socket);
+      });
+
       // Manejar desconexión
       socket.on("disconnect", (reason) => {
         console.log(`🔌 Cliente desconectado: ${socket.id}, razón: ${reason}`);
@@ -228,6 +265,9 @@ class SocketManager {
   handleDisconnect(socket) {
     // Limpiar rooms del socket desconectado
     this.roomsManager.limpiarSocket(socket.id);
+    
+    // Limpiar estado de conexión
+    this.connectionStateManager.removerUsuario(socket.id);
 
     // Limpiar referencias del usuario desconectado
     for (let [telegramId, socketId] of this.connectedUsers.entries()) {
@@ -294,6 +334,12 @@ class SocketManager {
 
       // Agregar jugador a su room personal
       this.roomsManager.agregarJugador(telegramId, socket.id);
+      
+      // Agregar jugador al estado de conexión
+      this.connectionStateManager.agregarJugador(telegramId, socket.id, {
+        nombre: jugador.nickname || jugador.firstName || "Usuario",
+        nickname: jugador.nickname
+      });
 
       console.log(
         `👤 Jugador autenticado: ${
@@ -365,6 +411,12 @@ class SocketManager {
 
       // Agregar cajero a room de disponibles por defecto
       this.roomsManager.agregarCajeroDisponible(decoded.id, socket.id);
+      
+      // Agregar cajero al estado de conexión
+      this.connectionStateManager.agregarCajero(decoded.id, socket.id, {
+        nombre: cajero.nombreCompleto,
+        email: cajero.email
+      });
 
       console.log(
         `🏦 Cajero autenticado: ${cajero.nombreCompleto} (${decoded.id})`
@@ -594,12 +646,16 @@ class SocketManager {
       tipo: "prueba",
       mensaje: data.message || "Notificación de prueba a cajeros disponibles",
       timestamp: data.timestamp || new Date().toISOString(),
-      enviadoPor: socket.userType === "cajero" ? socket.cajeroId : socket.telegramId,
+      enviadoPor:
+        socket.userType === "cajero" ? socket.cajeroId : socket.telegramId,
     };
 
     // Enviar a todos los cajeros disponibles
-    this.roomsManager.notificarCajerosDisponibles("notificacion-prueba", notificacion);
-    
+    this.roomsManager.notificarCajerosDisponibles(
+      "notificacion-prueba",
+      notificacion
+    );
+
     // Confirmar al emisor
     socket.emit("notificacion-enviada", {
       tipo: "cajeros-disponibles",
@@ -607,7 +663,9 @@ class SocketManager {
       mensaje: "Notificación enviada a cajeros disponibles",
     });
 
-    console.log(`🧪 [TEST] Notificación de prueba enviada a ${this.roomsManager.rooms.cajerosDisponibles.size} cajeros disponibles`);
+    console.log(
+      `🧪 [TEST] Notificación de prueba enviada a ${this.roomsManager.rooms.cajerosDisponibles.size} cajeros disponibles`
+    );
   }
 
   /**
@@ -633,12 +691,17 @@ class SocketManager {
       tipo: "prueba",
       mensaje: data.message || "Notificación de prueba a jugador específico",
       timestamp: data.timestamp || new Date().toISOString(),
-      enviadoPor: socket.userType === "cajero" ? socket.cajeroId : socket.telegramId,
+      enviadoPor:
+        socket.userType === "cajero" ? socket.cajeroId : socket.telegramId,
     };
 
     // Enviar al jugador específico
-    this.roomsManager.notificarJugador(telegramId, "notificacion-prueba", notificacion);
-    
+    this.roomsManager.notificarJugador(
+      telegramId,
+      "notificacion-prueba",
+      notificacion
+    );
+
     // Confirmar al emisor
     socket.emit("notificacion-enviada", {
       tipo: "jugador-especifico",
@@ -646,7 +709,9 @@ class SocketManager {
       mensaje: `Notificación enviada a jugador ${telegramId}`,
     });
 
-    console.log(`🧪 [TEST] Notificación de prueba enviada a jugador ${telegramId}`);
+    console.log(
+      `🧪 [TEST] Notificación de prueba enviada a jugador ${telegramId}`
+    );
   }
 
   /**
@@ -673,14 +738,20 @@ class SocketManager {
       mensaje: data.message || "Notificación de prueba a transacción",
       timestamp: data.timestamp || new Date().toISOString(),
       transaccionId: transaccionId,
-      enviadoPor: socket.userType === "cajero" ? socket.cajeroId : socket.telegramId,
+      enviadoPor:
+        socket.userType === "cajero" ? socket.cajeroId : socket.telegramId,
     };
 
     // Enviar a participantes de la transacción
-    this.roomsManager.notificarTransaccion(transaccionId, "notificacion-prueba", notificacion);
-    
+    this.roomsManager.notificarTransaccion(
+      transaccionId,
+      "notificacion-prueba",
+      notificacion
+    );
+
     // Confirmar al emisor
-    const participantes = this.roomsManager.rooms.transacciones.get(transaccionId);
+    const participantes =
+      this.roomsManager.rooms.transacciones.get(transaccionId);
     socket.emit("notificacion-enviada", {
       tipo: "transaccion",
       transaccionId: transaccionId,
@@ -688,7 +759,79 @@ class SocketManager {
       mensaje: `Notificación enviada a transacción ${transaccionId}`,
     });
 
-    console.log(`🧪 [TEST] Notificación de prueba enviada a transacción ${transaccionId}`);
+    console.log(
+      `🧪 [TEST] Notificación de prueba enviada a transacción ${transaccionId}`
+    );
+  }
+
+  /**
+   * Manejar obtener estado completo del sistema
+   */
+  handleObtenerEstadoCompleto(socket) {
+    const estado = this.connectionStateManager.getEstadoCompleto();
+    socket.emit("estado-completo", estado);
+    console.log(`📊 [DASHBOARD] Estado completo enviado a ${socket.id}`);
+  }
+
+  /**
+   * Manejar obtener solo estadísticas
+   */
+  handleObtenerEstadisticas(socket) {
+    const estadisticas = this.connectionStateManager.getEstadisticas();
+    socket.emit("estadisticas", estadisticas);
+    console.log(`📊 [DASHBOARD] Estadísticas enviadas a ${socket.id}`);
+  }
+
+  /**
+   * Manejar obtener estado de cajeros
+   */
+  handleObtenerEstadoCajeros(socket) {
+    const cajeros = this.connectionStateManager.getEstadoCajeros();
+    socket.emit("estado-cajeros", cajeros);
+    console.log(`🏦 [DASHBOARD] Estado de cajeros enviado a ${socket.id}`);
+  }
+
+  /**
+   * Manejar obtener estado de jugadores
+   */
+  handleObtenerEstadoJugadores(socket) {
+    const jugadores = this.connectionStateManager.getEstadoJugadores();
+    socket.emit("estado-jugadores", jugadores);
+    console.log(`👤 [DASHBOARD] Estado de jugadores enviado a ${socket.id}`);
+  }
+
+  /**
+   * Manejar obtener estado de transacciones
+   */
+  handleObtenerEstadoTransacciones(socket) {
+    const transacciones = this.connectionStateManager.getEstadoTransacciones();
+    socket.emit("estado-transacciones", transacciones);
+    console.log(`💰 [DASHBOARD] Estado de transacciones enviado a ${socket.id}`);
+  }
+
+  /**
+   * Manejar unirse al dashboard de administración
+   */
+  handleUnirseDashboard(socket) {
+    // Verificar si el usuario tiene permisos de administración
+    if (socket.userType !== "cajero" && socket.userType !== "admin") {
+      socket.emit("error", {
+        message: "Solo cajeros y administradores pueden acceder al dashboard",
+      });
+      return;
+    }
+
+    // Unirse al room de administración
+    this.roomsManager.agregarAdmin(socket.id);
+    
+    // Enviar estado actual
+    const estado = this.connectionStateManager.getEstadoCompleto();
+    socket.emit("dashboard-conectado", {
+      message: "Conectado al dashboard de administración",
+      estado: estado
+    });
+
+    console.log(`👑 [DASHBOARD] Usuario ${socket.userType} se unió al dashboard`);
   }
 }
 

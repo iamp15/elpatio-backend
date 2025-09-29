@@ -51,6 +51,11 @@ app.get("/test-rooms-websocket", (req, res) => {
   res.sendFile(__dirname + "/test-rooms-websocket.html");
 });
 
+// Ruta para servir el dashboard de estado en tiempo real
+app.get("/test-dashboard-websocket", (req, res) => {
+  res.sendFile(__dirname + "/test-dashboard-websocket.html");
+});
+
 // API Routes
 app.use("/api/jugadores", require("./routes/jugadores"));
 app.use("/api/cajeros", require("./routes/cajeros"));

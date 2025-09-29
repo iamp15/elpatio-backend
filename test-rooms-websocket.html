@@ -365,18 +365,22 @@
           );
         });
 
-            socket.on("error", (data) => {
-                log(`❌ Error: ${data.message}`);
-            });
+        socket.on("error", (data) => {
+          log(`❌ Error: ${data.message}`);
+        });
 
-            // Eventos de notificaciones de prueba
-            socket.on("notificacion-prueba", (data) => {
-                log(`📢 Notificación recibida: ${data.mensaje} (${data.tipo})`);
-            });
+        // Eventos de notificaciones de prueba
+        socket.on("notificacion-prueba", (data) => {
+          log(`📢 Notificación recibida: ${data.mensaje} (${data.tipo})`);
+        });
 
-            socket.on("notificacion-enviada", (data) => {
-                log(`✅ ${data.mensaje} - Destinatarios: ${data.destinatarios || data.destinatario || "N/A"}`);
-            });
+        socket.on("notificacion-enviada", (data) => {
+          log(
+            `✅ ${data.mensaje} - Destinatarios: ${
+              data.destinatarios || data.destinatario || "N/A"
+            }`
+          );
+        });
       }
 
       function disconnect() {
