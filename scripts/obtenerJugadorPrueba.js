@@ -14,20 +14,22 @@ async function obtenerJugadorPrueba() {
 
     // Buscar el primer jugador disponible
     const jugador = await Jugador.findOne({});
-    
+
     if (jugador) {
       console.log("🎮 Jugador encontrado:");
       console.log(`📋 ID: ${jugador._id}`);
-      console.log(`👤 Nombre: ${jugador.nickname || jugador.firstName || "Sin nombre"}`);
+      console.log(
+        `👤 Nombre: ${jugador.nickname || jugador.firstName || "Sin nombre"}`
+      );
       console.log(`📱 Telegram ID: ${jugador.telegramId}`);
       console.log(`💰 Saldo: ${jugador.saldo}`);
       console.log(`📧 Email: ${jugador.email || "Sin email"}`);
       console.log(`📅 Creado: ${jugador.fechaCreacion}`);
-      
+
       return jugador._id.toString();
     } else {
       console.log("❌ No se encontraron jugadores en la base de datos");
-      
+
       // Crear un jugador de prueba
       console.log("🔧 Creando jugador de prueba...");
       const nuevoJugador = new Jugador({
@@ -37,16 +39,16 @@ async function obtenerJugadorPrueba() {
         nickname: "TestUser",
         saldo: 1000000,
         email: "test@ejemplo.com",
-        estado: "activo"
+        estado: "activo",
       });
-      
+
       await nuevoJugador.save();
       console.log("✅ Jugador de prueba creado:");
       console.log(`📋 ID: ${nuevoJugador._id}`);
       console.log(`👤 Nombre: ${nuevoJugador.nickname}`);
       console.log(`📱 Telegram ID: ${nuevoJugador.telegramId}`);
       console.log(`💰 Saldo: ${nuevoJugador.saldo}`);
-      
+
       return nuevoJugador._id.toString();
     }
   } catch (error) {

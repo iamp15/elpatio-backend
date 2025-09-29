@@ -632,13 +632,27 @@ class DepositoWebSocketController {
       return;
     }
 
+    // Obtener datos del jugador (puede ser un ID o un objeto poblado)
+    let jugadorData;
+    if (typeof transaccion.jugadorId === "object" && transaccion.jugadorId._id) {
+      // Ya está poblado
+      jugadorData = transaccion.jugadorId;
+    } else {
+      // Necesitamos obtener los datos del jugador
+      const Jugador = require("../models/Jugador");
+      jugadorData = await Jugador.findById(transaccion.jugadorId);
+      if (!jugadorData) {
+        console.log("⚠️ [DEPOSITO] Jugador no encontrado para notificación");
+        return;
+      }
+    }
+
     const notificacion = {
       transaccionId: transaccion._id,
       jugador: {
-        id: transaccion.jugadorId._id,
-        telegramId: transaccion.jugadorId.telegramId,
-        nombre:
-          transaccion.jugadorId.nickname || transaccion.jugadorId.firstName,
+        id: jugadorData._id,
+        telegramId: jugadorData.telegramId,
+        nombre: jugadorData.nickname || jugadorData.firstName || "Usuario",
       },
       monto: transaccion.monto,
       datosPago: transaccion.infoPago,
