@@ -46,6 +46,11 @@ app.get("/test-http-websocket", (req, res) => {
   res.sendFile(__dirname + "/test-http-websocket.html");
 });
 
+// Ruta para servir el archivo de prueba del sistema de rooms
+app.get("/test-rooms-websocket", (req, res) => {
+  res.sendFile(__dirname + "/test-rooms-websocket.html");
+});
+
 // API Routes
 app.use("/api/jugadores", require("./routes/jugadores"));
 app.use("/api/cajeros", require("./routes/cajeros"));

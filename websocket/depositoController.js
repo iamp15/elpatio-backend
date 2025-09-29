@@ -520,15 +520,6 @@ class DepositoWebSocketController {
    * Notificar a todos los cajeros sobre nueva solicitud
    */
   async notificarCajerosNuevaSolicitud(transaccion, jugador) {
-    const cajerosConectados = Array.from(
-      this.socketManager.connectedCajeros.keys()
-    );
-
-    if (cajerosConectados.length === 0) {
-      console.log("⚠️ [DEPOSITO] No hay cajeros conectados para notificar");
-      return;
-    }
-
     const notificacion = {
       transaccionId: transaccion._id,
       jugador: {
@@ -542,18 +533,14 @@ class DepositoWebSocketController {
       timestamp: new Date().toISOString(),
     };
 
-    // Notificar a todos los cajeros conectados
-    cajerosConectados.forEach((cajeroId) => {
-      const cajeroSocketId = this.socketManager.connectedCajeros.get(cajeroId);
-      if (cajeroSocketId) {
-        this.io
-          .to(cajeroSocketId)
-          .emit("nueva-solicitud-deposito", notificacion);
-      }
-    });
+    // Usar rooms para notificar solo a cajeros disponibles
+    this.socketManager.roomsManager.notificarCajerosDisponibles(
+      "nueva-solicitud-deposito",
+      notificacion
+    );
 
     console.log(
-      `📢 [DEPOSITO] Notificación enviada a ${cajerosConectados.length} cajeros`
+      `📢 [DEPOSITO] Nueva solicitud notificada a cajeros disponibles`
     );
   }
 
@@ -561,21 +548,12 @@ class DepositoWebSocketController {
    * Notificar al jugador que su solicitud fue aceptada
    */
   async notificarJugadorSolicitudAceptada(transaccion, cajero) {
-    const jugadorSocketId = this.buscarJugadorConectado(transaccion.telegramId);
+    // Verificar si el jugador está conectado usando rooms
+    const jugadorConectado = this.socketManager.roomsManager.rooms.jugadores.has(transaccion.telegramId);
 
-    if (!jugadorSocketId) {
+    if (!jugadorConectado) {
       console.log(
         "⚠️ [DEPOSITO] Jugador no conectado para notificar aceptación"
-      );
-      console.log(
-        `🔍 [DEPOSITO] Buscando jugador con telegramId: ${
-          transaccion.telegramId
-        } (tipo: ${typeof transaccion.telegramId})`
-      );
-      console.log(
-        `🔍 [DEPOSITO] Jugadores conectados: ${Array.from(
-          this.socketManager.connectedUsers.keys()
-        )}`
       );
       return;
     }
@@ -599,7 +577,12 @@ class DepositoWebSocketController {
       timestamp: new Date().toISOString(),
     };
 
-    this.io.to(jugadorSocketId).emit("solicitud-aceptada", notificacion);
+    // Usar rooms para notificar al jugador
+    this.socketManager.roomsManager.notificarJugador(
+      transaccion.telegramId,
+      "solicitud-aceptada",
+      notificacion
+    );
     console.log(
       `📢 [DEPOSITO] Datos bancarios enviados al jugador ${transaccion.telegramId}`
     );
@@ -634,7 +617,10 @@ class DepositoWebSocketController {
 
     // Obtener datos del jugador (puede ser un ID o un objeto poblado)
     let jugadorData;
-    if (typeof transaccion.jugadorId === "object" && transaccion.jugadorId._id) {
+    if (
+      typeof transaccion.jugadorId === "object" &&
+      transaccion.jugadorId._id
+    ) {
       // Ya está poblado
       jugadorData = transaccion.jugadorId;
     } else {

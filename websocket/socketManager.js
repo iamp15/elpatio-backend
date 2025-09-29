@@ -3,6 +3,7 @@
  */
 
 const DepositoWebSocketController = require("./depositoController");
+const RoomsManager = require("./roomsManager");
 
 class SocketManager {
   constructor() {
@@ -10,6 +11,7 @@ class SocketManager {
     this.connectedUsers = new Map(); // telegramId -> socketId
     this.connectedCajeros = new Map(); // cajeroId -> socketId
     this.depositoController = null; // Controlador de depósitos
+    this.roomsManager = null; // Manager de rooms
   }
 
   /**
@@ -41,6 +43,9 @@ class SocketManager {
 
     // Inicializar controlador de depósitos
     this.depositoController = new DepositoWebSocketController(this);
+    
+    // Inicializar manager de rooms
+    this.roomsManager = new RoomsManager(this);
 
     this.setupEventHandlers();
     console.log("🔌 WebSocket server inicializado");
@@ -142,6 +147,28 @@ class SocketManager {
         }
       });
 
+      // ===== EVENTOS DE ROOMS =====
+
+      // Cambiar estado de cajero (disponible/ocupado)
+      socket.on("cambiar-estado-cajero", (data) => {
+        this.handleCambiarEstadoCajero(socket, data);
+      });
+
+      // Unirse a room de transacción
+      socket.on("unirse-transaccion", (data) => {
+        this.handleUnirseTransaccion(socket, data);
+      });
+
+      // Salir de room de transacción
+      socket.on("salir-transaccion", (data) => {
+        this.handleSalirTransaccion(socket, data);
+      });
+
+      // Obtener estadísticas de rooms
+      socket.on("obtener-stats-rooms", () => {
+        this.handleObtenerStatsRooms(socket);
+      });
+
       // Manejar desconexión
       socket.on("disconnect", (reason) => {
         console.log(`🔌 Cliente desconectado: ${socket.id}, razón: ${reason}`);
@@ -178,6 +205,9 @@ class SocketManager {
    * Manejar desconexión
    */
   handleDisconnect(socket) {
+    // Limpiar rooms del socket desconectado
+    this.roomsManager.limpiarSocket(socket.id);
+
     // Limpiar referencias del usuario desconectado
     for (let [telegramId, socketId] of this.connectedUsers.entries()) {
       if (socketId === socket.id) {
@@ -240,6 +270,9 @@ class SocketManager {
       socket.telegramId = telegramId;
       socket.jugadorId = jugador._id; // Agregar jugadorId al socket
       socket.userType = "jugador";
+
+      // Agregar jugador a su room personal
+      this.roomsManager.agregarJugador(telegramId, socket.id);
 
       console.log(
         `👤 Jugador autenticado: ${
@@ -308,6 +341,9 @@ class SocketManager {
       this.connectedCajeros.set(decoded.id, socket.id);
       socket.cajeroId = decoded.id;
       socket.userType = "cajero";
+
+      // Agregar cajero a room de disponibles por defecto
+      this.roomsManager.agregarCajeroDisponible(decoded.id, socket.id);
 
       console.log(
         `🏦 Cajero autenticado: ${cajero.nombreCompleto} (${decoded.id})`
@@ -436,6 +472,90 @@ class SocketManager {
     console.log(
       `❌ Depósito rechazado por cajero ${socket.cajeroId}: ${motivo}`
     );
+  }
+
+  /**
+   * Manejar cambio de estado de cajero
+   */
+  handleCambiarEstadoCajero(socket, data) {
+    if (socket.userType !== "cajero") {
+      socket.emit("error", {
+        message: "Solo cajeros pueden cambiar su estado",
+      });
+      return;
+    }
+
+    const { estado } = data; // "disponible" o "ocupado"
+
+    if (estado === "disponible") {
+      this.roomsManager.agregarCajeroDisponible(socket.cajeroId, socket.id);
+      socket.emit("estado-cambiado", {
+        estado: "disponible",
+        message: "Estado cambiado a disponible",
+      });
+    } else if (estado === "ocupado") {
+      this.roomsManager.moverCajeroAOcupado(socket.cajeroId, socket.id);
+      socket.emit("estado-cambiado", {
+        estado: "ocupado",
+        message: "Estado cambiado a ocupado",
+      });
+    } else {
+      socket.emit("error", {
+        message: "Estado inválido. Use 'disponible' o 'ocupado'",
+      });
+    }
+  }
+
+  /**
+   * Manejar unirse a room de transacción
+   */
+  handleUnirseTransaccion(socket, data) {
+    const { transaccionId } = data;
+
+    if (!transaccionId) {
+      socket.emit("error", {
+        message: "ID de transacción requerido",
+      });
+      return;
+    }
+
+    this.roomsManager.agregarParticipanteTransaccion(transaccionId, socket.id);
+    socket.emit("unido-transaccion", {
+      transaccionId,
+      message: `Unido a transacción ${transaccionId}`,
+    });
+  }
+
+  /**
+   * Manejar salir de room de transacción
+   */
+  handleSalirTransaccion(socket, data) {
+    const { transaccionId } = data;
+
+    if (!transaccionId) {
+      socket.emit("error", {
+        message: "ID de transacción requerido",
+      });
+      return;
+    }
+
+    const socketObj = this.io.sockets.sockets.get(socket.id);
+    if (socketObj) {
+      socketObj.leave(`transaccion-${transaccionId}`);
+    }
+
+    socket.emit("salido-transaccion", {
+      transaccionId,
+      message: `Salido de transacción ${transaccionId}`,
+    });
+  }
+
+  /**
+   * Manejar obtener estadísticas de rooms
+   */
+  handleObtenerStatsRooms(socket) {
+    const stats = this.roomsManager.getStats();
+    socket.emit("stats-rooms", stats);
   }
 }
 
