@@ -173,6 +173,23 @@ class SocketManager {
         this.handleObtenerStatsRooms(socket);
       });
 
+      // ===== EVENTOS DE PRUEBA DE NOTIFICACIONES =====
+
+      // Prueba de notificación a cajeros disponibles
+      socket.on("test-notification-cajeros", (data) => {
+        this.handleTestNotificationCajeros(socket, data);
+      });
+
+      // Prueba de notificación a jugador específico
+      socket.on("test-notification-jugador", (data) => {
+        this.handleTestNotificationJugador(socket, data);
+      });
+
+      // Prueba de notificación a transacción
+      socket.on("test-notification-transaccion", (data) => {
+        this.handleTestNotificationTransaccion(socket, data);
+      });
+
       // Manejar desconexión
       socket.on("disconnect", (reason) => {
         console.log(`🔌 Cliente desconectado: ${socket.id}, razón: ${reason}`);
@@ -560,6 +577,118 @@ class SocketManager {
   handleObtenerStatsRooms(socket) {
     const stats = this.roomsManager.getStats();
     socket.emit("stats-rooms", stats);
+  }
+
+  /**
+   * Manejar prueba de notificación a cajeros disponibles
+   */
+  handleTestNotificationCajeros(socket, data) {
+    if (!socket.userType) {
+      socket.emit("error", {
+        message: "Debe estar autenticado para enviar notificaciones de prueba",
+      });
+      return;
+    }
+
+    const notificacion = {
+      tipo: "prueba",
+      mensaje: data.message || "Notificación de prueba a cajeros disponibles",
+      timestamp: data.timestamp || new Date().toISOString(),
+      enviadoPor: socket.userType === "cajero" ? socket.cajeroId : socket.telegramId,
+    };
+
+    // Enviar a todos los cajeros disponibles
+    this.roomsManager.notificarCajerosDisponibles("notificacion-prueba", notificacion);
+    
+    // Confirmar al emisor
+    socket.emit("notificacion-enviada", {
+      tipo: "cajeros-disponibles",
+      destinatarios: this.roomsManager.rooms.cajerosDisponibles.size,
+      mensaje: "Notificación enviada a cajeros disponibles",
+    });
+
+    console.log(`🧪 [TEST] Notificación de prueba enviada a ${this.roomsManager.rooms.cajerosDisponibles.size} cajeros disponibles`);
+  }
+
+  /**
+   * Manejar prueba de notificación a jugador específico
+   */
+  handleTestNotificationJugador(socket, data) {
+    if (!socket.userType) {
+      socket.emit("error", {
+        message: "Debe estar autenticado para enviar notificaciones de prueba",
+      });
+      return;
+    }
+
+    const { telegramId } = data;
+    if (!telegramId) {
+      socket.emit("error", {
+        message: "telegramId requerido para notificar jugador específico",
+      });
+      return;
+    }
+
+    const notificacion = {
+      tipo: "prueba",
+      mensaje: data.message || "Notificación de prueba a jugador específico",
+      timestamp: data.timestamp || new Date().toISOString(),
+      enviadoPor: socket.userType === "cajero" ? socket.cajeroId : socket.telegramId,
+    };
+
+    // Enviar al jugador específico
+    this.roomsManager.notificarJugador(telegramId, "notificacion-prueba", notificacion);
+    
+    // Confirmar al emisor
+    socket.emit("notificacion-enviada", {
+      tipo: "jugador-especifico",
+      destinatario: telegramId,
+      mensaje: `Notificación enviada a jugador ${telegramId}`,
+    });
+
+    console.log(`🧪 [TEST] Notificación de prueba enviada a jugador ${telegramId}`);
+  }
+
+  /**
+   * Manejar prueba de notificación a transacción
+   */
+  handleTestNotificationTransaccion(socket, data) {
+    if (!socket.userType) {
+      socket.emit("error", {
+        message: "Debe estar autenticado para enviar notificaciones de prueba",
+      });
+      return;
+    }
+
+    const { transaccionId } = data;
+    if (!transaccionId) {
+      socket.emit("error", {
+        message: "transaccionId requerido para notificar transacción",
+      });
+      return;
+    }
+
+    const notificacion = {
+      tipo: "prueba",
+      mensaje: data.message || "Notificación de prueba a transacción",
+      timestamp: data.timestamp || new Date().toISOString(),
+      transaccionId: transaccionId,
+      enviadoPor: socket.userType === "cajero" ? socket.cajeroId : socket.telegramId,
+    };
+
+    // Enviar a participantes de la transacción
+    this.roomsManager.notificarTransaccion(transaccionId, "notificacion-prueba", notificacion);
+    
+    // Confirmar al emisor
+    const participantes = this.roomsManager.rooms.transacciones.get(transaccionId);
+    socket.emit("notificacion-enviada", {
+      tipo: "transaccion",
+      transaccionId: transaccionId,
+      destinatarios: participantes ? participantes.size : 0,
+      mensaje: `Notificación enviada a transacción ${transaccionId}`,
+    });
+
+    console.log(`🧪 [TEST] Notificación de prueba enviada a transacción ${transaccionId}`);
   }
 }
 
