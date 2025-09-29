@@ -43,7 +43,7 @@ class SocketManager {
 
     // Inicializar controlador de depósitos
     this.depositoController = new DepositoWebSocketController(this);
-    
+
     // Inicializar manager de rooms
     this.roomsManager = new RoomsManager(this);
 
@@ -61,9 +61,11 @@ class SocketManager {
       console.log(`🌐 Origen: ${socket.handshake.headers.origin || "N/A"}`);
 
       // Autenticación de jugador (Telegram)
-      socket.on("authenticate-jugador", async (data) => {
+      socket.on("auth-jugador", async (data) => {
+        console.log("🔐 [AUTH] Evento auth-jugador recibido:", data);
         try {
           const result = await this.authenticateJugador(socket, data);
+          console.log("🔐 [AUTH] Resultado autenticación jugador:", result);
           socket.emit("auth-result", result);
         } catch (error) {
           console.error("❌ Error autenticando jugador:", error);
@@ -75,9 +77,11 @@ class SocketManager {
       });
 
       // Autenticación de cajero (JWT)
-      socket.on("authenticate-cajero", async (data) => {
+      socket.on("auth-cajero", async (data) => {
+        console.log("🔐 [AUTH] Evento auth-cajero recibido:", data);
         try {
           const result = await this.authenticateCajero(socket, data);
+          console.log("🔐 [AUTH] Resultado autenticación cajero:", result);
           socket.emit("auth-result", result);
         } catch (error) {
           console.error("❌ Error autenticando cajero:", error);

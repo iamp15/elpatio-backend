@@ -1,348 +1,415 @@
 <!DOCTYPE html>
 <html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Test Sistema de Rooms - WebSocket</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }
-        .container {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-        .status {
-            padding: 10px;
-            border-radius: 5px;
-            margin: 10px 0;
-            font-weight: bold;
-        }
-        .connected { background-color: #d4edda; color: #155724; }
-        .disconnected { background-color: #f8d7da; color: #721c24; }
-        .authenticated { background-color: #cce5ff; color: #004085; }
-        button {
-            background-color: #007bff;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            margin: 5px;
-        }
-        button:hover { background-color: #0056b3; }
-        button:disabled { background-color: #6c757d; cursor: not-allowed; }
-        .danger { background-color: #dc3545; }
-        .danger:hover { background-color: #c82333; }
-        .success { background-color: #28a745; }
-        .success:hover { background-color: #218838; }
-        .warning { background-color: #ffc107; color: #212529; }
-        .warning:hover { background-color: #e0a800; }
-        .log {
-            background-color: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 5px;
-            padding: 15px;
-            height: 300px;
-            overflow-y: auto;
-            font-family: monospace;
-            font-size: 12px;
-            white-space: pre-wrap;
-        }
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin: 20px 0;
-        }
-        .stat-card {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-            border-left: 4px solid #007bff;
-        }
-        .stat-number {
-            font-size: 24px;
-            font-weight: bold;
-            color: #007bff;
-        }
-        .stat-label {
-            color: #6c757d;
-            font-size: 14px;
-        }
-        .room-controls {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            margin: 20px 0;
-        }
-        .room-section {
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            padding: 15px;
-        }
-        .room-section h3 {
-            margin-top: 0;
-            color: #495057;
-        }
-        input, select {
-            width: 100%;
-            padding: 8px;
-            margin: 5px 0;
-            border: 1px solid #ced4da;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+      }
+      .status {
+        padding: 10px;
+        border-radius: 5px;
+        margin: 10px 0;
+        font-weight: bold;
+      }
+      .connected {
+        background-color: #d4edda;
+        color: #155724;
+      }
+      .disconnected {
+        background-color: #f8d7da;
+        color: #721c24;
+      }
+      .authenticated {
+        background-color: #cce5ff;
+        color: #004085;
+      }
+      button {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        margin: 5px;
+      }
+      button:hover {
+        background-color: #0056b3;
+      }
+      button:disabled {
+        background-color: #6c757d;
+        cursor: not-allowed;
+      }
+      .danger {
+        background-color: #dc3545;
+      }
+      .danger:hover {
+        background-color: #c82333;
+      }
+      .success {
+        background-color: #28a745;
+      }
+      .success:hover {
+        background-color: #218838;
+      }
+      .warning {
+        background-color: #ffc107;
+        color: #212529;
+      }
+      .warning:hover {
+        background-color: #e0a800;
+      }
+      .log {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        padding: 15px;
+        height: 300px;
+        overflow-y: auto;
+        font-family: monospace;
+        font-size: 12px;
+        white-space: pre-wrap;
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin: 20px 0;
+      }
+      .stat-card {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        text-align: center;
+        border-left: 4px solid #007bff;
+      }
+      .stat-number {
+        font-size: 24px;
+        font-weight: bold;
+        color: #007bff;
+      }
+      .stat-label {
+        color: #6c757d;
+        font-size: 14px;
+      }
+      .room-controls {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+        margin: 20px 0;
+      }
+      .room-section {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 15px;
+      }
+      .room-section h3 {
+        margin-top: 0;
+        color: #495057;
+      }
+      input,
+      select {
+        width: 100%;
+        padding: 8px;
+        margin: 5px 0;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        box-sizing: border-box;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-        <h1>🏠 Test Sistema de Rooms - WebSocket</h1>
-        <p>Prueba el sistema de rooms para organizar usuarios y notificaciones dirigidas.</p>
-        
-        <div id="connectionStatus" class="status disconnected">
-            ❌ Desconectado
-        </div>
-        
-        <div id="authStatus" class="status disconnected">
-            ❌ No autenticado
-        </div>
+      <h1>🏠 Test Sistema de Rooms - WebSocket</h1>
+      <p>
+        Prueba el sistema de rooms para organizar usuarios y notificaciones
+        dirigidas.
+      </p>
+
+      <div id="connectionStatus" class="status disconnected">
+        ❌ Desconectado
+      </div>
+
+      <div id="authStatus" class="status disconnected">❌ No autenticado</div>
     </div>
 
     <div class="container">
-        <h2>🔌 Conexión y Autenticación</h2>
-        <button id="connectBtn" onclick="connect()">Conectar WebSocket</button>
-        <button id="disconnectBtn" onclick="disconnect()" disabled>Desconectar</button>
-        
-        <div style="margin-top: 20px;">
-            <label>Tipo de Usuario:</label>
-            <select id="userType">
-                <option value="jugador">👤 Jugador</option>
-                <option value="cajero">🏦 Cajero</option>
-            </select>
-            
-            <button id="authBtn" onclick="authenticate()" disabled>Autenticar</button>
+      <h2>🔌 Conexión y Autenticación</h2>
+      <button id="connectBtn" onclick="connect()">Conectar WebSocket</button>
+      <button id="disconnectBtn" onclick="disconnect()" disabled>
+        Desconectar
+      </button>
+
+      <div style="margin-top: 20px">
+        <label>Tipo de Usuario:</label>
+        <select id="userType">
+          <option value="jugador">👤 Jugador</option>
+          <option value="cajero">🏦 Cajero</option>
+        </select>
+
+        <button id="authBtn" onclick="authenticate()" disabled>
+          Autenticar
+        </button>
+      </div>
+    </div>
+
+    <div class="container">
+      <h2>📊 Estadísticas de Rooms</h2>
+      <button onclick="getRoomStats()">Actualizar Estadísticas</button>
+
+      <div id="roomStats" class="stats">
+        <!-- Las estadísticas se mostrarán aquí -->
+      </div>
+    </div>
+
+    <div class="container">
+      <h2>🏠 Control de Rooms</h2>
+
+      <div class="room-controls">
+        <div class="room-section">
+          <h3>🏦 Estado de Cajero</h3>
+          <button onclick="changeCajeroState('disponible')" class="success">
+            Marcar Disponible
+          </button>
+          <button onclick="changeCajeroState('ocupado')" class="warning">
+            Marcar Ocupado
+          </button>
         </div>
-    </div>
 
-    <div class="container">
-        <h2>📊 Estadísticas de Rooms</h2>
-        <button onclick="getRoomStats()">Actualizar Estadísticas</button>
-        
-        <div id="roomStats" class="stats">
-            <!-- Las estadísticas se mostrarán aquí -->
+        <div class="room-section">
+          <h3>💰 Room de Transacción</h3>
+          <input
+            type="text"
+            id="transaccionId"
+            placeholder="ID de Transacción"
+            value="68d9e4200087b4a1f047d218"
+          />
+          <button onclick="joinTransaccion()" class="success">
+            Unirse a Transacción
+          </button>
+          <button onclick="leaveTransaccion()" class="danger">
+            Salir de Transacción
+          </button>
         </div>
+      </div>
     </div>
 
     <div class="container">
-        <h2>🏠 Control de Rooms</h2>
-        
-        <div class="room-controls">
-            <div class="room-section">
-                <h3>🏦 Estado de Cajero</h3>
-                <button onclick="changeCajeroState('disponible')" class="success">Marcar Disponible</button>
-                <button onclick="changeCajeroState('ocupado')" class="warning">Marcar Ocupado</button>
-            </div>
-            
-            <div class="room-section">
-                <h3>💰 Room de Transacción</h3>
-                <input type="text" id="transaccionId" placeholder="ID de Transacción" value="68d9e4200087b4a1f047d218">
-                <button onclick="joinTransaccion()" class="success">Unirse a Transacción</button>
-                <button onclick="leaveTransaccion()" class="danger">Salir de Transacción</button>
-            </div>
-        </div>
+      <h2>🧪 Pruebas de Notificaciones</h2>
+      <button onclick="testNotificationToAvailableCajeros()" class="success">
+        Notificar a Cajeros Disponibles
+      </button>
+      <button onclick="testNotificationToJugador()" class="success">
+        Notificar a Jugador Específico
+      </button>
+      <button onclick="testNotificationToTransaccion()" class="success">
+        Notificar a Transacción
+      </button>
     </div>
 
     <div class="container">
-        <h2>🧪 Pruebas de Notificaciones</h2>
-        <button onclick="testNotificationToAvailableCajeros()" class="success">Notificar a Cajeros Disponibles</button>
-        <button onclick="testNotificationToJugador()" class="success">Notificar a Jugador Específico</button>
-        <button onclick="testNotificationToTransaccion()" class="success">Notificar a Transacción</button>
-    </div>
-
-    <div class="container">
-        <h2>📝 Log de Eventos</h2>
-        <button onclick="clearLog()" class="danger">Limpiar Log</button>
-        <div id="log" class="log"></div>
+      <h2>📝 Log de Eventos</h2>
+      <button onclick="clearLog()" class="danger">Limpiar Log</button>
+      <div id="log" class="log"></div>
     </div>
 
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script>
-        let socket = null;
-        let isConnected = false;
-        let isAuthenticated = false;
-        let userType = null;
-        let userData = null;
+      let socket = null;
+      let isConnected = false;
+      let isAuthenticated = false;
+      let userType = null;
+      let userData = null;
 
-        // Configuración
-        const BACKEND_URL = window.location.origin;
-        const JWT_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ODQzMTk1Y2NmNDZmOTgxYmU3ZGYyMCIsImVtYWlsIjoibHVpc0BlamVtcGxvLmNvbSIsInJvbCI6ImNhamVybyIsImlhdCI6MTc1OTA4ODYwOSwiZXhwIjoxNzU5MTc1MDA5fQ.YAO4X_HaNOFrYSHODyORdyN27TwmBeBALSkABh8-WAU";
-        const TELEGRAM_ID = 123456789;
+      // Configuración
+      const BACKEND_URL = window.location.origin;
+      const JWT_TOKEN =
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ODQzMTk1Y2NmNDZmOTgxYmU3ZGYyMCIsImVtYWlsIjoibHVpc0BlamVtcGxvLmNvbSIsInJvbCI6ImNhamVybyIsImlhdCI6MTc1OTA4ODYwOSwiZXhwIjoxNzU5MTc1MDA5fQ.YAO4X_HaNOFrYSHODyORdyN27TwmBeBALSkABh8-WAU";
+      const TELEGRAM_ID = 123456789;
 
-        function log(message) {
-            const timestamp = new Date().toLocaleTimeString();
-            const logElement = document.getElementById('log');
-            logElement.textContent += `[${timestamp}] ${message}\n`;
-            logElement.scrollTop = logElement.scrollHeight;
-            console.log(message);
+      function log(message) {
+        const timestamp = new Date().toLocaleTimeString();
+        const logElement = document.getElementById("log");
+        logElement.textContent += `[${timestamp}] ${message}\n`;
+        logElement.scrollTop = logElement.scrollHeight;
+        console.log(message);
+      }
+
+      function updateConnectionStatus() {
+        const statusElement = document.getElementById("connectionStatus");
+        const authElement = document.getElementById("authStatus");
+
+        if (isConnected) {
+          statusElement.className = "status connected";
+          statusElement.textContent = "✅ Conectado al WebSocket";
+        } else {
+          statusElement.className = "status disconnected";
+          statusElement.textContent = "❌ Desconectado";
         }
 
-        function updateConnectionStatus() {
-            const statusElement = document.getElementById('connectionStatus');
-            const authElement = document.getElementById('authStatus');
-            
-            if (isConnected) {
-                statusElement.className = 'status connected';
-                statusElement.textContent = '✅ Conectado al WebSocket';
-            } else {
-                statusElement.className = 'status disconnected';
-                statusElement.textContent = '❌ Desconectado';
-            }
-            
-            if (isAuthenticated) {
-                authElement.className = 'status authenticated';
-                authElement.textContent = `✅ Autenticado como ${userType}: ${userData?.nombre || userData?.nombre || 'Usuario'}`;
-            } else {
-                authElement.className = 'status disconnected';
-                authElement.textContent = '❌ No autenticado';
-            }
+        if (isAuthenticated) {
+          authElement.className = "status authenticated";
+          authElement.textContent = `✅ Autenticado como ${userType}: ${
+            userData?.nombre || userData?.nombre || "Usuario"
+          }`;
+        } else {
+          authElement.className = "status disconnected";
+          authElement.textContent = "❌ No autenticado";
+        }
+      }
+
+      function connect() {
+        if (socket) {
+          socket.disconnect();
         }
 
-        function connect() {
-            if (socket) {
-                socket.disconnect();
-            }
+        log("🔌 Conectando al servidor WebSocket...");
+        socket = io(BACKEND_URL, {
+          transports: ["websocket", "polling"],
+        });
 
-            log('🔌 Conectando al servidor WebSocket...');
-            socket = io(BACKEND_URL, {
-                transports: ['websocket', 'polling']
-            });
+        socket.on("connect", () => {
+          isConnected = true;
+          log("✅ Conectado al servidor WebSocket");
+          updateConnectionStatus();
+          document.getElementById("connectBtn").disabled = true;
+          document.getElementById("disconnectBtn").disabled = false;
+          document.getElementById("authBtn").disabled = false;
+        });
 
-            socket.on('connect', () => {
-                isConnected = true;
-                log('✅ Conectado al servidor WebSocket');
-                updateConnectionStatus();
-                document.getElementById('connectBtn').disabled = true;
-                document.getElementById('disconnectBtn').disabled = false;
-                document.getElementById('authBtn').disabled = false;
-            });
+        socket.on("disconnect", (reason) => {
+          isConnected = false;
+          isAuthenticated = false;
+          userType = null;
+          userData = null;
+          log(`❌ Desconectado del servidor WebSocket. Razón: ${reason}`);
+          updateConnectionStatus();
+          document.getElementById("connectBtn").disabled = false;
+          document.getElementById("disconnectBtn").disabled = true;
+          document.getElementById("authBtn").disabled = true;
+        });
 
-            socket.on('disconnect', (reason) => {
-                isConnected = false;
-                isAuthenticated = false;
-                userType = null;
-                userData = null;
-                log(`❌ Desconectado del servidor WebSocket. Razón: ${reason}`);
-                updateConnectionStatus();
-                document.getElementById('connectBtn').disabled = false;
-                document.getElementById('disconnectBtn').disabled = true;
-                document.getElementById('authBtn').disabled = true;
-            });
+        socket.on("connect_error", (error) => {
+          log(`❌ Error de conexión: ${error.message}`);
+        });
 
-            socket.on('connect_error', (error) => {
-                log(`❌ Error de conexión: ${error.message}`);
-            });
+        // Eventos de autenticación
+        socket.on("auth-result", (data) => {
+          if (data.success) {
+            isAuthenticated = true;
+            userData = data.user;
+            log(
+              `✅ Autenticación exitosa: ${
+                data.user.nombre || data.user.nombre
+              }`
+            );
+          } else {
+            log(`❌ Error de autenticación: ${data.message}`);
+          }
+          updateConnectionStatus();
+        });
 
-            // Eventos de autenticación
-            socket.on('auth-result', (data) => {
-                if (data.success) {
-                    isAuthenticated = true;
-                    userData = data.user;
-                    log(`✅ Autenticación exitosa: ${data.user.nombre || data.user.nombre}`);
-                } else {
-                    log(`❌ Error de autenticación: ${data.message}`);
-                }
-                updateConnectionStatus();
-            });
+        // Eventos de rooms
+        socket.on("estado-cambiado", (data) => {
+          log(`🏦 Estado cambiado: ${data.estado} - ${data.message}`);
+        });
 
-            // Eventos de rooms
-            socket.on('estado-cambiado', (data) => {
-                log(`🏦 Estado cambiado: ${data.estado} - ${data.message}`);
-            });
+        socket.on("unido-transaccion", (data) => {
+          log(
+            `💰 Unido a transacción: ${data.transaccionId} - ${data.message}`
+          );
+        });
 
-            socket.on('unido-transaccion', (data) => {
-                log(`💰 Unido a transacción: ${data.transaccionId} - ${data.message}`);
-            });
+        socket.on("salido-transaccion", (data) => {
+          log(
+            `💰 Salido de transacción: ${data.transaccionId} - ${data.message}`
+          );
+        });
 
-            socket.on('salido-transaccion', (data) => {
-                log(`💰 Salido de transacción: ${data.transaccionId} - ${data.message}`);
-            });
+        socket.on("stats-rooms", (data) => {
+          displayRoomStats(data);
+          log(`📊 Estadísticas de rooms actualizadas`);
+        });
 
-            socket.on('stats-rooms', (data) => {
-                displayRoomStats(data);
-                log(`📊 Estadísticas de rooms actualizadas`);
-            });
+        // Eventos de notificaciones
+        socket.on("nueva-solicitud-deposito", (data) => {
+          log(
+            `📋 Nueva solicitud de depósito: ${data.jugador.nombre} - $${data.monto}`
+          );
+        });
 
-            // Eventos de notificaciones
-            socket.on('nueva-solicitud-deposito', (data) => {
-                log(`📋 Nueva solicitud de depósito: ${data.jugador.nombre} - $${data.monto}`);
-            });
+        socket.on("solicitud-aceptada", (data) => {
+          log(`✅ Solicitud aceptada por: ${data.cajero.nombre}`);
+        });
 
-            socket.on('solicitud-aceptada', (data) => {
-                log(`✅ Solicitud aceptada por: ${data.cajero.nombre}`);
-            });
+        socket.on("verificar-pago", (data) => {
+          log(`🔍 Verificar pago de: ${data.jugador.nombre} - $${data.monto}`);
+        });
 
-            socket.on('verificar-pago', (data) => {
-                log(`🔍 Verificar pago de: ${data.jugador.nombre} - $${data.monto}`);
-            });
+        socket.on("deposito-completado", (data) => {
+          log(
+            `🎉 Depósito completado: $${data.monto} - Nuevo saldo: $${data.saldoNuevo}`
+          );
+        });
 
-            socket.on('deposito-completado', (data) => {
-                log(`🎉 Depósito completado: $${data.monto} - Nuevo saldo: $${data.saldoNuevo}`);
-            });
+        socket.on("error", (data) => {
+          log(`❌ Error: ${data.message}`);
+        });
+      }
 
-            socket.on('error', (data) => {
-                log(`❌ Error: ${data.message}`);
-            });
+      function disconnect() {
+        if (socket) {
+          socket.disconnect();
+        }
+      }
+
+      function authenticate() {
+        if (!socket || !isConnected) {
+          log("❌ No hay conexión WebSocket");
+          return;
         }
 
-        function disconnect() {
-            if (socket) {
-                socket.disconnect();
-            }
+        userType = document.getElementById("userType").value;
+        log(`🔐 Enviando autenticación como ${userType}...`);
+
+        if (userType === "jugador") {
+          socket.emit("auth-jugador", {
+            telegramId: TELEGRAM_ID,
+            initData: "test_data",
+          });
+        } else if (userType === "cajero") {
+          socket.emit("auth-cajero", {
+            token: JWT_TOKEN,
+          });
+        }
+      }
+
+      function getRoomStats() {
+        if (!socket || !isConnected) {
+          log("❌ No hay conexión WebSocket");
+          return;
         }
 
-        function authenticate() {
-            if (!socket || !isConnected) {
-                log('❌ No hay conexión WebSocket');
-                return;
-            }
+        log("📊 Solicitando estadísticas de rooms...");
+        socket.emit("obtener-stats-rooms");
+      }
 
-            userType = document.getElementById('userType').value;
-            log(`🔐 Enviando autenticación como ${userType}...`);
-
-            if (userType === 'jugador') {
-                socket.emit('auth-jugador', {
-                    telegramId: TELEGRAM_ID,
-                    initData: 'test_data'
-                });
-            } else if (userType === 'cajero') {
-                socket.emit('auth-cajero', {
-                    token: JWT_TOKEN
-                });
-            }
-        }
-
-        function getRoomStats() {
-            if (!socket || !isConnected) {
-                log('❌ No hay conexión WebSocket');
-                return;
-            }
-
-            log('📊 Solicitando estadísticas de rooms...');
-            socket.emit('obtener-stats-rooms');
-        }
-
-        function displayRoomStats(stats) {
-            const statsContainer = document.getElementById('roomStats');
-            statsContainer.innerHTML = `
+      function displayRoomStats(stats) {
+        const statsContainer = document.getElementById("roomStats");
+        statsContainer.innerHTML = `
                 <div class="stat-card">
                     <div class="stat-number">${stats.cajerosDisponibles}</div>
                     <div class="stat-label">Cajeros Disponibles</div>
@@ -368,105 +435,114 @@
                     <div class="stat-label">Total Rooms</div>
                 </div>
             `;
+      }
+
+      function changeCajeroState(estado) {
+        if (
+          !socket ||
+          !isConnected ||
+          !isAuthenticated ||
+          userType !== "cajero"
+        ) {
+          log("❌ Solo cajeros autenticados pueden cambiar estado");
+          return;
         }
 
-        function changeCajeroState(estado) {
-            if (!socket || !isConnected || !isAuthenticated || userType !== 'cajero') {
-                log('❌ Solo cajeros autenticados pueden cambiar estado');
-                return;
-            }
+        log(`🏦 Cambiando estado a: ${estado}`);
+        socket.emit("cambiar-estado-cajero", { estado });
+      }
 
-            log(`🏦 Cambiando estado a: ${estado}`);
-            socket.emit('cambiar-estado-cajero', { estado });
+      function joinTransaccion() {
+        if (!socket || !isConnected || !isAuthenticated) {
+          log("❌ Debe estar autenticado para unirse a transacciones");
+          return;
         }
 
-        function joinTransaccion() {
-            if (!socket || !isConnected || !isAuthenticated) {
-                log('❌ Debe estar autenticado para unirse a transacciones');
-                return;
-            }
-
-            const transaccionId = document.getElementById('transaccionId').value;
-            if (!transaccionId) {
-                log('❌ Ingrese un ID de transacción');
-                return;
-            }
-
-            log(`💰 Uniéndose a transacción: ${transaccionId}`);
-            socket.emit('unirse-transaccion', { transaccionId });
+        const transaccionId = document.getElementById("transaccionId").value;
+        if (!transaccionId) {
+          log("❌ Ingrese un ID de transacción");
+          return;
         }
 
-        function leaveTransaccion() {
-            if (!socket || !isConnected || !isAuthenticated) {
-                log('❌ Debe estar autenticado para salir de transacciones');
-                return;
-            }
+        log(`💰 Uniéndose a transacción: ${transaccionId}`);
+        socket.emit("unirse-transaccion", { transaccionId });
+      }
 
-            const transaccionId = document.getElementById('transaccionId').value;
-            if (!transaccionId) {
-                log('❌ Ingrese un ID de transacción');
-                return;
-            }
-
-            log(`💰 Saliendo de transacción: ${transaccionId}`);
-            socket.emit('salir-transaccion', { transaccionId });
+      function leaveTransaccion() {
+        if (!socket || !isConnected || !isAuthenticated) {
+          log("❌ Debe estar autenticado para salir de transacciones");
+          return;
         }
 
-        function testNotificationToAvailableCajeros() {
-            if (!socket || !isConnected || !isAuthenticated) {
-                log('❌ Debe estar autenticado para enviar notificaciones');
-                return;
-            }
-
-            log('📢 Enviando notificación de prueba a cajeros disponibles...');
-            // Esta funcionalidad se implementaría en el backend
-            socket.emit('test-notification-cajeros', {
-                message: 'Notificación de prueba a cajeros disponibles',
-                timestamp: new Date().toISOString()
-            });
+        const transaccionId = document.getElementById("transaccionId").value;
+        if (!transaccionId) {
+          log("❌ Ingrese un ID de transacción");
+          return;
         }
 
-        function testNotificationToJugador() {
-            if (!socket || !isConnected || !isAuthenticated) {
-                log('❌ Debe estar autenticado para enviar notificaciones');
-                return;
-            }
+        log(`💰 Saliendo de transacción: ${transaccionId}`);
+        socket.emit("salir-transaccion", { transaccionId });
+      }
 
-            log('📢 Enviando notificación de prueba a jugador específico...');
-            socket.emit('test-notification-jugador', {
-                telegramId: TELEGRAM_ID,
-                message: 'Notificación de prueba a jugador específico',
-                timestamp: new Date().toISOString()
-            });
+      function testNotificationToAvailableCajeros() {
+        if (!socket || !isConnected || !isAuthenticated) {
+          log("❌ Debe estar autenticado para enviar notificaciones");
+          return;
         }
 
-        function testNotificationToTransaccion() {
-            if (!socket || !isConnected || !isAuthenticated) {
-                log('❌ Debe estar autenticado para enviar notificaciones');
-                return;
-            }
+        log("📢 Enviando notificación de prueba a cajeros disponibles...");
+        // Esta funcionalidad se implementaría en el backend
+        socket.emit("test-notification-cajeros", {
+          message: "Notificación de prueba a cajeros disponibles",
+          timestamp: new Date().toISOString(),
+        });
+      }
 
-            const transaccionId = document.getElementById('transaccionId').value;
-            if (!transaccionId) {
-                log('❌ Ingrese un ID de transacción');
-                return;
-            }
-
-            log(`📢 Enviando notificación de prueba a transacción: ${transaccionId}`);
-            socket.emit('test-notification-transaccion', {
-                transaccionId,
-                message: 'Notificación de prueba a transacción',
-                timestamp: new Date().toISOString()
-            });
+      function testNotificationToJugador() {
+        if (!socket || !isConnected || !isAuthenticated) {
+          log("❌ Debe estar autenticado para enviar notificaciones");
+          return;
         }
 
-        function clearLog() {
-            document.getElementById('log').textContent = '';
+        log("📢 Enviando notificación de prueba a jugador específico...");
+        socket.emit("test-notification-jugador", {
+          telegramId: TELEGRAM_ID,
+          message: "Notificación de prueba a jugador específico",
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      function testNotificationToTransaccion() {
+        if (!socket || !isConnected || !isAuthenticated) {
+          log("❌ Debe estar autenticado para enviar notificaciones");
+          return;
         }
 
-        // Inicializar página
-        log('📄 Página cargada. Haz clic en "Conectar WebSocket" para comenzar las pruebas.');
-        updateConnectionStatus();
+        const transaccionId = document.getElementById("transaccionId").value;
+        if (!transaccionId) {
+          log("❌ Ingrese un ID de transacción");
+          return;
+        }
+
+        log(
+          `📢 Enviando notificación de prueba a transacción: ${transaccionId}`
+        );
+        socket.emit("test-notification-transaccion", {
+          transaccionId,
+          message: "Notificación de prueba a transacción",
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      function clearLog() {
+        document.getElementById("log").textContent = "";
+      }
+
+      // Inicializar página
+      log(
+        '📄 Página cargada. Haz clic en "Conectar WebSocket" para comenzar las pruebas.'
+      );
+      updateConnectionStatus();
     </script>
-</body>
+  </body>
 </html>

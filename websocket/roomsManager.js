@@ -10,13 +10,13 @@ class RoomsManager {
       // Rooms de cajeros
       cajerosDisponibles: new Set(),
       cajerosOcupados: new Set(),
-      
+
       // Rooms de jugadores (por telegramId)
       jugadores: new Map(), // telegramId -> Set<socketId>
-      
+
       // Rooms de transacciones (por transaccionId)
       transacciones: new Map(), // transaccionId -> Set<socketId>
-      
+
       // Rooms de administración
       adminDashboard: new Set(),
     };
@@ -28,14 +28,14 @@ class RoomsManager {
   agregarCajeroDisponible(cajeroId, socketId) {
     this.rooms.cajerosDisponibles.add(socketId);
     this.rooms.cajerosOcupados.delete(socketId);
-    
+
     // Unirse al room de cajeros disponibles
     const socket = this.socketManager.io.sockets.sockets.get(socketId);
     if (socket) {
-      socket.join('cajeros-disponibles');
-      socket.leave('cajeros-ocupados');
+      socket.join("cajeros-disponibles");
+      socket.leave("cajeros-ocupados");
     }
-    
+
     console.log(`🏦 [ROOMS] Cajero ${cajeroId} agregado a disponibles`);
     this.logRoomStats();
   }
@@ -46,14 +46,14 @@ class RoomsManager {
   moverCajeroAOcupado(cajeroId, socketId) {
     this.rooms.cajerosDisponibles.delete(socketId);
     this.rooms.cajerosOcupados.add(socketId);
-    
+
     // Cambiar de room
     const socket = this.socketManager.io.sockets.sockets.get(socketId);
     if (socket) {
-      socket.leave('cajeros-disponibles');
-      socket.join('cajeros-ocupados');
+      socket.leave("cajeros-disponibles");
+      socket.join("cajeros-ocupados");
     }
-    
+
     console.log(`🏦 [ROOMS] Cajero ${cajeroId} movido a ocupados`);
     this.logRoomStats();
   }
@@ -65,15 +65,15 @@ class RoomsManager {
     if (!this.rooms.jugadores.has(telegramId)) {
       this.rooms.jugadores.set(telegramId, new Set());
     }
-    
+
     this.rooms.jugadores.get(telegramId).add(socketId);
-    
+
     // Unirse al room personal
     const socket = this.socketManager.io.sockets.sockets.get(socketId);
     if (socket) {
       socket.join(`jugador-${telegramId}`);
     }
-    
+
     console.log(`👤 [ROOMS] Jugador ${telegramId} agregado a su room`);
     this.logRoomStats();
   }
@@ -84,19 +84,19 @@ class RoomsManager {
   removerJugador(telegramId, socketId) {
     if (this.rooms.jugadores.has(telegramId)) {
       this.rooms.jugadores.get(telegramId).delete(socketId);
-      
+
       // Si no hay más sockets para este jugador, limpiar
       if (this.rooms.jugadores.get(telegramId).size === 0) {
         this.rooms.jugadores.delete(telegramId);
       }
     }
-    
+
     // Salir del room personal
     const socket = this.socketManager.io.sockets.sockets.get(socketId);
     if (socket) {
       socket.leave(`jugador-${telegramId}`);
     }
-    
+
     console.log(`👤 [ROOMS] Jugador ${telegramId} removido de su room`);
     this.logRoomStats();
   }
@@ -106,20 +106,24 @@ class RoomsManager {
    */
   crearRoomTransaccion(transaccionId, participantes) {
     this.rooms.transacciones.set(transaccionId, new Set());
-    
+
     // Agregar participantes al room
-    participantes.forEach(participante => {
+    participantes.forEach((participante) => {
       if (participante.socketId) {
         this.rooms.transacciones.get(transaccionId).add(participante.socketId);
-        
-        const socket = this.socketManager.io.sockets.sockets.get(participante.socketId);
+
+        const socket = this.socketManager.io.sockets.sockets.get(
+          participante.socketId
+        );
         if (socket) {
           socket.join(`transaccion-${transaccionId}`);
         }
       }
     });
-    
-    console.log(`💰 [ROOMS] Room de transacción ${transaccionId} creado con ${participantes.length} participantes`);
+
+    console.log(
+      `💰 [ROOMS] Room de transacción ${transaccionId} creado con ${participantes.length} participantes`
+    );
     this.logRoomStats();
   }
 
@@ -130,15 +134,17 @@ class RoomsManager {
     if (!this.rooms.transacciones.has(transaccionId)) {
       this.rooms.transacciones.set(transaccionId, new Set());
     }
-    
+
     this.rooms.transacciones.get(transaccionId).add(socketId);
-    
+
     const socket = this.socketManager.io.sockets.sockets.get(socketId);
     if (socket) {
       socket.join(`transaccion-${transaccionId}`);
     }
-    
-    console.log(`💰 [ROOMS] Participante agregado a transacción ${transaccionId}`);
+
+    console.log(
+      `💰 [ROOMS] Participante agregado a transacción ${transaccionId}`
+    );
   }
 
   /**
@@ -147,15 +153,15 @@ class RoomsManager {
   limpiarRoomTransaccion(transaccionId) {
     if (this.rooms.transacciones.has(transaccionId)) {
       const participantes = this.rooms.transacciones.get(transaccionId);
-      
+
       // Hacer que todos salgan del room
-      participantes.forEach(socketId => {
+      participantes.forEach((socketId) => {
         const socket = this.socketManager.io.sockets.sockets.get(socketId);
         if (socket) {
           socket.leave(`transaccion-${transaccionId}`);
         }
       });
-      
+
       this.rooms.transacciones.delete(transaccionId);
       console.log(`💰 [ROOMS] Room de transacción ${transaccionId} limpiado`);
     }
@@ -166,12 +172,12 @@ class RoomsManager {
    */
   agregarAdmin(socketId) {
     this.rooms.adminDashboard.add(socketId);
-    
+
     const socket = this.socketManager.io.sockets.sockets.get(socketId);
     if (socket) {
-      socket.join('admin-dashboard');
+      socket.join("admin-dashboard");
     }
-    
+
     console.log(`👑 [ROOMS] Admin agregado al dashboard`);
     this.logRoomStats();
   }
@@ -181,12 +187,12 @@ class RoomsManager {
    */
   removerAdmin(socketId) {
     this.rooms.adminDashboard.delete(socketId);
-    
+
     const socket = this.socketManager.io.sockets.sockets.get(socketId);
     if (socket) {
-      socket.leave('admin-dashboard');
+      socket.leave("admin-dashboard");
     }
-    
+
     console.log(`👑 [ROOMS] Admin removido del dashboard`);
     this.logRoomStats();
   }
@@ -197,10 +203,10 @@ class RoomsManager {
   limpiarSocket(socketId) {
     // Remover de cajeros disponibles
     this.rooms.cajerosDisponibles.delete(socketId);
-    
+
     // Remover de cajeros ocupados
     this.rooms.cajerosOcupados.delete(socketId);
-    
+
     // Remover de jugadores
     for (const [telegramId, sockets] of this.rooms.jugadores.entries()) {
       if (sockets.has(socketId)) {
@@ -210,7 +216,7 @@ class RoomsManager {
         }
       }
     }
-    
+
     // Remover de transacciones
     for (const [transaccionId, sockets] of this.rooms.transacciones.entries()) {
       if (sockets.has(socketId)) {
@@ -220,10 +226,10 @@ class RoomsManager {
         }
       }
     }
-    
+
     // Remover de admin dashboard
     this.rooms.adminDashboard.delete(socketId);
-    
+
     console.log(`🧹 [ROOMS] Socket ${socketId} limpiado de todos los rooms`);
   }
 
@@ -237,7 +243,7 @@ class RoomsManager {
       jugadoresConectados: this.rooms.jugadores.size,
       transaccionesActivas: this.rooms.transacciones.size,
       adminsConectados: this.rooms.adminDashboard.size,
-      totalRooms: this.rooms.jugadores.size + this.rooms.transacciones.size + 3 // +3 por los rooms fijos
+      totalRooms: this.rooms.jugadores.size + this.rooms.transacciones.size + 3, // +3 por los rooms fijos
     };
   }
 
@@ -246,15 +252,19 @@ class RoomsManager {
    */
   logRoomStats() {
     const stats = this.getStats();
-    console.log(`📊 [ROOMS] Stats: Disponibles: ${stats.cajerosDisponibles}, Ocupados: ${stats.cajerosOcupados}, Jugadores: ${stats.jugadoresConectados}, Transacciones: ${stats.transaccionesActivas}, Admins: ${stats.adminsConectados}`);
+    console.log(
+      `📊 [ROOMS] Stats: Disponibles: ${stats.cajerosDisponibles}, Ocupados: ${stats.cajerosOcupados}, Jugadores: ${stats.jugadoresConectados}, Transacciones: ${stats.transaccionesActivas}, Admins: ${stats.adminsConectados}`
+    );
   }
 
   /**
    * Notificar a todos los cajeros disponibles
    */
   notificarCajerosDisponibles(evento, datos) {
-    this.socketManager.io.to('cajeros-disponibles').emit(evento, datos);
-    console.log(`📢 [ROOMS] Notificación enviada a ${this.rooms.cajerosDisponibles.size} cajeros disponibles`);
+    this.socketManager.io.to("cajeros-disponibles").emit(evento, datos);
+    console.log(
+      `📢 [ROOMS] Notificación enviada a ${this.rooms.cajerosDisponibles.size} cajeros disponibles`
+    );
   }
 
   /**
@@ -269,16 +279,22 @@ class RoomsManager {
    * Notificar a participantes de una transacción
    */
   notificarTransaccion(transaccionId, evento, datos) {
-    this.socketManager.io.to(`transaccion-${transaccionId}`).emit(evento, datos);
-    console.log(`📢 [ROOMS] Notificación enviada a transacción ${transaccionId}`);
+    this.socketManager.io
+      .to(`transaccion-${transaccionId}`)
+      .emit(evento, datos);
+    console.log(
+      `📢 [ROOMS] Notificación enviada a transacción ${transaccionId}`
+    );
   }
 
   /**
    * Notificar a administradores
    */
   notificarAdmins(evento, datos) {
-    this.socketManager.io.to('admin-dashboard').emit(evento, datos);
-    console.log(`📢 [ROOMS] Notificación enviada a ${this.rooms.adminDashboard.size} administradores`);
+    this.socketManager.io.to("admin-dashboard").emit(evento, datos);
+    console.log(
+      `📢 [ROOMS] Notificación enviada a ${this.rooms.adminDashboard.size} administradores`
+    );
   }
 }
 

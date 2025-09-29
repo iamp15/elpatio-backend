@@ -549,7 +549,10 @@ class DepositoWebSocketController {
    */
   async notificarJugadorSolicitudAceptada(transaccion, cajero) {
     // Verificar si el jugador está conectado usando rooms
-    const jugadorConectado = this.socketManager.roomsManager.rooms.jugadores.has(transaccion.telegramId);
+    const jugadorConectado =
+      this.socketManager.roomsManager.rooms.jugadores.has(
+        transaccion.telegramId
+      );
 
     if (!jugadorConectado) {
       console.log(
