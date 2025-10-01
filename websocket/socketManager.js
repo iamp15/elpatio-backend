@@ -45,10 +45,10 @@ class SocketManager {
 
     // Inicializar controlador de depósitos
     this.depositoController = new DepositoWebSocketController(this);
-    
+
     // Inicializar manager de rooms
     this.roomsManager = new RoomsManager(this);
-    
+
     // Inicializar manager de estado de conexión
     this.connectionStateManager = new ConnectionStateManager(this);
 
@@ -265,7 +265,7 @@ class SocketManager {
   handleDisconnect(socket) {
     // Limpiar rooms del socket desconectado
     this.roomsManager.limpiarSocket(socket.id);
-    
+
     // Limpiar estado de conexión
     this.connectionStateManager.removerUsuario(socket.id);
 
@@ -334,11 +334,11 @@ class SocketManager {
 
       // Agregar jugador a su room personal
       this.roomsManager.agregarJugador(telegramId, socket.id);
-      
+
       // Agregar jugador al estado de conexión
       this.connectionStateManager.agregarJugador(telegramId, socket.id, {
         nombre: jugador.nickname || jugador.firstName || "Usuario",
-        nickname: jugador.nickname
+        nickname: jugador.nickname,
       });
 
       console.log(
@@ -411,11 +411,11 @@ class SocketManager {
 
       // Agregar cajero a room de disponibles por defecto
       this.roomsManager.agregarCajeroDisponible(decoded.id, socket.id);
-      
+
       // Agregar cajero al estado de conexión
       this.connectionStateManager.agregarCajero(decoded.id, socket.id, {
         nombre: cajero.nombreCompleto,
-        email: cajero.email
+        email: cajero.email,
       });
 
       console.log(
@@ -806,7 +806,9 @@ class SocketManager {
   handleObtenerEstadoTransacciones(socket) {
     const transacciones = this.connectionStateManager.getEstadoTransacciones();
     socket.emit("estado-transacciones", transacciones);
-    console.log(`💰 [DASHBOARD] Estado de transacciones enviado a ${socket.id}`);
+    console.log(
+      `💰 [DASHBOARD] Estado de transacciones enviado a ${socket.id}`
+    );
   }
 
   /**
@@ -823,15 +825,17 @@ class SocketManager {
 
     // Unirse al room de administración
     this.roomsManager.agregarAdmin(socket.id);
-    
+
     // Enviar estado actual
     const estado = this.connectionStateManager.getEstadoCompleto();
     socket.emit("dashboard-conectado", {
       message: "Conectado al dashboard de administración",
-      estado: estado
+      estado: estado,
     });
 
-    console.log(`👑 [DASHBOARD] Usuario ${socket.userType} se unió al dashboard`);
+    console.log(
+      `👑 [DASHBOARD] Usuario ${socket.userType} se unió al dashboard`
+    );
   }
 }
 

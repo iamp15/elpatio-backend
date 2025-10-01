@@ -9,13 +9,13 @@ class ConnectionStateManager {
     this.connectionStates = {
       // Estados de cajeros
       cajeros: new Map(), // cajeroId -> { estado, timestamp, transaccionId?, socketId }
-      
+
       // Estados de jugadores
       jugadores: new Map(), // telegramId -> { timestamp, socketId, ultimaActividad }
-      
+
       // Estados de transacciones
       transacciones: new Map(), // transaccionId -> { estado, participantes, timestamp }
-      
+
       // Estadísticas generales
       estadisticas: {
         totalConexiones: 0,
@@ -23,8 +23,8 @@ class ConnectionStateManager {
         cajerosOcupados: 0,
         jugadoresConectados: 0,
         transaccionesActivas: 0,
-        ultimaActualizacion: new Date().toISOString()
-      }
+        ultimaActualizacion: new Date().toISOString(),
+      },
     };
   }
 
@@ -40,12 +40,14 @@ class ConnectionStateManager {
       timestamp: new Date().toISOString(),
       socketId: socketId,
       transaccionId: null,
-      ultimaActividad: new Date().toISOString()
+      ultimaActividad: new Date().toISOString(),
     });
 
     this.actualizarEstadisticas();
     this.notificarCambioEstado();
-    console.log(`🏦 [ESTADO] Cajero ${datosCajero.nombre} agregado al estado de conexión`);
+    console.log(
+      `🏦 [ESTADO] Cajero ${datosCajero.nombre} agregado al estado de conexión`
+    );
   }
 
   /**
@@ -54,7 +56,9 @@ class ConnectionStateManager {
   actualizarEstadoCajero(cajeroId, nuevoEstado, transaccionId = null) {
     const cajero = this.connectionStates.cajeros.get(cajeroId);
     if (!cajero) {
-      console.log(`⚠️ [ESTADO] Cajero ${cajeroId} no encontrado para actualizar estado`);
+      console.log(
+        `⚠️ [ESTADO] Cajero ${cajeroId} no encontrado para actualizar estado`
+      );
       return;
     }
 
@@ -65,7 +69,9 @@ class ConnectionStateManager {
 
     this.actualizarEstadisticas();
     this.notificarCambioEstado();
-    console.log(`🏦 [ESTADO] Cajero ${cajero.nombre} cambió a estado: ${nuevoEstado}`);
+    console.log(
+      `🏦 [ESTADO] Cajero ${cajero.nombre} cambió a estado: ${nuevoEstado}`
+    );
   }
 
   /**
@@ -78,12 +84,14 @@ class ConnectionStateManager {
       nickname: datosJugador.nickname,
       timestamp: new Date().toISOString(),
       socketId: socketId,
-      ultimaActividad: new Date().toISOString()
+      ultimaActividad: new Date().toISOString(),
     });
 
     this.actualizarEstadisticas();
     this.notificarCambioEstado();
-    console.log(`👤 [ESTADO] Jugador ${datosJugador.nombre} agregado al estado de conexión`);
+    console.log(
+      `👤 [ESTADO] Jugador ${datosJugador.nombre} agregado al estado de conexión`
+    );
   }
 
   /**
@@ -108,7 +116,7 @@ class ConnectionStateManager {
       cajeroId: datosTransaccion.cajeroId,
       participantes: [],
       timestamp: new Date().toISOString(),
-      ultimaActividad: new Date().toISOString()
+      ultimaActividad: new Date().toISOString(),
     });
 
     this.actualizarEstadisticas();
@@ -131,7 +139,9 @@ class ConnectionStateManager {
 
     this.actualizarEstadisticas();
     this.notificarCambioEstado();
-    console.log(`💰 [ESTADO] Transacción ${transaccionId} cambió a estado: ${nuevoEstado}`);
+    console.log(
+      `💰 [ESTADO] Transacción ${transaccionId} cambió a estado: ${nuevoEstado}`
+    );
   }
 
   /**
@@ -148,10 +158,15 @@ class ConnectionStateManager {
     }
 
     // Buscar y remover jugador
-    for (const [telegramId, jugador] of this.connectionStates.jugadores.entries()) {
+    for (const [
+      telegramId,
+      jugador,
+    ] of this.connectionStates.jugadores.entries()) {
       if (jugador.socketId === socketId) {
         this.connectionStates.jugadores.delete(telegramId);
-        console.log(`👤 [ESTADO] Jugador ${jugador.nombre} removido del estado`);
+        console.log(
+          `👤 [ESTADO] Jugador ${jugador.nombre} removido del estado`
+        );
         break;
       }
     }
@@ -166,15 +181,19 @@ class ConnectionStateManager {
   actualizarEstadisticas() {
     const cajeros = Array.from(this.connectionStates.cajeros.values());
     const jugadores = Array.from(this.connectionStates.jugadores.values());
-    const transacciones = Array.from(this.connectionStates.transacciones.values());
+    const transacciones = Array.from(
+      this.connectionStates.transacciones.values()
+    );
 
     this.connectionStates.estadisticas = {
       totalConexiones: cajeros.length + jugadores.length,
-      cajerosDisponibles: cajeros.filter(c => c.estado === "disponible").length,
-      cajerosOcupados: cajeros.filter(c => c.estado === "ocupado").length,
+      cajerosDisponibles: cajeros.filter((c) => c.estado === "disponible")
+        .length,
+      cajerosOcupados: cajeros.filter((c) => c.estado === "ocupado").length,
       jugadoresConectados: jugadores.length,
-      transaccionesActivas: transacciones.filter(t => t.estado === "activa").length,
-      ultimaActualizacion: new Date().toISOString()
+      transaccionesActivas: transacciones.filter((t) => t.estado === "activa")
+        .length,
+      ultimaActualizacion: new Date().toISOString(),
     };
   }
 
@@ -183,13 +202,13 @@ class ConnectionStateManager {
    */
   getEstadoCompleto() {
     this.actualizarEstadisticas();
-    
+
     return {
       estadisticas: this.connectionStates.estadisticas,
       cajeros: Array.from(this.connectionStates.cajeros.values()),
       jugadores: Array.from(this.connectionStates.jugadores.values()),
       transacciones: Array.from(this.connectionStates.transacciones.values()),
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
   }
 
@@ -227,7 +246,9 @@ class ConnectionStateManager {
    */
   notificarCambioEstado() {
     const estado = this.getEstadoCompleto();
-    this.socketManager.io.to("admin-dashboard").emit("estado-actualizado", estado);
+    this.socketManager.io
+      .to("admin-dashboard")
+      .emit("estado-actualizado", estado);
   }
 
   /**
@@ -243,12 +264,17 @@ class ConnectionStateManager {
    */
   limpiarTransaccionesAntiguas() {
     const unaHoraAtras = new Date(Date.now() - 60 * 60 * 1000);
-    
-    for (const [transaccionId, transaccion] of this.connectionStates.transacciones.entries()) {
+
+    for (const [
+      transaccionId,
+      transaccion,
+    ] of this.connectionStates.transacciones.entries()) {
       const fechaTransaccion = new Date(transaccion.timestamp);
       if (fechaTransaccion < unaHoraAtras && transaccion.estado !== "activa") {
         this.connectionStates.transacciones.delete(transaccionId);
-        console.log(`🧹 [ESTADO] Transacción antigua ${transaccionId} removida`);
+        console.log(
+          `🧹 [ESTADO] Transacción antigua ${transaccionId} removida`
+        );
       }
     }
 
@@ -257,3 +283,4 @@ class ConnectionStateManager {
 }
 
 module.exports = ConnectionStateManager;
+
