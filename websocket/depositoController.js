@@ -272,11 +272,17 @@ class DepositoWebSocketController {
       console.log("🔍 [DEBUG] datosPago recibidos:", datosPago);
       console.log("🔍 [DEBUG] infoPago actual:", transaccion.infoPago);
       
-      transaccion.infoPago = {
+      // Mapear los campos del frontend a los campos del modelo
+      const infoPagoActualizado = {
         ...transaccion.infoPago,
-        ...datosPago,
+        metodoPago: datosPago.metodoPago || transaccion.infoPago.metodoPago,
+        numeroReferencia: datosPago.referencia || datosPago.numeroReferencia,
+        bancoOrigen: datosPago.banco || datosPago.bancoOrigen,
+        telefonoOrigen: datosPago.telefono || datosPago.telefonoOrigen,
         fechaPago: new Date(),
       };
+      
+      transaccion.infoPago = infoPagoActualizado;
       
       console.log("🔍 [DEBUG] infoPago actualizado:", transaccion.infoPago);
 
@@ -306,7 +312,13 @@ class DepositoWebSocketController {
             "Usuario",
         },
         monto: transaccion.monto,
-        datosPago: transaccion.infoPago,
+        datosPago: {
+          banco: transaccion.infoPago.bancoOrigen,
+          telefono: transaccion.infoPago.telefonoOrigen,
+          referencia: transaccion.infoPago.numeroReferencia,
+          fecha: transaccion.infoPago.fechaPago,
+          monto: transaccion.monto,
+        },
       });
 
       // Confirmar al jugador
