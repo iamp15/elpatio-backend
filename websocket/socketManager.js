@@ -202,6 +202,12 @@ class SocketManager {
       });
 
       socket.on("verificar-pago-cajero", async (data) => {
+        console.log("🔍 [SOCKET] Evento verificar-pago-cajero recibido:", {
+          transaccionId: data.transaccionId,
+          accion: data.accion,
+          socketId: socket.id,
+          timestamp: new Date().toISOString()
+        });
         await this.depositoController.verificarPagoCajero(socket, data);
       });
 

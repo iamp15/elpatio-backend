@@ -353,6 +353,14 @@ class DepositoWebSocketController {
    * Evento: 'verificar-pago-cajero'
    */
   async verificarPagoCajero(socket, data) {
+    console.log("🔍 [DEPOSITO] verificarPagoCajero INICIADO:", {
+      transaccionId: data.transaccionId,
+      accion: data.accion,
+      socketId: socket.id,
+      timestamp: new Date().toISOString(),
+      stackTrace: new Error().stack
+    });
+
     const maxRetries = 3;
     let retryCount = 0;
 
@@ -360,14 +368,20 @@ class DepositoWebSocketController {
       const session = await mongoose.startSession();
 
       try {
-        console.log("🔍 [DEPOSITO] Cajero verificando pago:", data, `(intento ${retryCount + 1})`);
+        console.log(
+          "🔍 [DEPOSITO] Cajero verificando pago:",
+          data,
+          `(intento ${retryCount + 1})`
+        );
 
         // Validar datos requeridos
         const { transaccionId, accion, notas, motivo } = data;
 
         // Verificar si ya se está procesando esta transacción
         if (this.processingTransactions.has(transaccionId)) {
-          console.log(`⚠️ [DEPOSITO] Transacción ${transaccionId} ya está siendo procesada`);
+          console.log(
+            `⚠️ [DEPOSITO] Transacción ${transaccionId} ya está siendo procesada`
+          );
           socket.emit("error", {
             message: "La transacción ya está siendo procesada",
           });
@@ -378,164 +392,174 @@ class DepositoWebSocketController {
         this.processingTransactions.add(transaccionId);
 
         await session.startTransaction();
-      if (!transaccionId || !accion) {
-        socket.emit("error", {
-          message: "ID de transacción y acción requeridos",
-        });
-        return;
-      }
+        if (!transaccionId || !accion) {
+          socket.emit("error", {
+            message: "ID de transacción y acción requeridos",
+          });
+          return;
+        }
 
-      if (!["confirmar", "rechazar"].includes(accion)) {
-        socket.emit("error", {
-          message: "Acción debe ser 'confirmar' o 'rechazar'",
-        });
-        return;
-      }
+        if (!["confirmar", "rechazar"].includes(accion)) {
+          socket.emit("error", {
+            message: "Acción debe ser 'confirmar' o 'rechazar'",
+          });
+          return;
+        }
 
-      // Validar que el socket esté autenticado como cajero
-      if (!socket.userType || socket.userType !== "cajero") {
-        socket.emit("error", {
-          message: "Solo los cajeros pueden verificar pagos",
-        });
-        return;
-      }
+        // Validar que el socket esté autenticado como cajero
+        if (!socket.userType || socket.userType !== "cajero") {
+          socket.emit("error", {
+            message: "Solo los cajeros pueden verificar pagos",
+          });
+          return;
+        }
 
-      // Buscar la transacción
-      const transaccion = await Transaccion.findById(transaccionId).session(
-        session
-      );
-      if (!transaccion) {
-        await session.abortTransaction();
-        socket.emit("error", {
-          message: "Transacción no encontrada",
-        });
-        return;
-      }
-
-      if (transaccion.estado !== "en_proceso") {
-        await session.abortTransaction();
-        socket.emit("error", {
-          message: "La transacción no está en proceso",
-        });
-        return;
-      }
-
-      if (accion === "confirmar") {
-        // Confirmar el pago
-        transaccion.fechaConfirmacionCajero = new Date();
-        transaccion.infoPago = {
-          ...transaccion.infoPago,
-          notasCajero: notas || "Pago verificado correctamente",
-        };
-        transaccion.cambiarEstado("confirmada");
-        await transaccion.save({ session });
-
-        // Procesar saldo del jugador
-        const jugador = await Jugador.findById(transaccion.jugadorId).session(
+        // Buscar la transacción
+        const transaccion = await Transaccion.findById(transaccionId).session(
           session
         );
-        const saldoNuevo = jugador.saldo + transaccion.monto;
+        if (!transaccion) {
+          await session.abortTransaction();
+          socket.emit("error", {
+            message: "Transacción no encontrada",
+          });
+          return;
+        }
 
-        await Jugador.findByIdAndUpdate(
-          transaccion.jugadorId,
-          { saldo: saldoNuevo },
-          { session }
-        );
+        if (transaccion.estado !== "en_proceso") {
+          await session.abortTransaction();
+          socket.emit("error", {
+            message: "La transacción no está en proceso",
+          });
+          return;
+        }
 
-        // Completar transacción
-        transaccion.cambiarEstado("completada");
-        transaccion.saldoNuevo = saldoNuevo;
-        transaccion.fechaProcesamiento = new Date();
-        await transaccion.save({ session });
+        if (accion === "confirmar") {
+          // Confirmar el pago
+          transaccion.fechaConfirmacionCajero = new Date();
+          transaccion.infoPago = {
+            ...transaccion.infoPago,
+            notasCajero: notas || "Pago verificado correctamente",
+          };
+          transaccion.cambiarEstado("confirmada");
+          await transaccion.save({ session });
 
-        await session.commitTransaction();
+          // Procesar saldo del jugador
+          const jugador = await Jugador.findById(transaccion.jugadorId).session(
+            session
+          );
+          const saldoNuevo = jugador.saldo + transaccion.monto;
 
-        console.log(
-          `✅ [DEPOSITO] Depósito completado: ${transaccionId}, nuevo saldo: ${saldoNuevo}`
-        );
+          await Jugador.findByIdAndUpdate(
+            transaccion.jugadorId,
+            { saldo: saldoNuevo },
+            { session }
+          );
 
-        // 2. USAR ROOMS PARA NOTIFICAR A TODOS LOS PARTICIPANTES
-        const notificacion = {
-          transaccionId: transaccion._id,
-          monto: transaccion.monto,
-          saldoNuevo: saldoNuevo,
-          timestamp: new Date().toISOString(),
-        };
+          // Completar transacción
+          transaccion.cambiarEstado("completada");
+          transaccion.saldoNuevo = saldoNuevo;
+          transaccion.fechaProcesamiento = new Date();
+          await transaccion.save({ session });
 
-        // Enviar a la room de la transacción (todos reciben)
-        this.io.to(`transaccion-${transaccionId}`).emit("deposito-completado", {
-          ...notificacion,
-          target: "cajero", // Solo cajero procesa
-        });
+          await session.commitTransaction();
 
-        this.io.to(`transaccion-${transaccionId}`).emit("deposito-completado", {
-          ...notificacion,
-          target: "jugador", // Solo jugador procesa
-          mensaje:
-            "¡Depósito completado exitosamente! Gracias por tu confianza.",
-          saldoAnterior: transaccion.saldoAnterior,
-        });
+          console.log(
+            `✅ [DEPOSITO] Depósito completado: ${transaccionId}, nuevo saldo: ${saldoNuevo}`
+          );
 
-        // Registrar log
-        await registrarLog({
-          accion: "Depósito completado via WebSocket",
-          usuario: socket.cajeroId,
-          rol: "cajero",
-          detalle: {
+          // 2. USAR ROOMS PARA NOTIFICAR A TODOS LOS PARTICIPANTES
+          const notificacion = {
             transaccionId: transaccion._id,
-            jugadorId: transaccion.jugadorId,
             monto: transaccion.monto,
             saldoNuevo: saldoNuevo,
-            socketId: socket.id,
-          },
-        });
-      } else {
-        // Rechazar el pago
-        transaccion.cambiarEstado("rechazada", motivo || "Pago no verificado");
-        await transaccion.save({ session });
+            timestamp: new Date().toISOString(),
+          };
 
-        await session.commitTransaction();
+          // Enviar a la room de la transacción (todos reciben)
+          this.io
+            .to(`transaccion-${transaccionId}`)
+            .emit("deposito-completado", {
+              ...notificacion,
+              target: "cajero", // Solo cajero procesa
+            });
 
-        console.log(`❌ [DEPOSITO] Depósito rechazado: ${transaccionId}`);
+          this.io
+            .to(`transaccion-${transaccionId}`)
+            .emit("deposito-completado", {
+              ...notificacion,
+              target: "jugador", // Solo jugador procesa
+              mensaje:
+                "¡Depósito completado exitosamente! Gracias por tu confianza.",
+              saldoAnterior: transaccion.saldoAnterior,
+            });
 
-        // 2. USAR ROOMS PARA NOTIFICAR A TODOS LOS PARTICIPANTES
-        const notificacion = {
-          transaccionId: transaccion._id,
-          motivo: notas || "Pago no verificado",
-          timestamp: new Date().toISOString(),
-        };
+          // Registrar log
+          await registrarLog({
+            accion: "Depósito completado via WebSocket",
+            usuario: socket.cajeroId,
+            rol: "cajero",
+            detalle: {
+              transaccionId: transaccion._id,
+              jugadorId: transaccion.jugadorId,
+              monto: transaccion.monto,
+              saldoNuevo: saldoNuevo,
+              socketId: socket.id,
+            },
+          });
+        } else {
+          // Rechazar el pago
+          transaccion.cambiarEstado(
+            "rechazada",
+            motivo || "Pago no verificado"
+          );
+          await transaccion.save({ session });
 
-        // Enviar a la room de la transacción (todos reciben)
-        this.io.to(`transaccion-${transaccionId}`).emit("deposito-rechazado", {
-          ...notificacion,
-          target: "cajero", // Solo cajero procesa
-        });
+          await session.commitTransaction();
 
-        this.io.to(`transaccion-${transaccionId}`).emit("deposito-rechazado", {
-          ...notificacion,
-          target: "jugador", // Solo jugador procesa
-          monto: transaccion.monto,
-        });
+          console.log(`❌ [DEPOSITO] Depósito rechazado: ${transaccionId}`);
 
-        // Registrar log
-        await registrarLog({
-          accion: "Depósito rechazado via WebSocket",
-          usuario: socket.cajeroId,
-          rol: "cajero",
-          detalle: {
+          // 2. USAR ROOMS PARA NOTIFICAR A TODOS LOS PARTICIPANTES
+          const notificacion = {
             transaccionId: transaccion._id,
-            jugadorId: transaccion.jugadorId,
-            motivo: notas,
-            socketId: socket.id,
-          },
-        });
-      }
+            motivo: notas || "Pago no verificado",
+            timestamp: new Date().toISOString(),
+          };
+
+          // Enviar a la room de la transacción (todos reciben)
+          this.io
+            .to(`transaccion-${transaccionId}`)
+            .emit("deposito-rechazado", {
+              ...notificacion,
+              target: "cajero", // Solo cajero procesa
+            });
+
+          this.io
+            .to(`transaccion-${transaccionId}`)
+            .emit("deposito-rechazado", {
+              ...notificacion,
+              target: "jugador", // Solo jugador procesa
+              monto: transaccion.monto,
+            });
+
+          // Registrar log
+          await registrarLog({
+            accion: "Depósito rechazado via WebSocket",
+            usuario: socket.cajeroId,
+            rol: "cajero",
+            detalle: {
+              transaccionId: transaccion._id,
+              jugadorId: transaccion.jugadorId,
+              motivo: notas,
+              socketId: socket.id,
+            },
+          });
+        }
 
         // Si llegamos aquí, la transacción fue exitosa
         this.processingTransactions.delete(transaccionId);
         await session.endSession();
         return; // Salir del bucle de reintentos
-
       } catch (error) {
         await session.abortTransaction();
         await session.endSession();
@@ -543,9 +567,13 @@ class DepositoWebSocketController {
         // Verificar si es un error de concurrencia que se puede reintentar
         if (error.code === 112 && retryCount < maxRetries - 1) {
           retryCount++;
-          console.log(`🔄 [DEPOSITO] Reintentando verificación de pago (intento ${retryCount + 1}/${maxRetries})`);
+          console.log(
+            `🔄 [DEPOSITO] Reintentando verificación de pago (intento ${
+              retryCount + 1
+            }/${maxRetries})`
+          );
           // Esperar un poco antes del siguiente intento
-          await new Promise(resolve => setTimeout(resolve, 100 * retryCount));
+          await new Promise((resolve) => setTimeout(resolve, 100 * retryCount));
           continue;
         }
 
@@ -560,11 +588,14 @@ class DepositoWebSocketController {
     }
 
     // Si llegamos aquí, se agotaron los reintentos
-    console.error("❌ [DEPOSITO] Se agotaron los reintentos para verificarPagoCajero");
+    console.error(
+      "❌ [DEPOSITO] Se agotaron los reintentos para verificarPagoCajero"
+    );
     this.processingTransactions.delete(data.transaccionId);
     socket.emit("error", {
       message: "Error interno del servidor",
-      details: "No se pudo procesar la verificación después de múltiples intentos",
+      details:
+        "No se pudo procesar la verificación después de múltiples intentos",
     });
   }
 
