@@ -250,10 +250,9 @@ class DepositoWebSocketController {
       }
 
       // Buscar la transacción
-      const transaccion = await Transaccion.findById(transaccionId).populate(
-        "cajeroId",
-        "nombreCompleto email"
-      );
+      const transaccion = await Transaccion.findById(transaccionId)
+        .populate("jugadorId", "telegramId nickname firstName")
+        .populate("cajeroId", "nombreCompleto email");
 
       if (!transaccion) {
         socket.emit("error", {
@@ -296,7 +295,10 @@ class DepositoWebSocketController {
         jugador: {
           id: transaccion.jugadorId._id || transaccion.jugadorId,
           telegramId: transaccion.telegramId,
-          nombre: transaccion.jugadorId.nickname || transaccion.jugadorId.firstName || "Usuario",
+          nombre:
+            (transaccion.jugadorId && transaccion.jugadorId.nickname) ||
+            (transaccion.jugadorId && transaccion.jugadorId.firstName) ||
+            "Usuario",
         },
         monto: transaccion.monto,
         datosPago: transaccion.infoPago,
@@ -428,7 +430,8 @@ class DepositoWebSocketController {
         this.io.to(`transaccion-${transaccionId}`).emit("deposito-completado", {
           ...notificacion,
           target: "jugador", // Solo jugador procesa
-          mensaje: "¡Depósito completado exitosamente! Gracias por tu confianza.",
+          mensaje:
+            "¡Depósito completado exitosamente! Gracias por tu confianza.",
           saldoAnterior: transaccion.saldoAnterior,
         });
 
