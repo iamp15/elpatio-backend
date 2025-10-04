@@ -199,14 +199,14 @@ class SocketManager {
       // Aceptar solicitud de depósito (manejado por depositoController)
       // Remover listener existente si existe para evitar duplicación
       socket.removeAllListeners("aceptar-solicitud");
-      
+
       socket.on("aceptar-solicitud", async (data) => {
         await this.depositoController.aceptarSolicitud(socket, data);
       });
 
       // Remover listener existente si existe para evitar duplicación
       socket.removeAllListeners("verificar-pago-cajero");
-      
+
       socket.on("verificar-pago-cajero", async (data) => {
         console.log("🔍 [SOCKET] Evento verificar-pago-cajero recibido:", {
           transaccionId: data.transaccionId,
