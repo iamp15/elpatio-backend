@@ -43,14 +43,14 @@ class SocketManager {
       upgradeTimeout: 10000, // 10 segundos
     });
 
-    // Inicializar controlador de depósitos
-    this.depositoController = new DepositoWebSocketController(this);
-
-    // Inicializar manager de rooms
+    // Inicializar manager de rooms PRIMERO
     this.roomsManager = new RoomsManager(this);
 
     // Inicializar manager de estado de conexión
     this.connectionStateManager = new ConnectionStateManager(this);
+
+    // Inicializar controlador de depósitos DESPUÉS (necesita roomsManager)
+    this.depositoController = new DepositoWebSocketController(this);
 
     this.setupEventHandlers();
     console.log("🔌 WebSocket server inicializado");
