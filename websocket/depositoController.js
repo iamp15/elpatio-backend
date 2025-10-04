@@ -269,7 +269,7 @@ class DepositoWebSocketController {
         return;
       }
 
-      // Actualizar información de pago
+      // 1. ACTUALIZAR BASE DE DATOS PRIMERO
       transaccion.infoPago = {
         ...transaccion.infoPago,
         ...datosPago,
@@ -282,15 +282,31 @@ class DepositoWebSocketController {
         `✅ [DEPOSITO] Pago confirmado por jugador para transacción ${transaccionId}`
       );
 
-      // Notificar al jugador que el pago fue registrado
-      socket.emit("pago-confirmado", {
+      // 2. USAR ROOMS PARA NOTIFICAR A TODOS LOS PARTICIPANTES
+      const notificacion = {
         transaccionId: transaccion._id,
         estado: "esperando_verificacion",
         timestamp: new Date().toISOString(),
+      };
+
+      // Enviar a la room de la transacción (todos reciben)
+      this.io.to(`transaccion-${transaccionId}`).emit("verificar-pago", {
+        ...notificacion,
+        target: "cajero", // Solo cajero procesa
+        jugador: {
+          id: transaccion.jugadorId._id || transaccion.jugadorId,
+          telegramId: transaccion.telegramId,
+          nombre: transaccion.jugadorId.nickname || transaccion.jugadorId.firstName || "Usuario",
+        },
+        monto: transaccion.monto,
+        datosPago: transaccion.infoPago,
       });
 
-      // Notificar al cajero que debe verificar el pago
-      await this.notificarCajeroVerificarPago(transaccion);
+      // Confirmar al jugador
+      this.io.to(`transaccion-${transaccionId}`).emit("pago-confirmado", {
+        ...notificacion,
+        target: "jugador", // Solo jugador procesa
+      });
 
       // Registrar log
       await registrarLog({
@@ -395,16 +411,26 @@ class DepositoWebSocketController {
           `✅ [DEPOSITO] Depósito completado: ${transaccionId}, nuevo saldo: ${saldoNuevo}`
         );
 
-        // Notificar al cajero
-        socket.emit("deposito-completado", {
+        // 2. USAR ROOMS PARA NOTIFICAR A TODOS LOS PARTICIPANTES
+        const notificacion = {
           transaccionId: transaccion._id,
           monto: transaccion.monto,
           saldoNuevo: saldoNuevo,
           timestamp: new Date().toISOString(),
+        };
+
+        // Enviar a la room de la transacción (todos reciben)
+        this.io.to(`transaccion-${transaccionId}`).emit("deposito-completado", {
+          ...notificacion,
+          target: "cajero", // Solo cajero procesa
         });
 
-        // Notificar al jugador
-        await this.notificarJugadorDepositoCompletado(transaccion, saldoNuevo);
+        this.io.to(`transaccion-${transaccionId}`).emit("deposito-completado", {
+          ...notificacion,
+          target: "jugador", // Solo jugador procesa
+          mensaje: "¡Depósito completado exitosamente! Gracias por tu confianza.",
+          saldoAnterior: transaccion.saldoAnterior,
+        });
 
         // Registrar log
         await registrarLog({
@@ -428,15 +454,24 @@ class DepositoWebSocketController {
 
         console.log(`❌ [DEPOSITO] Depósito rechazado: ${transaccionId}`);
 
-        // Notificar al cajero
-        socket.emit("deposito-rechazado", {
+        // 2. USAR ROOMS PARA NOTIFICAR A TODOS LOS PARTICIPANTES
+        const notificacion = {
           transaccionId: transaccion._id,
           motivo: notas || "Pago no verificado",
           timestamp: new Date().toISOString(),
+        };
+
+        // Enviar a la room de la transacción (todos reciben)
+        this.io.to(`transaccion-${transaccionId}`).emit("deposito-rechazado", {
+          ...notificacion,
+          target: "cajero", // Solo cajero procesa
         });
 
-        // Notificar al jugador
-        await this.notificarJugadorDepositoRechazado(transaccion, notas);
+        this.io.to(`transaccion-${transaccionId}`).emit("deposito-rechazado", {
+          ...notificacion,
+          target: "jugador", // Solo jugador procesa
+          monto: transaccion.monto,
+        });
 
         // Registrar log
         await registrarLog({
