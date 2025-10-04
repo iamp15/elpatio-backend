@@ -15,6 +15,7 @@ class DepositoWebSocketController {
   constructor(socketManager) {
     this.socketManager = socketManager;
     this.io = socketManager.io;
+    this.roomsManager = socketManager.roomsManager;
   }
 
   /**
