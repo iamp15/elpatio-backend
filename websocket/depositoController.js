@@ -183,7 +183,7 @@ class DepositoWebSocketController {
       );
 
       // Crear room de transacción
-      this.roomsManager.crearRoomTransaccion(transaccionId);
+      this.roomsManager.crearRoomTransaccion(transaccionId, []);
 
       // Agregar cajero al room de la transacción
       this.roomsManager.agregarParticipanteTransaccion(
