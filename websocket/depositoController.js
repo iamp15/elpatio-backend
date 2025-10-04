@@ -16,6 +16,7 @@ class DepositoWebSocketController {
     this.socketManager = socketManager;
     this.io = socketManager.io;
     this.roomsManager = socketManager.roomsManager;
+    this.processingTransactions = new Set(); // Para evitar procesamiento duplicado
   }
 
   /**
@@ -352,15 +353,31 @@ class DepositoWebSocketController {
    * Evento: 'verificar-pago-cajero'
    */
   async verificarPagoCajero(socket, data) {
-    const session = await mongoose.startSession();
+    const maxRetries = 3;
+    let retryCount = 0;
 
-    try {
-      console.log("🔍 [DEPOSITO] Cajero verificando pago:", data);
+    while (retryCount < maxRetries) {
+      const session = await mongoose.startSession();
 
-      await session.startTransaction();
+      try {
+        console.log("🔍 [DEPOSITO] Cajero verificando pago:", data, `(intento ${retryCount + 1})`);
 
-      // Validar datos requeridos
-      const { transaccionId, accion, notas, motivo } = data;
+        // Validar datos requeridos
+        const { transaccionId, accion, notas, motivo } = data;
+
+        // Verificar si ya se está procesando esta transacción
+        if (this.processingTransactions.has(transaccionId)) {
+          console.log(`⚠️ [DEPOSITO] Transacción ${transaccionId} ya está siendo procesada`);
+          socket.emit("error", {
+            message: "La transacción ya está siendo procesada",
+          });
+          return;
+        }
+
+        // Marcar como procesando
+        this.processingTransactions.add(transaccionId);
+
+        await session.startTransaction();
       if (!transaccionId || !accion) {
         socket.emit("error", {
           message: "ID de transacción y acción requeridos",
@@ -513,16 +530,42 @@ class DepositoWebSocketController {
           },
         });
       }
-    } catch (error) {
-      await session.abortTransaction();
-      console.error("❌ [DEPOSITO] Error en verificarPagoCajero:", error);
-      socket.emit("error", {
-        message: "Error interno del servidor",
-        details: error.message,
-      });
-    } finally {
-      await session.endSession();
+
+        // Si llegamos aquí, la transacción fue exitosa
+        this.processingTransactions.delete(transaccionId);
+        await session.endSession();
+        return; // Salir del bucle de reintentos
+
+      } catch (error) {
+        await session.abortTransaction();
+        await session.endSession();
+
+        // Verificar si es un error de concurrencia que se puede reintentar
+        if (error.code === 112 && retryCount < maxRetries - 1) {
+          retryCount++;
+          console.log(`🔄 [DEPOSITO] Reintentando verificación de pago (intento ${retryCount + 1}/${maxRetries})`);
+          // Esperar un poco antes del siguiente intento
+          await new Promise(resolve => setTimeout(resolve, 100 * retryCount));
+          continue;
+        }
+
+        console.error("❌ [DEPOSITO] Error en verificarPagoCajero:", error);
+        this.processingTransactions.delete(transaccionId);
+        socket.emit("error", {
+          message: "Error interno del servidor",
+          details: error.message,
+        });
+        return;
+      }
     }
+
+    // Si llegamos aquí, se agotaron los reintentos
+    console.error("❌ [DEPOSITO] Se agotaron los reintentos para verificarPagoCajero");
+    this.processingTransactions.delete(data.transaccionId);
+    socket.emit("error", {
+      message: "Error interno del servidor",
+      details: "No se pudo procesar la verificación después de múltiples intentos",
+    });
   }
 
   // ===== MÉTODOS AUXILIARES =====
