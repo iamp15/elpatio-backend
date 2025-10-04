@@ -269,11 +269,16 @@ class DepositoWebSocketController {
       }
 
       // 1. ACTUALIZAR BASE DE DATOS PRIMERO
+      console.log("🔍 [DEBUG] datosPago recibidos:", datosPago);
+      console.log("🔍 [DEBUG] infoPago actual:", transaccion.infoPago);
+      
       transaccion.infoPago = {
         ...transaccion.infoPago,
         ...datosPago,
         fechaPago: new Date(),
       };
+      
+      console.log("🔍 [DEBUG] infoPago actualizado:", transaccion.infoPago);
 
       await transaccion.save();
 
