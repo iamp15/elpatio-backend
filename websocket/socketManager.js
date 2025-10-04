@@ -201,6 +201,10 @@ class SocketManager {
         await this.depositoController.aceptarSolicitud(socket, data);
       });
 
+      socket.on("verificar-pago-cajero", async (data) => {
+        await this.depositoController.verificarPagoCajero(socket, data);
+      });
+
       // ===== EVENTOS DE DASHBOARD DE ESTADO =====
 
       // Obtener estado completo del sistema

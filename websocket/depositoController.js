@@ -271,7 +271,7 @@ class DepositoWebSocketController {
       // 1. ACTUALIZAR BASE DE DATOS PRIMERO
       console.log("🔍 [DEBUG] datosPago recibidos:", datosPago);
       console.log("🔍 [DEBUG] infoPago actual:", transaccion.infoPago);
-      
+
       // Mapear los campos del frontend a los campos del modelo
       const infoPagoActualizado = {
         ...transaccion.infoPago,
@@ -281,9 +281,9 @@ class DepositoWebSocketController {
         telefonoOrigen: datosPago.telefono || datosPago.telefonoOrigen,
         fechaPago: new Date(),
       };
-      
+
       transaccion.infoPago = infoPagoActualizado;
-      
+
       console.log("🔍 [DEBUG] infoPago actualizado:", transaccion.infoPago);
 
       await transaccion.save();
@@ -360,10 +360,17 @@ class DepositoWebSocketController {
       await session.startTransaction();
 
       // Validar datos requeridos
-      const { transaccionId, confirmado, notas } = data;
-      if (!transaccionId || confirmado === undefined) {
+      const { transaccionId, accion, notas, motivo } = data;
+      if (!transaccionId || !accion) {
         socket.emit("error", {
-          message: "ID de transacción y confirmación requeridos",
+          message: "ID de transacción y acción requeridos",
+        });
+        return;
+      }
+
+      if (!["confirmar", "rechazar"].includes(accion)) {
+        socket.emit("error", {
+          message: "Acción debe ser 'confirmar' o 'rechazar'",
         });
         return;
       }
@@ -396,7 +403,7 @@ class DepositoWebSocketController {
         return;
       }
 
-      if (confirmado) {
+      if (accion === "confirmar") {
         // Confirmar el pago
         transaccion.fechaConfirmacionCajero = new Date();
         transaccion.infoPago = {
@@ -467,7 +474,7 @@ class DepositoWebSocketController {
         });
       } else {
         // Rechazar el pago
-        transaccion.cambiarEstado("rechazada", notas || "Pago no verificado");
+        transaccion.cambiarEstado("rechazada", motivo || "Pago no verificado");
         await transaccion.save({ session });
 
         await session.commitTransaction();
