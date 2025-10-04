@@ -168,14 +168,8 @@ class DepositoWebSocketController {
         return;
       }
 
-      if (transaccion.estado !== "pendiente") {
-        socket.emit("error", {
-          message: "La transacción ya no está pendiente",
-        });
-        return;
-      }
-
-      // Verificar que el cajero esté disponible
+      // No validar estado ni cambiar transacción - el HTTP API ya lo hizo
+      // Solo verificar que el cajero esté disponible
       const cajero = await Cajero.findById(cajeroId);
       if (!cajero || cajero.estado !== "activo") {
         socket.emit("error", {
@@ -184,27 +178,24 @@ class DepositoWebSocketController {
         return;
       }
 
-      // Asignar cajero a la transacción
-      transaccion.cajeroId = cajeroId;
-      transaccion.fechaAsignacionCajero = new Date();
-      transaccion.cambiarEstado("en_proceso");
-      await transaccion.save();
-
       console.log(
-        `✅ [DEPOSITO] Cajero ${cajero.nombreCompleto} asignado a transacción ${transaccionId}`
+        `✅ [DEPOSITO] Cajero ${cajero.nombreCompleto} acepta transacción ${transaccionId}`
+      );
+
+      // Crear room de transacción
+      this.roomsManager.crearRoomTransaccion(transaccionId);
+
+      // Agregar cajero al room de la transacción
+      this.roomsManager.agregarParticipanteTransaccion(
+        transaccionId,
+        socket.id,
+        "cajero"
       );
 
       // Notificar al cajero que la asignación fue exitosa
-      socket.emit("solicitud-aceptada", {
+      socket.emit("solicitud-aceptada-confirmacion", {
         transaccionId: transaccion._id,
-        jugador: {
-          id: transaccion.jugadorId._id,
-          telegramId: transaccion.jugadorId.telegramId,
-          nombre:
-            transaccion.jugadorId.nickname || transaccion.jugadorId.firstName,
-        },
-        monto: transaccion.monto,
-        estado: transaccion.estado,
+        message: "Solicitud aceptada y notificada al jugador",
         timestamp: new Date().toISOString(),
       });
 
@@ -579,6 +570,18 @@ class DepositoWebSocketController {
       monto: transaccion.monto,
       timestamp: new Date().toISOString(),
     };
+
+    // Agregar jugador al room de la transacción
+    const jugadorSocketId = this.socketManager.roomsManager.rooms.jugadores.get(
+      transaccion.telegramId
+    );
+    if (jugadorSocketId) {
+      this.socketManager.roomsManager.agregarParticipanteTransaccion(
+        transaccion._id.toString(),
+        jugadorSocketId,
+        "jugador"
+      );
+    }
 
     // Usar rooms para notificar al jugador
     this.socketManager.roomsManager.notificarJugador(

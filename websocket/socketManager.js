@@ -196,9 +196,9 @@ class SocketManager {
       });
 
       // ===== EVENTOS DE ACEPTACIÓN DE SOLICITUDES =====
-      // Aceptar solicitud de depósito
-      socket.on("aceptar-solicitud", (data) => {
-        this.handleAceptarSolicitud(socket, data);
+      // Aceptar solicitud de depósito (manejado por depositoController)
+      socket.on("aceptar-solicitud", async (data) => {
+        await this.depositoController.aceptarSolicitud(socket, data);
       });
 
       // ===== EVENTOS DE DASHBOARD DE ESTADO =====
@@ -842,87 +842,6 @@ class SocketManager {
     console.log(
       `👑 [DASHBOARD] Usuario ${socket.userType} se unió al dashboard`
     );
-  }
-
-  /**
-   * Manejar aceptación de solicitud de depósito
-   */
-  async handleAceptarSolicitud(socket, data) {
-    try {
-      const { transaccionId, transaccionData } = data;
-
-      // Verificar que el socket esté autenticado como cajero
-      if (socket.userType !== "cajero") {
-        socket.emit("error", {
-          message: "Solo los cajeros pueden aceptar solicitudes",
-        });
-        return;
-      }
-
-      console.log(`✅ [ACEPTAR] Cajero ${socket.cajeroId} acepta transacción ${transaccionId}`);
-
-      // Crear room de transacción
-      this.roomsManager.crearRoomTransaccion(transaccionId);
-      
-      // Agregar cajero al room de la transacción
-      this.roomsManager.agregarParticipanteTransaccion(transaccionId, socket.id, "cajero");
-
-      // Buscar el jugador conectado para esta transacción
-      const jugadorSocketId = this.buscarJugadorPorTransaccion(transaccionId);
-      
-      if (jugadorSocketId) {
-        // Agregar jugador al room de la transacción
-        this.roomsManager.agregarParticipanteTransaccion(transaccionId, jugadorSocketId, "jugador");
-        
-        // Enviar datos del cajero al jugador
-        const cajeroData = {
-          transaccionId,
-          cajero: {
-            id: socket.cajeroId,
-            nombre: socket.userData?.nombre || "Cajero",
-            datosPago: transaccionData.cajero?.datosPagoMovil || {}
-          },
-          transaccion: transaccionData
-        };
-
-        // Notificar al jugador
-        this.io.to(jugadorSocketId).emit("solicitud-aceptada", cajeroData);
-        
-        console.log(`📤 [ACEPTAR] Datos del cajero enviados al jugador ${jugadorSocketId}`);
-      } else {
-        console.log(`⚠️ [ACEPTAR] Jugador no conectado para transacción ${transaccionId}`);
-      }
-
-      // Confirmar al cajero
-      socket.emit("solicitud-aceptada-confirmacion", {
-        transaccionId,
-        message: "Solicitud aceptada y notificada al jugador"
-      });
-
-    } catch (error) {
-      console.error("❌ Error manejando aceptación de solicitud:", error);
-      socket.emit("error", {
-        message: "Error procesando aceptación de solicitud",
-      });
-    }
-  }
-
-  /**
-   * Buscar socket ID del jugador por transacción
-   */
-  buscarJugadorPorTransaccion(transaccionId) {
-    // Buscar en connectedUsers por telegramId de la transacción
-    // Esto requeriría tener un mapeo de transacciones a jugadores
-    // Por ahora, buscaremos en todos los jugadores conectados
-    for (const [telegramId, socketId] of this.connectedUsers) {
-      const socket = this.io.sockets.sockets.get(socketId);
-      if (socket && socket.userType === "jugador") {
-        // Aquí podríamos verificar si el jugador tiene esta transacción
-        // Por simplicidad, asumimos que el primer jugador conectado es el correcto
-        return socketId;
-      }
-    }
-    return null;
   }
 }
 
