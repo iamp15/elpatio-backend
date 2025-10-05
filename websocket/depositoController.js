@@ -503,10 +503,11 @@ class DepositoWebSocketController {
           }
 
           // Verificar si el jugador está conectado
-          const jugadorSocketId =
+          const jugadorSocketSet =
             this.socketManager.roomsManager.rooms.jugadores.get(
               transaccion.telegramId
             );
+          const jugadorSocketId = jugadorSocketSet ? Array.from(jugadorSocketSet)[0] : null;
           console.log(
             `📢 [DEPOSITO] Jugador ${transaccion.telegramId} conectado:`,
             jugadorSocketId ? "SÍ" : "NO"
@@ -776,9 +777,10 @@ class DepositoWebSocketController {
     console.log(
       `🔍 [DEPOSITO] Buscando jugador en rooms: ${transaccion.telegramId}`
     );
-    const jugadorSocketId = this.socketManager.roomsManager.rooms.jugadores.get(
+    const jugadorSocketSet = this.socketManager.roomsManager.rooms.jugadores.get(
       transaccion.telegramId
     );
+    const jugadorSocketId = jugadorSocketSet ? Array.from(jugadorSocketSet)[0] : null;
     console.log(
       `🔍 [DEPOSITO] Jugador socket ID encontrado: ${jugadorSocketId}`
     );
