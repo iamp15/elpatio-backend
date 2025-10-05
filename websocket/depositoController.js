@@ -473,6 +473,7 @@ class DepositoWebSocketController {
             monto: transaccion.monto,
             saldoNuevo: saldoNuevo,
             timestamp: new Date().toISOString(),
+            infoPago: transaccion.infoPago, // Incluir datos de pago
           };
 
           // Enviar a la room de la transacción (todos reciben)
@@ -507,7 +508,9 @@ class DepositoWebSocketController {
             this.socketManager.roomsManager.rooms.jugadores.get(
               transaccion.telegramId
             );
-          const jugadorSocketId = jugadorSocketSet ? Array.from(jugadorSocketSet)[0] : null;
+          const jugadorSocketId = jugadorSocketSet
+            ? Array.from(jugadorSocketSet)[0]
+            : null;
           console.log(
             `📢 [DEPOSITO] Jugador ${transaccion.telegramId} conectado:`,
             jugadorSocketId ? "SÍ" : "NO"
@@ -777,10 +780,13 @@ class DepositoWebSocketController {
     console.log(
       `🔍 [DEPOSITO] Buscando jugador en rooms: ${transaccion.telegramId}`
     );
-    const jugadorSocketSet = this.socketManager.roomsManager.rooms.jugadores.get(
-      transaccion.telegramId
-    );
-    const jugadorSocketId = jugadorSocketSet ? Array.from(jugadorSocketSet)[0] : null;
+    const jugadorSocketSet =
+      this.socketManager.roomsManager.rooms.jugadores.get(
+        transaccion.telegramId
+      );
+    const jugadorSocketId = jugadorSocketSet
+      ? Array.from(jugadorSocketSet)[0]
+      : null;
     console.log(
       `🔍 [DEPOSITO] Jugador socket ID encontrado: ${jugadorSocketId}`
     );
