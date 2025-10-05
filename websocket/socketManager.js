@@ -204,6 +204,11 @@ class SocketManager {
         await this.depositoController.aceptarSolicitud(socket, data);
       });
 
+      // Unirse a room de transacción (para reconexión)
+      socket.on("unirse-room-transaccion", (data) => {
+        this.handleUnirseRoomTransaccion(socket, data);
+      });
+
       // Remover listener existente si existe para evitar duplicación
       socket.removeAllListeners("verificar-pago-cajero");
 
@@ -858,6 +863,40 @@ class SocketManager {
     console.log(
       `👑 [DASHBOARD] Usuario ${socket.userType} se unió al dashboard`
     );
+  }
+
+  /**
+   * Manejar unirse a room de transacción (para reconexión)
+   */
+  handleUnirseRoomTransaccion(socket, data) {
+    try {
+      const { transaccionId } = data;
+
+      // Verificar que el socket esté autenticado
+      if (!socket.userType) {
+        socket.emit("error", {
+          message: "Debe estar autenticado para unirse a rooms",
+        });
+        return;
+      }
+
+      console.log(`🔄 [ROOM] ${socket.userType} ${socket.id} se une a room de transacción ${transaccionId}`);
+
+      // Agregar al room de transacción
+      this.roomsManager.agregarParticipanteTransaccion(transaccionId, socket.id, socket.userType);
+
+      // Confirmar unión al room
+      socket.emit("room-transaccion-unido", {
+        transaccionId,
+        message: `Unido a room de transacción ${transaccionId}`
+      });
+
+    } catch (error) {
+      console.error("❌ Error uniéndose a room de transacción:", error);
+      socket.emit("error", {
+        message: "Error uniéndose a room de transacción",
+      });
+    }
   }
 }
 

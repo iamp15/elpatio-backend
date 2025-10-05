@@ -176,7 +176,6 @@ exports.obtenerTransaccionesCajero = async (req, res) => {
       .sort({ fechaCreacion: -1 })
       .limit(parseInt(limite));
 
-
     res.json({
       transacciones,
       total: transacciones.length,
