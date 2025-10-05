@@ -38,9 +38,9 @@ class SocketManager {
       },
       transports: ["websocket", "polling"],
       allowEIO3: true, // Compatibilidad con versiones anteriores
-      pingTimeout: 60000, // 60 segundos
-      pingInterval: 25000, // 25 segundos
-      upgradeTimeout: 10000, // 10 segundos
+      pingTimeout: 120000, // 2 minutos
+      pingInterval: 30000, // 30 segundos
+      upgradeTimeout: 15000, // 15 segundos
     });
 
     // Inicializar manager de rooms PRIMERO
@@ -880,17 +880,22 @@ class SocketManager {
         return;
       }
 
-      console.log(`🔄 [ROOM] ${socket.userType} ${socket.id} se une a room de transacción ${transaccionId}`);
+      console.log(
+        `🔄 [ROOM] ${socket.userType} ${socket.id} se une a room de transacción ${transaccionId}`
+      );
 
       // Agregar al room de transacción
-      this.roomsManager.agregarParticipanteTransaccion(transaccionId, socket.id, socket.userType);
+      this.roomsManager.agregarParticipanteTransaccion(
+        transaccionId,
+        socket.id,
+        socket.userType
+      );
 
       // Confirmar unión al room
       socket.emit("room-transaccion-unido", {
         transaccionId,
-        message: `Unido a room de transacción ${transaccionId}`
+        message: `Unido a room de transacción ${transaccionId}`,
       });
-
     } catch (error) {
       console.error("❌ Error uniéndose a room de transacción:", error);
       socket.emit("error", {
