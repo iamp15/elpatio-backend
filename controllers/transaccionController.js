@@ -136,7 +136,10 @@ exports.obtenerTransaccionesCajero = async (req, res) => {
   try {
     const { estado, tipo, limite = 50 } = req.query;
 
-    console.log("🔍 [Backend] req.user en obtenerTransaccionesCajero:", req.user);
+    console.log(
+      "🔍 [Backend] req.user en obtenerTransaccionesCajero:",
+      req.user
+    );
 
     // Validar que se proporcione un estado
     if (!estado) {
@@ -163,13 +166,6 @@ exports.obtenerTransaccionesCajero = async (req, res) => {
     // Para estados que requieren filtro por cajero
     if (["en_proceso", "completada"].includes(estado)) {
       filtros.cajeroId = req.user.id;
-      console.log(
-        `🔍 [Backend] Filtrando por cajero para estado "${estado}":`,
-        {
-          cajeroId: req.user.id,
-          filtros: filtros,
-        }
-      );
     }
 
     if (tipo) filtros.categoria = tipo;
@@ -180,14 +176,6 @@ exports.obtenerTransaccionesCajero = async (req, res) => {
       .sort({ fechaCreacion: -1 })
       .limit(parseInt(limite));
 
-    console.log(
-      `🔍 [Backend] Transacciones encontradas para estado "${estado}":`,
-      {
-        total: transacciones.length,
-        filtros: filtros,
-        cajeroId: req.user.id,
-      }
-    );
 
     res.json({
       transacciones,
