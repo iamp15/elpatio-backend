@@ -503,10 +503,29 @@ class DepositoWebSocketController {
           }
 
           // Verificar si el jugador está conectado
-          const jugadorSocketId = this.socketManager.roomsManager.rooms.jugadores.get(transaccion.telegramId);
-          console.log(`📢 [DEPOSITO] Jugador ${transaccion.telegramId} conectado:`, jugadorSocketId ? 'SÍ' : 'NO');
-          
+          const jugadorSocketId =
+            this.socketManager.roomsManager.rooms.jugadores.get(
+              transaccion.telegramId
+            );
+          console.log(
+            `📢 [DEPOSITO] Jugador ${transaccion.telegramId} conectado:`,
+            jugadorSocketId ? "SÍ" : "NO"
+          );
+
+          // Verificar si el jugador está en la room de la transacción
+          const room = this.io.sockets.adapter.rooms.get(`transaccion-${transaccionId}`);
+          const jugadorEnRoom = room && room.has(jugadorSocketId);
+          console.log(`📢 [DEPOSITO] Jugador en room transaccion-${transaccionId}:`, jugadorEnRoom ? "SÍ" : "NO");
+
           if (jugadorSocketId) {
+            // Si el jugador está conectado pero no en la room, agregarlo
+            if (!jugadorEnRoom) {
+              console.log(`📢 [DEPOSITO] Agregando jugador a room transaccion-${transaccionId}`);
+              this.socketManager.roomsManager.agregarParticipanteTransaccion(
+                transaccionId,
+                jugadorSocketId
+              );
+            }
             console.log(
               `📢 [DEPOSITO] Enviando deposito-completado a room transaccion-${transaccionId} para jugador`
             );
@@ -528,7 +547,9 @@ class DepositoWebSocketController {
                 saldoAnterior: transaccion.saldoAnterior,
               });
           } else {
-            console.log(`📢 [DEPOSITO] Jugador no conectado, enviando notificación al bot de Telegram`);
+            console.log(
+              `📢 [DEPOSITO] Jugador no conectado, enviando notificación al bot de Telegram`
+            );
             // TODO: Implementar notificación al bot de Telegram
             // await this.notificarBotTelegram(transaccion, notificacion);
           }
