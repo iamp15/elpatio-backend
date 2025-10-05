@@ -279,7 +279,7 @@ class DepositoWebSocketController {
         numeroReferencia: datosPago.referencia || datosPago.numeroReferencia,
         bancoOrigen: datosPago.banco || datosPago.bancoOrigen,
         telefonoOrigen: datosPago.telefono || datosPago.telefonoOrigen,
-        fechaPago: new Date(),
+        fechaPago: datosPago.fecha ? new Date(datosPago.fecha) : new Date(),
       };
 
       transaccion.infoPago = infoPagoActualizado;
