@@ -130,7 +130,62 @@ exports.obtenerCajerosDisponibles = async (req, res) => {
 };
 
 /**
- * Obtener transacciones pendientes para cajeros
+ * Obtener transacciones por estado para cajeros (endpoint genérico)
+ */
+exports.obtenerTransaccionesCajero = async (req, res) => {
+  try {
+    const { estado, tipo, limite = 50 } = req.query;
+
+    // Validar que se proporcione un estado
+    if (!estado) {
+      return res.status(400).json({
+        mensaje: "El parámetro 'estado' es requerido",
+      });
+    }
+
+    // Estados válidos
+    const estadosValidos = ["pendiente", "en_proceso", "completada"];
+    if (!estadosValidos.includes(estado)) {
+      return res.status(400).json({
+        mensaje: `Estado inválido. Estados válidos: ${estadosValidos.join(
+          ", "
+        )}`,
+      });
+    }
+
+    const filtros = {
+      categoria: { $in: ["deposito", "retiro"] },
+      estado: estado,
+    };
+
+    // Para estados que requieren filtro por cajero
+    if (["en_proceso", "completada"].includes(estado)) {
+      filtros.cajeroId = req.user._id;
+    }
+
+    if (tipo) filtros.categoria = tipo;
+
+    const transacciones = await Transaccion.find(filtros)
+      .populate("jugadorId", "username nickname telegramId")
+      .populate("cajeroId", "nombreCompleto email telefonoContacto estado")
+      .sort({ fechaCreacion: -1 })
+      .limit(parseInt(limite));
+
+    res.json({
+      transacciones,
+      total: transacciones.length,
+      estado: estado,
+    });
+  } catch (error) {
+    res.status(500).json({
+      mensaje: "Error obteniendo transacciones",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Obtener transacciones pendientes para cajeros (mantener compatibilidad)
  */
 exports.obtenerPendientesCajero = async (req, res) => {
   try {
@@ -138,7 +193,7 @@ exports.obtenerPendientesCajero = async (req, res) => {
 
     const filtros = {
       categoria: { $in: ["deposito", "retiro"] },
-      estado: { $in: ["pendiente", "en_proceso", "completada"] },
+      estado: { $in: ["pendiente", "en_proceso"] },
     };
 
     if (tipo) filtros.categoria = tipo;

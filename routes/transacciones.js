@@ -67,7 +67,18 @@ router.get(
 );
 
 /**
- * Obtener transacciones pendientes para cajeros
+ * Obtener transacciones por estado para cajeros (endpoint genérico)
+ * GET /api/transacciones/cajero?estado=pendiente|en_proceso|completada
+ */
+router.get(
+  "/cajero",
+  auth,
+  verificarMinimo("cajero"),
+  transaccionesController.obtenerTransaccionesCajero
+);
+
+/**
+ * Obtener transacciones pendientes para cajeros (mantener compatibilidad)
  * GET /api/transacciones/pendientes-cajero
  */
 router.get(
