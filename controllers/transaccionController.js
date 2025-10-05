@@ -138,7 +138,7 @@ exports.obtenerPendientesCajero = async (req, res) => {
 
     const filtros = {
       categoria: { $in: ["deposito", "retiro"] },
-      estado: { $in: ["pendiente", "en_proceso"] },
+      estado: { $in: ["pendiente", "en_proceso", "completada"] },
     };
 
     if (tipo) filtros.categoria = tipo;
