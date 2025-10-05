@@ -472,6 +472,8 @@ class DepositoWebSocketController {
             transaccionId: transaccion._id,
             monto: transaccion.monto,
             saldoNuevo: saldoNuevo,
+            saldoAnterior: transaccion.saldoAnterior,
+            estado: transaccion.estado, // Incluir estado de la transacción
             timestamp: new Date().toISOString(),
             infoPago: transaccion.infoPago, // Incluir datos de pago
           };
