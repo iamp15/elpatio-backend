@@ -476,7 +476,9 @@ class DepositoWebSocketController {
           };
 
           // Enviar a la room de la transacción (todos reciben)
-          console.log(`📢 [DEPOSITO] Enviando deposito-completado a room transaccion-${transaccionId} para cajero`);
+          console.log(
+            `📢 [DEPOSITO] Enviando deposito-completado a room transaccion-${transaccionId} para cajero`
+          );
           this.io
             .to(`transaccion-${transaccionId}`)
             .emit("deposito-completado", {
@@ -485,29 +487,51 @@ class DepositoWebSocketController {
             });
 
           // Verificar quién está en la room antes de enviar
-          const room = this.io.sockets.adapter.rooms.get(`transaccion-${transaccionId}`);
-          console.log(`📢 [DEPOSITO] Room transaccion-${transaccionId} tiene ${room ? room.size : 0} participantes`);
+          const room = this.io.sockets.adapter.rooms.get(
+            `transaccion-${transaccionId}`
+          );
+          console.log(
+            `📢 [DEPOSITO] Room transaccion-${transaccionId} tiene ${
+              room ? room.size : 0
+            } participantes`
+          );
           if (room) {
-            console.log(`📢 [DEPOSITO] Participantes en room:`, Array.from(room));
+            console.log(
+              `📢 [DEPOSITO] Participantes en room:`,
+              Array.from(room)
+            );
           }
+
+          // Verificar si el jugador está conectado
+          const jugadorSocketId = this.socketManager.roomsManager.rooms.jugadores.get(transaccion.telegramId);
+          console.log(`📢 [DEPOSITO] Jugador ${transaccion.telegramId} conectado:`, jugadorSocketId ? 'SÍ' : 'NO');
           
-          console.log(`📢 [DEPOSITO] Enviando deposito-completado a room transaccion-${transaccionId} para jugador`);
-          console.log(`📢 [DEPOSITO] Datos para jugador:`, {
-            ...notificacion,
-            target: "jugador",
-            mensaje: "¡Depósito completado exitosamente! Gracias por tu confianza.",
-            saldoAnterior: transaccion.saldoAnterior,
-          });
-          
-          this.io
-            .to(`transaccion-${transaccionId}`)
-            .emit("deposito-completado", {
+          if (jugadorSocketId) {
+            console.log(
+              `📢 [DEPOSITO] Enviando deposito-completado a room transaccion-${transaccionId} para jugador`
+            );
+            console.log(`📢 [DEPOSITO] Datos para jugador:`, {
               ...notificacion,
-              target: "jugador", // Solo jugador procesa
+              target: "jugador",
               mensaje:
                 "¡Depósito completado exitosamente! Gracias por tu confianza.",
               saldoAnterior: transaccion.saldoAnterior,
             });
+
+            this.io
+              .to(`transaccion-${transaccionId}`)
+              .emit("deposito-completado", {
+                ...notificacion,
+                target: "jugador", // Solo jugador procesa
+                mensaje:
+                  "¡Depósito completado exitosamente! Gracias por tu confianza.",
+                saldoAnterior: transaccion.saldoAnterior,
+              });
+          } else {
+            console.log(`📢 [DEPOSITO] Jugador no conectado, enviando notificación al bot de Telegram`);
+            // TODO: Implementar notificación al bot de Telegram
+            // await this.notificarBotTelegram(transaccion, notificacion);
+          }
 
           // Registrar log
           await registrarLog({
@@ -724,20 +748,28 @@ class DepositoWebSocketController {
     };
 
     // Agregar jugador al room de la transacción
-    console.log(`🔍 [DEPOSITO] Buscando jugador en rooms: ${transaccion.telegramId}`);
+    console.log(
+      `🔍 [DEPOSITO] Buscando jugador en rooms: ${transaccion.telegramId}`
+    );
     const jugadorSocketId = this.socketManager.roomsManager.rooms.jugadores.get(
       transaccion.telegramId
     );
-    console.log(`🔍 [DEPOSITO] Jugador socket ID encontrado: ${jugadorSocketId}`);
-    
+    console.log(
+      `🔍 [DEPOSITO] Jugador socket ID encontrado: ${jugadorSocketId}`
+    );
+
     if (jugadorSocketId) {
-      console.log(`🔍 [DEPOSITO] Agregando jugador a room transaccion-${transaccion._id}`);
+      console.log(
+        `🔍 [DEPOSITO] Agregando jugador a room transaccion-${transaccion._id}`
+      );
       this.socketManager.roomsManager.agregarParticipanteTransaccion(
         transaccion._id.toString(),
         jugadorSocketId
       );
     } else {
-      console.error(`❌ [DEPOSITO] Jugador ${transaccion.telegramId} no encontrado en rooms`);
+      console.error(
+        `❌ [DEPOSITO] Jugador ${transaccion.telegramId} no encontrado en rooms`
+      );
     }
 
     // Usar rooms para notificar al jugador
