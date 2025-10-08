@@ -5,6 +5,7 @@
 const DepositoWebSocketController = require("./depositoController");
 const RoomsManager = require("./roomsManager");
 const ConnectionStateManager = require("./connectionStateManager");
+const ConnectionRecoveryManager = require("./connectionRecoveryManager");
 
 class SocketManager {
   constructor() {
@@ -14,6 +15,7 @@ class SocketManager {
     this.depositoController = null; // Controlador de depósitos
     this.roomsManager = null; // Manager de rooms
     this.connectionStateManager = null; // Manager de estado de conexión
+    this.connectionRecoveryManager = null; // Manager de recuperación de conexiones
   }
 
   /**
@@ -49,11 +51,15 @@ class SocketManager {
     // Inicializar manager de estado de conexión
     this.connectionStateManager = new ConnectionStateManager(this);
 
+    // Inicializar manager de recuperación de conexiones
+    this.connectionRecoveryManager = new ConnectionRecoveryManager(this);
+
     // Inicializar controlador de depósitos DESPUÉS (necesita roomsManager)
     this.depositoController = new DepositoWebSocketController(this);
 
     this.setupEventHandlers();
     console.log("🔌 WebSocket server inicializado");
+    console.log("✅ Sistema de recuperación de conexiones activado");
   }
 
   /**
@@ -287,16 +293,15 @@ class SocketManager {
   }
 
   /**
-   * Manejar desconexión
+   * Manejar desconexión con sistema de recuperación
    */
   handleDisconnect(socket) {
-    // Limpiar rooms del socket desconectado
-    this.roomsManager.limpiarSocket(socket.id);
+    // Usar el sistema de recuperación en lugar de limpiar inmediatamente
+    // El recovery manager decidirá si limpia inmediatamente o espera reconexión
+    this.connectionRecoveryManager.registerDisconnection(socket);
 
-    // Limpiar estado de conexión
-    this.connectionStateManager.removerUsuario(socket.id);
-
-    // Limpiar referencias del usuario desconectado
+    // Limpiar referencias básicas del usuario desconectado
+    // (pero NO rooms si hay transacciones activas - el recovery manager lo maneja)
     for (let [telegramId, socketId] of this.connectedUsers.entries()) {
       if (socketId === socket.id) {
         this.connectedUsers.delete(telegramId);
@@ -374,6 +379,18 @@ class SocketManager {
         } (${telegramId})`
       );
 
+      // Verificar si hay sesión para recuperar
+      const recovery = await this.connectionRecoveryManager.handleReconnection(
+        socket,
+        telegramId
+      );
+
+      if (recovery.recovered) {
+        console.log(
+          `🔄 [RECOVERY] Jugador ${telegramId} recuperó ${recovery.transactionsRecovered.length} transacciones`
+        );
+      }
+
       return {
         success: true,
         message: "Autenticación exitosa",
@@ -385,6 +402,10 @@ class SocketManager {
           firstName: jugador.firstName,
           username: jugador.username,
         },
+        recovery: recovery.recovered ? {
+          transactionsRecovered: recovery.transactionsRecovered,
+          disconnectionDuration: recovery.disconnectionDuration,
+        } : null,
       };
     } catch (error) {
       console.error("Error autenticando jugador:", error);
@@ -449,6 +470,18 @@ class SocketManager {
         `🏦 Cajero autenticado: ${cajero.nombreCompleto} (${decoded.id})`
       );
 
+      // Verificar si hay sesión para recuperar
+      const recovery = await this.connectionRecoveryManager.handleReconnection(
+        socket,
+        decoded.id
+      );
+
+      if (recovery.recovered) {
+        console.log(
+          `🔄 [RECOVERY] Cajero ${decoded.id} recuperó ${recovery.transactionsRecovered.length} transacciones`
+        );
+      }
+
       return {
         success: true,
         message: "Autenticación exitosa",
@@ -457,6 +490,10 @@ class SocketManager {
           nombre: cajero.nombreCompleto,
           email: cajero.email,
         },
+        recovery: recovery.recovered ? {
+          transactionsRecovered: recovery.transactionsRecovered,
+          disconnectionDuration: recovery.disconnectionDuration,
+        } : null,
       };
     } catch (error) {
       console.error("Error autenticando cajero:", error);
