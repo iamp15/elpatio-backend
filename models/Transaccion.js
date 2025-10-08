@@ -76,7 +76,8 @@ const transaccionSchema = new mongoose.Schema(
       type: String,
       enum: [
         "pendiente", // Creada pero no procesada
-        "en_proceso", // Asignada a cajero (solo depositos/retiros)
+        "en_proceso", // Aceptada por cajero (solo depositos/retiros)
+        "realizada", // Realizada por usuario (solo depositos/retiros)
         "confirmada", // Confirmada por cajero (solo depositos/retiros)
         "completada", // Procesada y saldo actualizado
         "rechazada", // Rechazada por cajero o sistema

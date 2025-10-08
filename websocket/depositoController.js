@@ -284,7 +284,11 @@ class DepositoWebSocketController {
 
       transaccion.infoPago = infoPagoActualizado;
 
+      // Cambiar estado a "realizada" cuando el usuario confirma que hizo el pago
+      transaccion.cambiarEstado("realizada");
+
       console.log("🔍 [DEBUG] infoPago actualizado:", transaccion.infoPago);
+      console.log("🔍 [DEBUG] Estado cambiado a: realizada");
 
       await transaccion.save();
 
@@ -425,10 +429,11 @@ class DepositoWebSocketController {
           return;
         }
 
-        if (transaccion.estado !== "en_proceso") {
+        // Verificar que la transacción esté en estado "realizada" (usuario ya reportó el pago)
+        if (transaccion.estado !== "realizada") {
           await session.abortTransaction();
           socket.emit("error", {
-            message: "La transacción no está en proceso",
+            message: `La transacción debe estar en estado "realizada". Estado actual: ${transaccion.estado}`,
           });
           return;
         }

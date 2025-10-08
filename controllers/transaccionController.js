@@ -149,7 +149,12 @@ exports.obtenerTransaccionesCajero = async (req, res) => {
     }
 
     // Estados válidos
-    const estadosValidos = ["pendiente", "en_proceso", "completada"];
+    const estadosValidos = [
+      "pendiente",
+      "en_proceso",
+      "realizada",
+      "completada",
+    ];
     if (!estadosValidos.includes(estado)) {
       return res.status(400).json({
         mensaje: `Estado inválido. Estados válidos: ${estadosValidos.join(
@@ -164,7 +169,7 @@ exports.obtenerTransaccionesCajero = async (req, res) => {
     };
 
     // Para estados que requieren filtro por cajero
-    if (["en_proceso", "completada"].includes(estado)) {
+    if (["en_proceso", "realizada", "completada"].includes(estado)) {
       filtros.cajeroId = req.user.id;
     }
 
@@ -198,7 +203,7 @@ exports.obtenerPendientesCajero = async (req, res) => {
 
     const filtros = {
       categoria: { $in: ["deposito", "retiro"] },
-      estado: { $in: ["pendiente", "en_proceso"] },
+      estado: { $in: ["pendiente", "en_proceso", "realizada"] },
     };
 
     if (tipo) filtros.categoria = tipo;
@@ -348,6 +353,9 @@ exports.confirmarPagoUsuario = async (req, res) => {
       metodoPago,
     };
 
+    // Cambiar estado a "realizada" cuando el usuario confirma que hizo el pago
+    transaccion.cambiarEstado("realizada");
+
     await transaccion.save();
 
     // Emitir evento WebSocket si hay usuarios conectados
@@ -398,10 +406,11 @@ exports.confirmarPorCajero = async (req, res) => {
       return res.status(404).json({ mensaje: "Transacción no encontrada" });
     }
 
-    if (transaccion.estado !== "en_proceso") {
+    // Verificar que la transacción esté en estado "realizada" (usuario ya reportó el pago)
+    if (transaccion.estado !== "realizada") {
       await session.abortTransaction();
       return res.status(400).json({
-        mensaje: "Solo se pueden confirmar transacciones en proceso",
+        mensaje: `Solo se pueden confirmar transacciones realizadas por el usuario. Estado actual: ${transaccion.estado}`,
       });
     }
 
