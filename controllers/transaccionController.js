@@ -503,6 +503,82 @@ exports.confirmarPorCajero = async (req, res) => {
 };
 
 /**
+ * Cancelar transacción por jugador
+ */
+exports.cancelarTransaccionJugador = async (req, res) => {
+  try {
+    const { transaccionId } = req.params;
+    const { motivo } = req.body;
+
+    const transaccion = await Transaccion.findById(transaccionId)
+      .populate("jugadorId", "telegramId nickname firstName")
+      .populate("cajeroId", "nombreCompleto email");
+
+    if (!transaccion) {
+      return res.status(404).json({ mensaje: "Transacción no encontrada" });
+    }
+
+    // Validar que sea el jugador dueño de la transacción
+    if (transaccion.telegramId !== req.user?.telegramId) {
+      return res.status(403).json({
+        mensaje: "No tienes permiso para cancelar esta transacción",
+      });
+    }
+
+    // Solo se pueden cancelar transacciones en estados pendiente o en_proceso
+    if (!["pendiente", "en_proceso"].includes(transaccion.estado)) {
+      return res.status(400).json({
+        mensaje: `No se puede cancelar una transacción en estado ${transaccion.estado}. Solo se pueden cancelar transacciones pendientes o en proceso.`,
+      });
+    }
+
+    transaccion.cambiarEstado(
+      "cancelada",
+      motivo || "Cancelada por el usuario"
+    );
+    await transaccion.save();
+
+    // Registrar log
+    await registrarLog({
+      accion: "Transacción cancelada por jugador",
+      usuario: transaccion.jugadorId._id || transaccion.jugadorId,
+      rol: "jugador",
+      detalle: {
+        transaccionId: transaccion._id,
+        motivo: motivo || "Cancelada por el usuario",
+        estadoAnterior: transaccion.estado,
+      },
+    });
+
+    // Emitir evento WebSocket para notificar al cajero si estaba asignado
+    websocketHelper.initialize(req.app.get("socketManager"));
+    websocketHelper.logWebSocketStats("Transacción cancelada por jugador");
+
+    if (transaccion.cajeroId) {
+      // Notificar al cajero que la transacción fue cancelada
+      await websocketHelper.emitTransaccionCanceladaPorJugador(
+        transaccion,
+        motivo || "Cancelada por el usuario"
+      );
+    }
+
+    res.json({
+      mensaje: "Transacción cancelada exitosamente",
+      transaccion: {
+        _id: transaccion._id,
+        estado: transaccion.estado,
+        motivo: motivo || "Cancelada por el usuario",
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      mensaje: "Error cancelando transacción",
+      error: error.message,
+    });
+  }
+};
+
+/**
  * Rechazar transacción
  */
 exports.rechazarTransaccion = async (req, res) => {
@@ -515,10 +591,12 @@ exports.rechazarTransaccion = async (req, res) => {
       return res.status(404).json({ mensaje: "Transacción no encontrada" });
     }
 
-    if (!["pendiente", "en_proceso"].includes(transaccion.estado)) {
+    if (
+      !["pendiente", "en_proceso", "realizada"].includes(transaccion.estado)
+    ) {
       return res.status(400).json({
         mensaje:
-          "Solo se pueden rechazar transacciones pendientes o en proceso",
+          "Solo se pueden rechazar transacciones pendientes, en proceso o realizadas",
       });
     }
 

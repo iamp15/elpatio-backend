@@ -3,6 +3,7 @@ const router = express.Router();
 const transaccionesController = require("../controllers/transaccionController");
 const verificarMinimo = require("../middlewares/verificarMinimo");
 const auth = require("../middlewares/auth"); // autenticación general
+const { telegramIdAuth } = require("../middlewares/telegramAuth"); // autenticación de Telegram
 
 // ===== RUTAS PÚBLICAS/JUGADORES =====
 
@@ -23,6 +24,16 @@ router.put(
   auth,
   verificarMinimo("cajero"),
   transaccionesController.confirmarPagoUsuario
+);
+
+/**
+ * Cancelar transacción por jugador
+ * PUT /api/transacciones/:transaccionId/cancelar-jugador
+ */
+router.put(
+  "/:transaccionId/cancelar-jugador",
+  telegramIdAuth,
+  transaccionesController.cancelarTransaccionJugador
 );
 
 /**

@@ -136,6 +136,47 @@ class WebSocketHelper {
   }
 
   /**
+   * Emitir evento de transacción cancelada por jugador
+   */
+  async emitTransaccionCanceladaPorJugador(transaccion, motivo) {
+    if (!this.socketManager) return;
+
+    try {
+      // Notificar al cajero si está asignado
+      if (transaccion.cajeroId) {
+        const cajeroId = transaccion.cajeroId._id || transaccion.cajeroId;
+
+        this.socketManager.roomsManager.notificarTransaccion(
+          transaccion._id.toString(),
+          "transaccion-cancelada-por-jugador",
+          {
+            transaccionId: transaccion._id,
+            jugador: {
+              id: transaccion.jugadorId._id || transaccion.jugadorId,
+              telegramId: transaccion.telegramId,
+              nombre:
+                transaccion.jugadorId.nickname ||
+                transaccion.jugadorId.firstName ||
+                "Usuario",
+            },
+            motivo: motivo || "Cancelada por el usuario",
+            timestamp: new Date().toISOString(),
+          }
+        );
+
+        console.log(
+          `📡 [HTTP→WS] Transacción cancelada por jugador notificada al cajero`
+        );
+      }
+    } catch (error) {
+      console.error(
+        "❌ [HTTP→WS] Error emitiendo transacción cancelada:",
+        error
+      );
+    }
+  }
+
+  /**
    * Verificar si hay usuarios conectados via WebSocket
    */
   getWebSocketStats() {

@@ -402,10 +402,12 @@ class SocketManager {
           firstName: jugador.firstName,
           username: jugador.username,
         },
-        recovery: recovery.recovered ? {
-          transactionsRecovered: recovery.transactionsRecovered,
-          disconnectionDuration: recovery.disconnectionDuration,
-        } : null,
+        recovery: recovery.recovered
+          ? {
+              transactionsRecovered: recovery.transactionsRecovered,
+              disconnectionDuration: recovery.disconnectionDuration,
+            }
+          : null,
       };
     } catch (error) {
       console.error("Error autenticando jugador:", error);
@@ -490,10 +492,12 @@ class SocketManager {
           nombre: cajero.nombreCompleto,
           email: cajero.email,
         },
-        recovery: recovery.recovered ? {
-          transactionsRecovered: recovery.transactionsRecovered,
-          disconnectionDuration: recovery.disconnectionDuration,
-        } : null,
+        recovery: recovery.recovered
+          ? {
+              transactionsRecovered: recovery.transactionsRecovered,
+              disconnectionDuration: recovery.disconnectionDuration,
+            }
+          : null,
       };
     } catch (error) {
       console.error("Error autenticando cajero:", error);
