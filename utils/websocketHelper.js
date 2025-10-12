@@ -139,34 +139,51 @@ class WebSocketHelper {
    * Emitir evento de transacción cancelada por jugador
    */
   async emitTransaccionCanceladaPorJugador(transaccion, motivo) {
-    if (!this.socketManager) return;
+    if (!this.socketManager) {
+      console.log("⚠️ [HTTP→WS] socketManager no inicializado");
+      return;
+    }
 
     try {
+      console.log("🔴 [HTTP→WS] emitTransaccionCanceladaPorJugador llamado");
+      console.log("🔴 [HTTP→WS] TransaccionId:", transaccion._id);
+      console.log("🔴 [HTTP→WS] CajeroId:", transaccion.cajeroId);
+      
       // Notificar al cajero si está asignado
       if (transaccion.cajeroId) {
         const cajeroId = transaccion.cajeroId._id || transaccion.cajeroId;
+        const transaccionIdStr = transaccion._id.toString();
+
+        console.log("🔴 [HTTP→WS] Cajero asignado, enviando notificación");
+        console.log("🔴 [HTTP→WS] Room de transacción:", `transaccion-${transaccionIdStr}`);
+        
+        const notificationData = {
+          transaccionId: transaccion._id,
+          jugador: {
+            id: transaccion.jugadorId._id || transaccion.jugadorId,
+            telegramId: transaccion.telegramId,
+            nombre:
+              transaccion.jugadorId.nickname ||
+              transaccion.jugadorId.firstName ||
+              "Usuario",
+          },
+          motivo: motivo || "Cancelada por el usuario",
+          timestamp: new Date().toISOString(),
+        };
+
+        console.log("🔴 [HTTP→WS] Datos de notificación:", notificationData);
 
         this.socketManager.roomsManager.notificarTransaccion(
-          transaccion._id.toString(),
+          transaccionIdStr,
           "transaccion-cancelada-por-jugador",
-          {
-            transaccionId: transaccion._id,
-            jugador: {
-              id: transaccion.jugadorId._id || transaccion.jugadorId,
-              telegramId: transaccion.telegramId,
-              nombre:
-                transaccion.jugadorId.nickname ||
-                transaccion.jugadorId.firstName ||
-                "Usuario",
-            },
-            motivo: motivo || "Cancelada por el usuario",
-            timestamp: new Date().toISOString(),
-          }
+          notificationData
         );
 
         console.log(
-          `📡 [HTTP→WS] Transacción cancelada por jugador notificada al cajero`
+          `✅ [HTTP→WS] Transacción ${transaccionIdStr} cancelada notificada al cajero ${cajeroId}`
         );
+      } else {
+        console.log("ℹ️ [HTTP→WS] No hay cajero asignado, no se notifica");
       }
     } catch (error) {
       console.error(
