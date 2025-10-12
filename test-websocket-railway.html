@@ -75,10 +75,10 @@
       const statusDiv = document.getElementById("status");
       const messagesDiv = document.getElementById("messages");
 
-      // Detectar si estamos en Railway o local
-      const isRailway = window.location.hostname.includes("railway.app");
-      const socketUrl = isRailway
-        ? "https://elpatio-backend-production.up.railway.app"
+      // Detectar si estamos en Fly.io o local
+      const isFlyio = window.location.hostname.includes("fly.dev");
+      const socketUrl = isFlyio
+        ? "https://elpatio-backend.fly.dev"
         : "http://localhost:3001";
 
       function addMessage(message, type = "info") {

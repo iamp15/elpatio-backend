@@ -36,7 +36,7 @@ router.put(
   transaccionesController.cancelarTransaccionJugador
 );
 
-/**
+/*
  * Obtener historial de transacciones de un jugador
  * GET /api/transacciones/jugador/:jugadorId/historial
  */

@@ -184,9 +184,9 @@ eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ODQzMTk1Y2NmNDZmOTgxYmU3ZGYyMCI
       let cajeroSocket = null;
 
       // Detectar URL del servidor
-      const isRailway = window.location.hostname.includes("railway.app");
-      const socketUrl = isRailway
-        ? "https://elpatio-backend-production.up.railway.app"
+      const isFlyio = window.location.hostname.includes("fly.dev");
+      const socketUrl = isFlyio
+        ? "https://elpatio-backend.fly.dev"
         : "http://localhost:3001";
 
       // === JUGADOR ===

@@ -510,9 +510,12 @@ exports.cancelarTransaccionJugador = async (req, res) => {
     console.log("🔴 [CANCELAR] Solicitud de cancelación recibida");
     console.log("🔴 [CANCELAR] Params:", req.params);
     console.log("🔴 [CANCELAR] Body:", req.body);
-    console.log("🔴 [CANCELAR] Headers telegramId:", req.headers['x-telegram-id']);
+    console.log(
+      "🔴 [CANCELAR] Headers telegramId:",
+      req.headers["x-telegram-id"]
+    );
     console.log("🔴 [CANCELAR] req.telegramId:", req.telegramId);
-    
+
     const { transaccionId } = req.params;
     const { motivo } = req.body;
 
@@ -524,7 +527,7 @@ exports.cancelarTransaccionJugador = async (req, res) => {
       console.log("🔴 [CANCELAR] Transacción no encontrada:", transaccionId);
       return res.status(404).json({ mensaje: "Transacción no encontrada" });
     }
-    
+
     console.log("🔴 [CANCELAR] Transacción encontrada:", {
       id: transaccion._id,
       estado: transaccion.estado,
@@ -534,13 +537,13 @@ exports.cancelarTransaccionJugador = async (req, res) => {
     // Validar que sea el jugador dueño de la transacción
     // El middleware telegramIdAuth pone el ID en req.telegramId
     const telegramIdFromRequest = req.telegramId || req.user?.telegramId;
-    
+
     if (!telegramIdFromRequest) {
       return res.status(401).json({
         mensaje: "No se pudo verificar tu identidad",
       });
     }
-    
+
     if (transaccion.telegramId !== telegramIdFromRequest) {
       return res.status(403).json({
         mensaje: "No tienes permiso para cancelar esta transacción",

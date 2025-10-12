@@ -1,0 +1,83 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Testing
+coverage/
+*.lcov
+test-results/
+__tests__/
+*.test.js
+*.spec.js
+
+# Build artifacts
+dist/
+build/
+.cache/
+
+# Editor directories
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Test files
+test/
+tests/
+*.http
+pruebas.http
+
+# Fly.io
+.fly/
+fly.toml
+
+# Vercel
+.vercel/
+
+# Railway
+railway.json
+
+# Archivos de prueba
+test-*.html
+test-*.js
+
+# Scripts no necesarios en producción
+scripts/
+
