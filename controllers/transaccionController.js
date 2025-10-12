@@ -576,17 +576,15 @@ exports.cancelarTransaccionJugador = async (req, res) => {
       },
     });
 
-    // Emitir evento WebSocket para notificar al cajero si estaba asignado
+    // Emitir evento WebSocket para notificar al cajero (o cajeros disponibles)
     websocketHelper.initialize(req.app.get("socketManager"));
     websocketHelper.logWebSocketStats("Transacción cancelada por jugador");
 
-    if (transaccion.cajeroId) {
-      // Notificar al cajero que la transacción fue cancelada
-      await websocketHelper.emitTransaccionCanceladaPorJugador(
-        transaccion,
-        motivo || "Cancelada por el usuario"
-      );
-    }
+    // Siempre notificar (la lógica de a quién notificar está en el helper)
+    await websocketHelper.emitTransaccionCanceladaPorJugador(
+      transaccion,
+      motivo || "Cancelada por el usuario"
+    );
 
     res.json({
       mensaje: "Transacción cancelada exitosamente",
