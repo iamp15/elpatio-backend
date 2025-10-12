@@ -147,31 +147,35 @@ class WebSocketHelper {
     try {
       console.log("🔴 [HTTP→WS] emitTransaccionCanceladaPorJugador llamado");
       console.log("🔴 [HTTP→WS] TransaccionId:", transaccion._id);
+      console.log("🔴 [HTTP→WS] Estado:", transaccion.estado);
       console.log("🔴 [HTTP→WS] CajeroId:", transaccion.cajeroId);
-      
-      // Notificar al cajero si está asignado
+
+      const transaccionIdStr = transaccion._id.toString();
+      const notificationData = {
+        transaccionId: transaccion._id,
+        jugador: {
+          id: transaccion.jugadorId._id || transaccion.jugadorId,
+          telegramId: transaccion.telegramId,
+          nombre:
+            transaccion.jugadorId.nickname ||
+            transaccion.jugadorId.firstName ||
+            "Usuario",
+        },
+        motivo: motivo || "Cancelada por el usuario",
+        timestamp: new Date().toISOString(),
+      };
+
+      console.log("🔴 [HTTP→WS] Datos de notificación:", notificationData);
+
+      // Si hay cajero asignado (en_proceso, realizada), notificar al room específico
       if (transaccion.cajeroId) {
         const cajeroId = transaccion.cajeroId._id || transaccion.cajeroId;
-        const transaccionIdStr = transaccion._id.toString();
 
         console.log("🔴 [HTTP→WS] Cajero asignado, enviando notificación");
-        console.log("🔴 [HTTP→WS] Room de transacción:", `transaccion-${transaccionIdStr}`);
-        
-        const notificationData = {
-          transaccionId: transaccion._id,
-          jugador: {
-            id: transaccion.jugadorId._id || transaccion.jugadorId,
-            telegramId: transaccion.telegramId,
-            nombre:
-              transaccion.jugadorId.nickname ||
-              transaccion.jugadorId.firstName ||
-              "Usuario",
-          },
-          motivo: motivo || "Cancelada por el usuario",
-          timestamp: new Date().toISOString(),
-        };
-
-        console.log("🔴 [HTTP→WS] Datos de notificación:", notificationData);
+        console.log(
+          "🔴 [HTTP→WS] Room de transacción:",
+          `transaccion-${transaccionIdStr}`
+        );
 
         this.socketManager.roomsManager.notificarTransaccion(
           transaccionIdStr,
@@ -183,7 +187,18 @@ class WebSocketHelper {
           `✅ [HTTP→WS] Transacción ${transaccionIdStr} cancelada notificada al cajero ${cajeroId}`
         );
       } else {
-        console.log("ℹ️ [HTTP→WS] No hay cajero asignado, no se notifica");
+        // Si no hay cajero asignado (pendiente), notificar a todos los cajeros
+        console.log("🔴 [HTTP→WS] No hay cajero asignado (estado pendiente)");
+        console.log("🔴 [HTTP→WS] Notificando a todos los cajeros disponibles");
+
+        this.socketManager.roomsManager.notificarCajerosDisponibles(
+          "transaccion-cancelada-por-jugador",
+          notificationData
+        );
+
+        console.log(
+          `✅ [HTTP→WS] Transacción ${transaccionIdStr} cancelada notificada a todos los cajeros`
+        );
       }
     } catch (error) {
       console.error(
