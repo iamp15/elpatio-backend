@@ -159,12 +159,6 @@ class ConnectionRecoveryManager {
         `🔄 [RECOVERY] Re-uniendo socket ${socket.id} a transacción ${transaccionId}`
       );
 
-      // Agregar a room usando roomsManager
-      this.socketManager.roomsManager.agregarParticipanteTransaccion(
-        transaccionId,
-        socket.id
-      );
-
       // Obtener estado actual de la transacción desde la BD
       const Transaccion = require("../models/Transaccion");
       const transaccion = await Transaccion.findById(transaccionId)
@@ -177,6 +171,39 @@ class ConnectionRecoveryManager {
         );
         return;
       }
+
+      // Estados finales que no requieren recuperación
+      const estadosFinales = [
+        "completada",
+        "rechazada",
+        "cancelada",
+        "fallida",
+        "revertida",
+      ];
+
+      if (estadosFinales.includes(transaccion.estado)) {
+        console.log(
+          `ℹ️ [RECOVERY] Transacción ${transaccionId} en estado final: ${transaccion.estado} - No se recupera`
+        );
+        // Informar al cliente que la transacción ya finalizó
+        socket.emit("transaction-already-finished", {
+          transaccionId: transaccionId,
+          estado: transaccion.estado,
+          mensaje: "La transacción ya ha finalizado y no requiere acción",
+        });
+        return;
+      }
+
+      // Solo para estados activos: pendiente, en_proceso, realizada
+      console.log(
+        `✅ [RECOVERY] Transacción ${transaccionId} en estado activo: ${transaccion.estado} - Recuperando`
+      );
+
+      // Agregar a room usando roomsManager
+      this.socketManager.roomsManager.agregarParticipanteTransaccion(
+        transaccionId,
+        socket.id
+      );
 
       // Preparar datos para enviar
       const recoveryData = {
