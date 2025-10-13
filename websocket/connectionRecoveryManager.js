@@ -126,8 +126,12 @@ class ConnectionRecoveryManager {
     // Re-unir a rooms de transacciones
     const recoveredTransactions = [];
     for (const transaccionId of disconnectionInfo.transaccionesActivas) {
-      await this.rejoinTransactionRoom(socket, transaccionId);
-      recoveredTransactions.push(transaccionId);
+      const wasRecovered = await this.rejoinTransactionRoom(socket, transaccionId);
+      
+      // Solo agregar a la lista si realmente se recuperó (no estaba en estado final)
+      if (wasRecovered) {
+        recoveredTransactions.push(transaccionId);
+      }
 
       // Limpiar de transacciones pendientes
       this.pendingTransactions.delete(transaccionId);
@@ -169,7 +173,7 @@ class ConnectionRecoveryManager {
         console.error(
           `❌ [RECOVERY] Transacción ${transaccionId} no encontrada`
         );
-        return;
+        return false; // No se pudo recuperar
       }
 
       // Estados finales que no requieren recuperación
@@ -191,7 +195,7 @@ class ConnectionRecoveryManager {
           estado: transaccion.estado,
           mensaje: "La transacción ya ha finalizado y no requiere acción",
         });
-        return;
+        return false; // No se recuperó
       }
 
       // Solo para estados activos: pendiente, en_proceso, realizada
@@ -242,11 +246,14 @@ class ConnectionRecoveryManager {
       console.log(
         `✅ [RECOVERY] Socket re-unido a transacción ${transaccionId} en estado: ${transaccion.estado}`
       );
+      
+      return true; // Transacción recuperada exitosamente
     } catch (error) {
       console.error(
         `❌ [RECOVERY] Error re-uniendo a transacción ${transaccionId}:`,
         error
       );
+      return false; // Error al recuperar
     }
   }
 
