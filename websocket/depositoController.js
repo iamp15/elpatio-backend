@@ -297,17 +297,18 @@ class DepositoWebSocketController {
       );
 
       // ASEGURAR QUE EL JUGADOR ESTÉ EN EL ROOM DE LA TRANSACCIÓN
-      const jugadorSocketId = await this.socketManager.roomsManager.obtenerSocketJugador(
-        transaccion.telegramId
-      );
-      
+      const jugadorSocketId =
+        await this.socketManager.roomsManager.obtenerSocketJugador(
+          transaccion.telegramId
+        );
+
       if (jugadorSocketId) {
         // Verificar si ya está en el room
         const enRoom = await this.socketManager.roomsManager.jugadorEnRoom(
           transaccion.telegramId,
           `transaccion-${transaccionId}`
         );
-        
+
         if (!enRoom) {
           console.log(
             `📢 [DEPOSITO] Jugador no estaba en room, agregándolo: ${transaccionId}`
@@ -564,26 +565,27 @@ class DepositoWebSocketController {
                 jugadorSocketId
               );
             }
+            
             console.log(
-              `📢 [DEPOSITO] Enviando deposito-completado a room transaccion-${transaccionId} para jugador`
+              `📢 [DEPOSITO] Enviando deposito-completado directamente al jugador ${transaccion.telegramId}`
             );
-            console.log(`📢 [DEPOSITO] Datos para jugador:`, {
+            
+            const datosJugador = {
               ...notificacion,
               target: "jugador",
               mensaje:
                 "¡Depósito completado exitosamente! Gracias por tu confianza.",
               saldoAnterior: transaccion.saldoAnterior,
-            });
+            };
+            
+            console.log(`📢 [DEPOSITO] Datos para jugador:`, datosJugador);
 
-            this.io
-              .to(`transaccion-${transaccionId}`)
-              .emit("deposito-completado", {
-                ...notificacion,
-                target: "jugador", // Solo jugador procesa
-                mensaje:
-                  "¡Depósito completado exitosamente! Gracias por tu confianza.",
-                saldoAnterior: transaccion.saldoAnterior,
-              });
+            // Emitir directamente al socket del jugador para garantizar entrega
+            this.io.to(jugadorSocketId).emit("deposito-completado", datosJugador);
+            
+            console.log(
+              `✅ [DEPOSITO] Evento deposito-completado enviado al socket ${jugadorSocketId}`
+            );
           } else {
             console.log(
               `📢 [DEPOSITO] Jugador no conectado, enviando notificación al bot de Telegram`
