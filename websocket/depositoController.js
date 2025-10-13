@@ -296,6 +296,29 @@ class DepositoWebSocketController {
         `✅ [DEPOSITO] Pago confirmado por jugador para transacción ${transaccionId}`
       );
 
+      // ASEGURAR QUE EL JUGADOR ESTÉ EN EL ROOM DE LA TRANSACCIÓN
+      const jugadorSocketId = await this.socketManager.roomsManager.obtenerSocketJugador(
+        transaccion.telegramId
+      );
+      
+      if (jugadorSocketId) {
+        // Verificar si ya está en el room
+        const enRoom = await this.socketManager.roomsManager.jugadorEnRoom(
+          transaccion.telegramId,
+          `transaccion-${transaccionId}`
+        );
+        
+        if (!enRoom) {
+          console.log(
+            `📢 [DEPOSITO] Jugador no estaba en room, agregándolo: ${transaccionId}`
+          );
+          this.socketManager.roomsManager.agregarParticipanteTransaccion(
+            transaccionId,
+            jugadorSocketId
+          );
+        }
+      }
+
       // 2. USAR ROOMS PARA NOTIFICAR A TODOS LOS PARTICIPANTES
       const notificacion = {
         transaccionId: transaccion._id,
