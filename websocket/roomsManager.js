@@ -258,6 +258,60 @@ class RoomsManager {
   }
 
   /**
+   * Obtener el socketId de un jugador
+   * @param {string} telegramId - ID de Telegram del jugador
+   * @returns {string|null} - socketId del jugador o null si no está conectado
+   */
+  obtenerSocketJugador(telegramId) {
+    if (!this.rooms.jugadores.has(telegramId)) {
+      console.log(
+        `⚠️ [ROOMS] Jugador ${telegramId} no tiene sockets conectados`
+      );
+      return null;
+    }
+
+    const sockets = this.rooms.jugadores.get(telegramId);
+    if (sockets.size === 0) {
+      console.log(`⚠️ [ROOMS] Jugador ${telegramId} no tiene sockets activos`);
+      return null;
+    }
+
+    // Retornar el primer socket (en caso de múltiples conexiones)
+    const socketId = Array.from(sockets)[0];
+    console.log(
+      `✅ [ROOMS] Socket encontrado para jugador ${telegramId}: ${socketId}`
+    );
+    return socketId;
+  }
+
+  /**
+   * Verificar si un jugador está en un room específico
+   * @param {string} telegramId - ID de Telegram del jugador
+   * @param {string} roomName - Nombre del room
+   * @returns {boolean} - true si el jugador está en el room
+   */
+  jugadorEnRoom(telegramId, roomName) {
+    const socketId = this.obtenerSocketJugador(telegramId);
+    if (!socketId) {
+      return false;
+    }
+
+    const socket = this.socketManager.io.sockets.sockets.get(socketId);
+    if (!socket) {
+      console.log(`⚠️ [ROOMS] Socket ${socketId} no encontrado en servidor`);
+      return false;
+    }
+
+    const enRoom = socket.rooms.has(roomName);
+    console.log(
+      `🔍 [ROOMS] Jugador ${telegramId} ${
+        enRoom ? "ESTÁ" : "NO está"
+      } en room ${roomName}`
+    );
+    return enRoom;
+  }
+
+  /**
    * Notificar a todos los cajeros disponibles
    */
   notificarCajerosDisponibles(evento, datos) {
