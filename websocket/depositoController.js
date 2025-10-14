@@ -89,6 +89,14 @@ class DepositoWebSocketController {
 
       console.log(`✅ [DEPOSITO] Transacción creada: ${transaccion._id}`);
 
+      // AGREGAR JUGADOR AL ROOM DE LA TRANSACCIÓN INMEDIATAMENTE
+      // Esto permite que el sistema de recovery detecte la transacción activa
+      this.roomsManager.crearRoomTransaccion(transaccion._id, [
+        { socketId: socket.id }
+      ]);
+
+      console.log(`📢 [DEPOSITO] Jugador agregado al room de transacción ${transaccion._id}`);
+
       // Notificar al jugador que la solicitud fue creada
       socket.emit("solicitud-creada", {
         transaccionId: transaccion._id,
@@ -184,10 +192,7 @@ class DepositoWebSocketController {
         `✅ [DEPOSITO] Cajero ${cajero.nombreCompleto} acepta transacción ${transaccionId}`
       );
 
-      // Crear room de transacción
-      this.roomsManager.crearRoomTransaccion(transaccionId, []);
-
-      // Agregar cajero al room de la transacción
+      // Agregar cajero al room de la transacción (el room ya fue creado cuando el jugador hizo la solicitud)
       this.roomsManager.agregarParticipanteTransaccion(
         transaccionId,
         socket.id
@@ -565,11 +570,11 @@ class DepositoWebSocketController {
                 jugadorSocketId
               );
             }
-            
+
             console.log(
               `📢 [DEPOSITO] Enviando deposito-completado directamente al jugador ${transaccion.telegramId}`
             );
-            
+
             const datosJugador = {
               ...notificacion,
               target: "jugador",
@@ -577,12 +582,14 @@ class DepositoWebSocketController {
                 "¡Depósito completado exitosamente! Gracias por tu confianza.",
               saldoAnterior: transaccion.saldoAnterior,
             };
-            
+
             console.log(`📢 [DEPOSITO] Datos para jugador:`, datosJugador);
 
             // Emitir directamente al socket del jugador para garantizar entrega
-            this.io.to(jugadorSocketId).emit("deposito-completado", datosJugador);
-            
+            this.io
+              .to(jugadorSocketId)
+              .emit("deposito-completado", datosJugador);
+
             console.log(
               `✅ [DEPOSITO] Evento deposito-completado enviado al socket ${jugadorSocketId}`
             );
