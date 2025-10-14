@@ -276,12 +276,29 @@ class RoomsManager {
       return null;
     }
 
-    // Retornar el primer socket (en caso de múltiples conexiones)
-    const socketId = Array.from(sockets)[0];
+    // Verificar que el socket realmente exista en el servidor
+    for (const socketId of sockets) {
+      const socket = this.socketManager.io.sockets.sockets.get(socketId);
+      if (socket) {
+        console.log(
+          `✅ [ROOMS] Socket VÁLIDO encontrado para jugador ${telegramId}: ${socketId}`
+        );
+        return socketId;
+      } else {
+        console.log(
+          `⚠️ [ROOMS] Socket ${socketId} en lista pero NO EXISTE en servidor, limpiando...`
+        );
+        // Limpiar socket inválido
+        sockets.delete(socketId);
+      }
+    }
+
+    // Si llegamos aquí, no hay sockets válidos
     console.log(
-      `✅ [ROOMS] Socket encontrado para jugador ${telegramId}: ${socketId}`
+      `❌ [ROOMS] No se encontraron sockets válidos para jugador ${telegramId}`
     );
-    return socketId;
+    this.rooms.jugadores.delete(telegramId);
+    return null;
   }
 
   /**
