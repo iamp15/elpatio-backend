@@ -99,13 +99,6 @@ class DepositoWebSocketController {
         `📢 [DEPOSITO] Jugador agregado al room de transacción ${transaccion._id}`
       );
 
-      // PROGRAMAR TIMEOUT PARA AUTO-CANCELACIÓN (2 minutos para pendiente)
-      this.socketManager.transactionTimeoutManager.scheduleTimeout(
-        transaccion._id.toString(),
-        null,
-        "pendiente"
-      );
-
       // Notificar al jugador que la solicitud fue creada
       socket.emit("solicitud-creada", {
         transaccionId: transaccion._id,
@@ -205,12 +198,6 @@ class DepositoWebSocketController {
       this.roomsManager.agregarParticipanteTransaccion(
         transaccionId,
         socket.id
-      );
-
-      // ACTUALIZAR TIMEOUT: de pendiente (2 min) a en_proceso (4 min)
-      this.socketManager.transactionTimeoutManager.updateTimeout(
-        transaccionId,
-        "en_proceso"
       );
 
       // Notificar al cajero que la asignación fue exitosa
@@ -314,15 +301,6 @@ class DepositoWebSocketController {
 
       console.log(
         `✅ [DEPOSITO] Pago confirmado por jugador para transacción ${transaccionId}`
-      );
-
-      // CANCELAR TIMEOUT ya que la transacción fue realizada (pago confirmado por jugador)
-      // Solo queda que el cajero verifique, no queremos auto-cancelación en esta etapa
-      this.socketManager.transactionTimeoutManager.cancelTimeout(
-        transaccionId
-      );
-      console.log(
-        `✅ [DEPOSITO] Timeout cancelado para transacción ${transaccionId} (estado: realizada)`
       );
 
       // ASEGURAR QUE EL JUGADOR ESTÉ EN EL ROOM DE LA TRANSACCIÓN
@@ -525,11 +503,6 @@ class DepositoWebSocketController {
             `✅ [DEPOSITO] Depósito completado: ${transaccionId}, nuevo saldo: ${saldoNuevo}`
           );
 
-          // CANCELAR TIMEOUT ya que la transacción se completó
-          this.socketManager.transactionTimeoutManager.cancelTimeout(
-            transaccionId
-          );
-
           // 2. USAR ROOMS PARA NOTIFICAR A TODOS LOS PARTICIPANTES
           const notificacion = {
             transaccionId: transaccion._id,
@@ -654,11 +627,6 @@ class DepositoWebSocketController {
           await session.commitTransaction();
 
           console.log(`❌ [DEPOSITO] Depósito rechazado: ${transaccionId}`);
-
-          // CANCELAR TIMEOUT ya que la transacción fue rechazada
-          this.socketManager.transactionTimeoutManager.cancelTimeout(
-            transaccionId
-          );
 
           // 2. USAR ROOMS PARA NOTIFICAR A TODOS LOS PARTICIPANTES
           const notificacion = {

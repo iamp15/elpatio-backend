@@ -1,8 +1,10 @@
 /**
  * Manager para auto-cancelación de transacciones por timeout
- * Usa timeouts individuales por transacción (no polling)
- * - Transacciones "pendiente" (sin cajero): 2 minutos (testing)
- * - Transacciones "en_proceso" (cajero asignado): 4 minutos (testing)
+ * Usa polling adaptativo (no timeouts individuales)
+ * - Sin transacciones activas: verifica cada 5 minutos
+ * - Con transacciones activas: verifica cada 30 segundos
+ * - Transacciones "pendiente": 2 minutos de timeout
+ * - Transacciones "en_proceso": 4 minutos de timeout
  */
 
 const Transaccion = require("../models/Transaccion");
@@ -16,211 +18,159 @@ class TransactionTimeoutManager {
       pendiente: 2 * 60 * 1000, // 2 minutos en milisegundos
       en_proceso: 4 * 60 * 1000, // 4 minutos en milisegundos
     };
-    // Map de timeouts activos: transaccionId -> timeoutId
-    this.activeTimeouts = new Map();
+    // Intervalos de verificación
+    this.checkIntervals = {
+      withActivity: 30 * 1000, // 30 segundos cuando hay transacciones activas
+      withoutActivity: 5 * 60 * 1000, // 5 minutos cuando no hay actividad
+    };
+    this.pollingTimeoutId = null;
+    this.isRunning = false;
   }
 
   /**
-   * Iniciar sistema de timeouts
-   * En este nuevo diseño, no hay polling - cada transacción programa su propio timeout
+   * Iniciar sistema de polling adaptativo
    */
   start() {
+    if (this.isRunning) {
+      console.log("⏰ [TIMEOUT] Sistema ya está corriendo");
+      return;
+    }
+
+    this.isRunning = true;
     console.log("⏰ [TIMEOUT] Sistema de auto-cancelación iniciado");
     console.log(
       `⏰ [TIMEOUT] Timeouts: Pendiente=${this.timeouts.pendiente / 60000}min, En proceso=${this.timeouts.en_proceso / 60000}min`
     );
     console.log(
-      "⏰ [TIMEOUT] Modo: Timeouts individuales (no polling) - Eficiente ✨"
+      `⏰ [TIMEOUT] Polling adaptativo: 30s con actividad, 5min sin actividad`
     );
+    console.log("⏰ [TIMEOUT] Modo: Escalable y robusto ✨");
 
-    // Recuperar transacciones activas existentes al inicio del servidor
-    this.recoverExistingTransactions();
+    // Iniciar el ciclo de polling
+    this.runAdaptivePolling();
   }
 
   /**
-   * Detener sistema de timeouts
+   * Detener sistema de polling
    */
   stop() {
-    console.log("⏰ [TIMEOUT] Deteniendo sistema de auto-cancelación...");
-
-    // Cancelar todos los timeouts activos
-    for (const [transaccionId, timeoutId] of this.activeTimeouts.entries()) {
-      clearTimeout(timeoutId);
-      console.log(`⏰ [TIMEOUT] Timeout cancelado para transacción ${transaccionId}`);
+    if (!this.isRunning) {
+      return;
     }
 
-    this.activeTimeouts.clear();
+    this.isRunning = false;
+
+    if (this.pollingTimeoutId) {
+      clearTimeout(this.pollingTimeoutId);
+      this.pollingTimeoutId = null;
+    }
+
     console.log("⏰ [TIMEOUT] Sistema de auto-cancelación detenido");
   }
 
   /**
-   * Recuperar transacciones activas existentes al iniciar el servidor
-   * Solo se ejecuta una vez al arrancar
+   * Ejecutar polling adaptativo
    */
-  async recoverExistingTransactions() {
-    try {
-      console.log(
-        "🔄 [TIMEOUT] Recuperando transacciones activas existentes..."
-      );
+  async runAdaptivePolling() {
+    if (!this.isRunning) {
+      return;
+    }
 
-      // Buscar transacciones pendientes y en_proceso
-      const transaccionesActivas = await Transaccion.find({
+    try {
+      // 1. Verificar si hay transacciones activas
+      const activeCount = await Transaccion.countDocuments({
         estado: { $in: ["pendiente", "en_proceso"] },
       });
 
       console.log(
-        `🔄 [TIMEOUT] Encontradas ${transaccionesActivas.length} transacciones activas`
+        `🔍 [TIMEOUT] Verificando transacciones... (${activeCount} activas)`
       );
 
-      for (const transaccion of transaccionesActivas) {
-        // Calcular tiempo restante
-        const tiempoBase =
-          transaccion.estado === "pendiente"
-            ? new Date(transaccion.createdAt)
-            : new Date(transaccion.updatedAt);
-
-        const tiempoTranscurrido = Date.now() - tiempoBase.getTime();
-        const timeoutDuration = this.timeouts[transaccion.estado];
-        const tiempoRestante = timeoutDuration - tiempoTranscurrido;
-
-        if (tiempoRestante <= 0) {
-          // Ya expiró, cancelar inmediatamente
-          console.log(
-            `⚠️ [TIMEOUT] Transacción ${transaccion._id} ya expiró, cancelando...`
-          );
-          await this.cancelExpiredTransaction(transaccion, transaccion.estado);
-        } else {
-          // Programar timeout con el tiempo restante
-          console.log(
-            `⏰ [TIMEOUT] Programando timeout para transacción ${transaccion._id} en ${Math.round(tiempoRestante / 1000)}s`
-          );
-          this.scheduleTimeout(
-            transaccion._id.toString(),
-            tiempoRestante,
-            transaccion.estado
-          );
-        }
+      // 2. Si hay transacciones activas, buscar las expiradas
+      if (activeCount > 0) {
+        await this.checkExpiredTransactions();
+      } else {
+        console.log(`✅ [TIMEOUT] No hay transacciones activas`);
       }
 
-      console.log("✅ [TIMEOUT] Recuperación de transacciones completada");
+      // 3. Determinar próximo intervalo
+      const nextInterval =
+        activeCount > 0
+          ? this.checkIntervals.withActivity
+          : this.checkIntervals.withoutActivity;
+
+      const nextCheckMinutes = Math.round(nextInterval / 60000);
+      console.log(
+        `⏰ [TIMEOUT] Próxima verificación en ${nextCheckMinutes} minuto(s)`
+      );
+
+      // 4. Programar próxima verificación
+      this.pollingTimeoutId = setTimeout(() => {
+        this.runAdaptivePolling();
+      }, nextInterval);
     } catch (error) {
-      console.error(
-        "❌ [TIMEOUT] Error recuperando transacciones existentes:",
-        error
-      );
+      console.error("❌ [TIMEOUT] Error en polling adaptativo:", error);
+
+      // En caso de error, reintentar en 1 minuto
+      this.pollingTimeoutId = setTimeout(() => {
+        this.runAdaptivePolling();
+      }, 60000);
     }
   }
 
   /**
-   * Programar timeout para una transacción específica
-   * @param {string} transaccionId - ID de la transacción
-   * @param {number} delay - Tiempo en ms antes de cancelar (opcional, usa default si no se provee)
-   * @param {string} estado - Estado de la transacción ('pendiente' o 'en_proceso')
+   * Verificar y cancelar transacciones expiradas
    */
-  scheduleTimeout(transaccionId, delay = null, estado = "pendiente") {
-    // Si ya hay un timeout para esta transacción, cancelarlo primero
-    this.cancelTimeout(transaccionId);
-
-    // Usar delay especificado o el default según el estado
-    const timeoutDelay = delay !== null ? delay : this.timeouts[estado];
-
-    console.log(
-      `⏰ [TIMEOUT] Programando auto-cancelación para ${transaccionId} en ${Math.round(timeoutDelay / 60000)} minutos (estado: ${estado})`
-    );
-
-    // Programar timeout
-    const timeoutId = setTimeout(async () => {
-      console.log(
-        `⏱️ [TIMEOUT] Timeout alcanzado para transacción ${transaccionId}`
-      );
-      await this.handleTimeout(transaccionId, estado);
-    }, timeoutDelay);
-
-    // Guardar referencia del timeout
-    this.activeTimeouts.set(transaccionId, timeoutId);
-  }
-
-  /**
-   * Cancelar timeout de una transacción
-   * Se llama cuando la transacción se completa, rechaza o cancela antes del timeout
-   */
-  cancelTimeout(transaccionId) {
-    const timeoutId = this.activeTimeouts.get(transaccionId);
-
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-      this.activeTimeouts.delete(transaccionId);
-      console.log(
-        `✅ [TIMEOUT] Timeout cancelado para transacción ${transaccionId}`
-      );
-      return true;
-    }
-
-    return false;
-  }
-
-  /**
-   * Actualizar timeout cuando cambia el estado de la transacción
-   * Por ejemplo, de 'pendiente' (15min) a 'en_proceso' (30min)
-   */
-  updateTimeout(transaccionId, nuevoEstado) {
-    console.log(
-      `🔄 [TIMEOUT] Actualizando timeout para ${transaccionId} a estado: ${nuevoEstado}`
-    );
-
-    // Cancelar timeout anterior
-    this.cancelTimeout(transaccionId);
-
-    // Programar nuevo timeout según el nuevo estado
-    if (nuevoEstado === "pendiente" || nuevoEstado === "en_proceso") {
-      this.scheduleTimeout(transaccionId, null, nuevoEstado);
-    }
-  }
-
-  /**
-   * Manejar timeout alcanzado
-   */
-  async handleTimeout(transaccionId, estadoOriginal) {
+  async checkExpiredTransactions() {
     try {
-      console.log(
-        `🚫 [TIMEOUT] Procesando timeout para transacción ${transaccionId}`
-      );
+      const now = new Date();
 
-      // Buscar la transacción
-      const transaccion = await Transaccion.findById(transaccionId)
+      // Calcular timestamps límite
+      const pendienteLimitDate = new Date(now - this.timeouts.pendiente);
+      const enProcesoLimitDate = new Date(now - this.timeouts.en_proceso);
+
+      // Buscar transacciones pendientes expiradas (> 2 min)
+      const expiredPendientes = await Transaccion.find({
+        estado: "pendiente",
+        createdAt: { $lt: pendienteLimitDate },
+      }).populate("jugadorId", "telegramId nickname firstName");
+
+      // Buscar transacciones en_proceso expiradas (> 4 min)
+      const expiredEnProceso = await Transaccion.find({
+        estado: "en_proceso",
+        updatedAt: { $lt: enProcesoLimitDate },
+      })
         .populate("jugadorId", "telegramId nickname firstName")
         .populate("cajeroId", "nombreCompleto email");
 
-      if (!transaccion) {
+      const totalExpired =
+        expiredPendientes.length + expiredEnProceso.length;
+
+      if (totalExpired > 0) {
         console.log(
-          `⚠️ [TIMEOUT] Transacción ${transaccionId} no encontrada, posiblemente ya fue procesada`
+          `⚠️ [TIMEOUT] Encontradas ${totalExpired} transacciones expiradas`
         );
-        this.activeTimeouts.delete(transaccionId);
-        return;
-      }
-
-      // Verificar si la transacción aún está en un estado cancelable
-      if (
-        transaccion.estado !== "pendiente" &&
-        transaccion.estado !== "en_proceso"
-      ) {
         console.log(
-          `ℹ️ [TIMEOUT] Transacción ${transaccionId} ya no está en estado cancelable (${transaccion.estado})`
+          `⚠️ [TIMEOUT] - Pendientes: ${expiredPendientes.length}`
         );
-        this.activeTimeouts.delete(transaccionId);
-        return;
+        console.log(
+          `⚠️ [TIMEOUT] - En proceso: ${expiredEnProceso.length}`
+        );
+
+        // Cancelar transacciones pendientes
+        for (const transaccion of expiredPendientes) {
+          await this.cancelExpiredTransaction(transaccion, "pendiente");
+        }
+
+        // Cancelar transacciones en_proceso
+        for (const transaccion of expiredEnProceso) {
+          await this.cancelExpiredTransaction(transaccion, "en_proceso");
+        }
+      } else {
+        console.log(`✅ [TIMEOUT] No hay transacciones expiradas`);
       }
-
-      // Cancelar la transacción
-      await this.cancelExpiredTransaction(transaccion, estadoOriginal);
-
-      // Limpiar timeout de la lista
-      this.activeTimeouts.delete(transaccionId);
     } catch (error) {
-      console.error(
-        `❌ [TIMEOUT] Error manejando timeout de ${transaccionId}:`,
-        error
-      );
+      console.error("❌ [TIMEOUT] Error verificando transacciones:", error);
     }
   }
 
@@ -356,9 +306,10 @@ class TransactionTimeoutManager {
    */
   getStats() {
     return {
+      isRunning: this.isRunning,
       timeouts: this.timeouts,
-      activeTimeouts: this.activeTimeouts.size,
-      transaccionesMonitoreadas: Array.from(this.activeTimeouts.keys()),
+      checkIntervals: this.checkIntervals,
+      mode: "adaptive-polling",
     };
   }
 }
