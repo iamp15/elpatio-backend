@@ -316,6 +316,15 @@ class DepositoWebSocketController {
         `✅ [DEPOSITO] Pago confirmado por jugador para transacción ${transaccionId}`
       );
 
+      // CANCELAR TIMEOUT ya que la transacción fue realizada (pago confirmado por jugador)
+      // Solo queda que el cajero verifique, no queremos auto-cancelación en esta etapa
+      this.socketManager.transactionTimeoutManager.cancelTimeout(
+        transaccionId
+      );
+      console.log(
+        `✅ [DEPOSITO] Timeout cancelado para transacción ${transaccionId} (estado: realizada)`
+      );
+
       // ASEGURAR QUE EL JUGADOR ESTÉ EN EL ROOM DE LA TRANSACCIÓN
       const jugadorSocketId =
         await this.socketManager.roomsManager.obtenerSocketJugador(
