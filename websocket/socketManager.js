@@ -6,6 +6,7 @@ const DepositoWebSocketController = require("./depositoController");
 const RoomsManager = require("./roomsManager");
 const ConnectionStateManager = require("./connectionStateManager");
 const ConnectionRecoveryManager = require("./connectionRecoveryManager");
+const TransactionTimeoutManager = require("./transactionTimeoutManager");
 
 class SocketManager {
   constructor() {
@@ -16,6 +17,7 @@ class SocketManager {
     this.roomsManager = null; // Manager de rooms
     this.connectionStateManager = null; // Manager de estado de conexión
     this.connectionRecoveryManager = null; // Manager de recuperación de conexiones
+    this.transactionTimeoutManager = null; // Manager de timeouts de transacciones
   }
 
   /**
@@ -54,12 +56,17 @@ class SocketManager {
     // Inicializar manager de recuperación de conexiones
     this.connectionRecoveryManager = new ConnectionRecoveryManager(this);
 
+    // Inicializar manager de timeouts de transacciones
+    this.transactionTimeoutManager = new TransactionTimeoutManager(this);
+    this.transactionTimeoutManager.start(); // Iniciar verificación periódica
+
     // Inicializar controlador de depósitos DESPUÉS (necesita roomsManager)
     this.depositoController = new DepositoWebSocketController(this);
 
     this.setupEventHandlers();
     console.log("🔌 WebSocket server inicializado");
     console.log("✅ Sistema de recuperación de conexiones activado");
+    console.log("✅ Sistema de auto-cancelación de transacciones activado");
   }
 
   /**
