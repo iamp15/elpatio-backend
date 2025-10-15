@@ -563,6 +563,15 @@ exports.cancelarTransaccionJugador = async (req, res) => {
     );
     await transaccion.save();
 
+    // CANCELAR TIMEOUT ya que la transacción fue cancelada por el jugador
+    const socketManager = req.app.get("socketManager");
+    if (socketManager && socketManager.transactionTimeoutManager) {
+      socketManager.transactionTimeoutManager.cancelTimeout(transaccionId);
+      console.log(
+        `✅ [CANCELAR] Timeout cancelado para transacción ${transaccionId}`
+      );
+    }
+
     // Registrar log
     await registrarLog({
       accion: "Transacción cancelada por jugador",

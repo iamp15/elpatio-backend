@@ -92,10 +92,19 @@ class DepositoWebSocketController {
       // AGREGAR JUGADOR AL ROOM DE LA TRANSACCIÓN INMEDIATAMENTE
       // Esto permite que el sistema de recovery detecte la transacción activa
       this.roomsManager.crearRoomTransaccion(transaccion._id, [
-        { socketId: socket.id }
+        { socketId: socket.id },
       ]);
 
-      console.log(`📢 [DEPOSITO] Jugador agregado al room de transacción ${transaccion._id}`);
+      console.log(
+        `📢 [DEPOSITO] Jugador agregado al room de transacción ${transaccion._id}`
+      );
+
+      // PROGRAMAR TIMEOUT PARA AUTO-CANCELACIÓN (2 minutos para pendiente)
+      this.socketManager.transactionTimeoutManager.scheduleTimeout(
+        transaccion._id.toString(),
+        null,
+        "pendiente"
+      );
 
       // Notificar al jugador que la solicitud fue creada
       socket.emit("solicitud-creada", {
@@ -196,6 +205,12 @@ class DepositoWebSocketController {
       this.roomsManager.agregarParticipanteTransaccion(
         transaccionId,
         socket.id
+      );
+
+      // ACTUALIZAR TIMEOUT: de pendiente (2 min) a en_proceso (4 min)
+      this.socketManager.transactionTimeoutManager.updateTimeout(
+        transaccionId,
+        "en_proceso"
       );
 
       // Notificar al cajero que la asignación fue exitosa
@@ -501,6 +516,11 @@ class DepositoWebSocketController {
             `✅ [DEPOSITO] Depósito completado: ${transaccionId}, nuevo saldo: ${saldoNuevo}`
           );
 
+          // CANCELAR TIMEOUT ya que la transacción se completó
+          this.socketManager.transactionTimeoutManager.cancelTimeout(
+            transaccionId
+          );
+
           // 2. USAR ROOMS PARA NOTIFICAR A TODOS LOS PARTICIPANTES
           const notificacion = {
             transaccionId: transaccion._id,
@@ -625,6 +645,11 @@ class DepositoWebSocketController {
           await session.commitTransaction();
 
           console.log(`❌ [DEPOSITO] Depósito rechazado: ${transaccionId}`);
+
+          // CANCELAR TIMEOUT ya que la transacción fue rechazada
+          this.socketManager.transactionTimeoutManager.cancelTimeout(
+            transaccionId
+          );
 
           // 2. USAR ROOMS PARA NOTIFICAR A TODOS LOS PARTICIPANTES
           const notificacion = {
