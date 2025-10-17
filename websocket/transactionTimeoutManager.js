@@ -39,7 +39,9 @@ class TransactionTimeoutManager {
     this.isRunning = true;
     console.log("⏰ [TIMEOUT] Sistema de auto-cancelación iniciado");
     console.log(
-      `⏰ [TIMEOUT] Timeouts: Pendiente=${this.timeouts.pendiente / 60000}min, En proceso=${this.timeouts.en_proceso / 60000}min`
+      `⏰ [TIMEOUT] Timeouts: Pendiente=${
+        this.timeouts.pendiente / 60000
+      }min, En proceso=${this.timeouts.en_proceso / 60000}min`
     );
     console.log(
       `⏰ [TIMEOUT] Polling adaptativo: 30s con actividad, 5min sin actividad`
@@ -143,19 +145,14 @@ class TransactionTimeoutManager {
         .populate("jugadorId", "telegramId nickname firstName")
         .populate("cajeroId", "nombreCompleto email");
 
-      const totalExpired =
-        expiredPendientes.length + expiredEnProceso.length;
+      const totalExpired = expiredPendientes.length + expiredEnProceso.length;
 
       if (totalExpired > 0) {
         console.log(
           `⚠️ [TIMEOUT] Encontradas ${totalExpired} transacciones expiradas`
         );
-        console.log(
-          `⚠️ [TIMEOUT] - Pendientes: ${expiredPendientes.length}`
-        );
-        console.log(
-          `⚠️ [TIMEOUT] - En proceso: ${expiredEnProceso.length}`
-        );
+        console.log(`⚠️ [TIMEOUT] - Pendientes: ${expiredPendientes.length}`);
+        console.log(`⚠️ [TIMEOUT] - En proceso: ${expiredEnProceso.length}`);
 
         // Cancelar transacciones pendientes
         for (const transaccion of expiredPendientes) {
@@ -218,7 +215,9 @@ class TransactionTimeoutManager {
           transaccionId: transaccion._id,
           estadoOriginal: estadoOriginal,
           tiempoTranscurrido: minutos + " minutos",
-          motivo: `Timeout automático (>${estadoOriginal === "pendiente" ? "2" : "4"} minutos)`,
+          motivo: `Timeout automático (>${
+            estadoOriginal === "pendiente" ? "2" : "4"
+          } minutos)`,
         },
       });
 
@@ -261,6 +260,27 @@ class TransactionTimeoutManager {
 
         console.log(
           `📢 [TIMEOUT] Jugador ${transaccion.telegramId} notificado de cancelación`
+        );
+      }
+
+      // Si es transacción pendiente (sin cajero), notificar a TODOS los cajeros
+      // para que actualicen sus listas
+      if (estadoOriginal === "pendiente") {
+        this.socketManager.roomsManager.notificarCajerosDisponibles(
+          "transaccion-cancelada-por-timeout",
+          {
+            transaccionId: transaccion._id,
+            estado: "cancelada",
+            estadoAnterior: estadoOriginal,
+            motivo: "timeout",
+            mensaje: `Solicitud de depósito cancelada por inactividad.`,
+            tiempoTranscurrido: minutos,
+            timestamp: new Date().toISOString(),
+          }
+        );
+
+        console.log(
+          `📢 [TIMEOUT] Cajeros disponibles notificados de cancelación de transacción pendiente`
         );
       }
 
