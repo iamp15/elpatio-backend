@@ -263,8 +263,8 @@ class TransactionTimeoutManager {
         );
       }
 
-      // Si es transacción pendiente (sin cajero), notificar a TODOS los cajeros
-      // para que actualicen sus listas
+      // Si es transacción pendiente (sin cajero), solo actualizar listas de cajeros
+      // No enviar mensaje intrusivo, solo que desaparezca la transacción
       if (estadoOriginal === "pendiente") {
         this.socketManager.roomsManager.notificarCajerosDisponibles(
           "transaccion-cancelada-por-timeout",
@@ -273,14 +273,14 @@ class TransactionTimeoutManager {
             estado: "cancelada",
             estadoAnterior: estadoOriginal,
             motivo: "timeout",
-            mensaje: `Solicitud de depósito cancelada por inactividad.`,
             tiempoTranscurrido: minutos,
             timestamp: new Date().toISOString(),
+            // Sin campo 'mensaje' para cajeros - solo actualización de lista
           }
         );
 
         console.log(
-          `📢 [TIMEOUT] Cajeros disponibles notificados de cancelación de transacción pendiente`
+          `📢 [TIMEOUT] Cajeros notificados para actualizar listas (transacción pendiente cancelada)`
         );
       }
 
