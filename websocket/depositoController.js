@@ -687,10 +687,42 @@ class DepositoWebSocketController {
             );
           } else {
             console.log(
-              `📢 [DEPOSITO] Jugador no conectado, enviando notificación al bot de Telegram`
+              `📢 [DEPOSITO] Jugador no conectado`
             );
-            // TODO: Implementar notificación al bot de Telegram
-            // await this.notificarBotTelegram(transaccion, notificacion);
+          }
+
+          // Crear notificación persistente para el JUGADOR
+          try {
+            const jugador = await Jugador.findById(transaccion.jugadorId);
+            if (jugador) {
+              await crearNotificacionInterna({
+                destinatarioId: jugador._id,
+                destinatarioTipo: "jugador",
+                telegramId: jugador.telegramId,
+                tipo: "deposito_aprobado",
+                titulo: "Depósito Aprobado ✅",
+                mensaje: `Tu depósito de ${(transaccion.monto / 100).toFixed(
+                  2
+                )} Bs ha sido aprobado.\n\nNuevo saldo: ${(
+                  saldoNuevo / 100
+                ).toFixed(2)} Bs`,
+                datos: {
+                  transaccionId: transaccion._id.toString(),
+                  monto: transaccion.monto,
+                  saldoNuevo,
+                },
+                eventoId: `deposito-aprobado-${transaccion._id}`,
+              });
+
+              console.log(
+                `✅ Notificación de depósito aprobado creada para jugador ${jugador.telegramId}`
+              );
+            }
+          } catch (error) {
+            console.error(
+              "❌ Error creando notificación para jugador:",
+              error.message
+            );
           }
 
           // Crear notificación persistente para el cajero
@@ -780,6 +812,40 @@ class DepositoWebSocketController {
               target: "jugador", // Solo jugador procesa
               monto: transaccion.monto,
             });
+
+          // Crear notificación persistente para el JUGADOR
+          try {
+            const jugador = await Jugador.findById(transaccion.jugadorId);
+            if (jugador) {
+              await crearNotificacionInterna({
+                destinatarioId: jugador._id,
+                destinatarioTipo: "jugador",
+                telegramId: jugador.telegramId,
+                tipo: "deposito_rechazado",
+                titulo: "Depósito Rechazado ❌",
+                mensaje: `Tu depósito de ${(transaccion.monto / 100).toFixed(
+                  2
+                )} Bs ha sido rechazado.\n\nMotivo: ${
+                  motivo || "No especificado"
+                }`,
+                datos: {
+                  transaccionId: transaccion._id.toString(),
+                  monto: transaccion.monto,
+                  motivo: motivo || "No especificado",
+                },
+                eventoId: `deposito-rechazado-${transaccion._id}`,
+              });
+
+              console.log(
+                `✅ Notificación de depósito rechazado creada para jugador ${jugador.telegramId}`
+              );
+            }
+          } catch (error) {
+            console.error(
+              "❌ Error creando notificación para jugador:",
+              error.message
+            );
+          }
 
           // Registrar log
           await registrarLog({
