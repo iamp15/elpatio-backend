@@ -1,7 +1,15 @@
+/**
+ * Backend API para El Patio
+ * @version 0.9.0
+ */
+
 const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
 require("dotenv").config();
+
+// Constante de versión
+const APP_VERSION = "0.9.0"; // Alpha - Infraestructura lista, falta implementar juegos
 
 const app = express();
 
@@ -14,10 +22,11 @@ app.use(express.json());
 app.get("/health", (req, res) => {
   res.status(200).json({
     status: "OK",
+    version: APP_VERSION,
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     memory: process.memoryUsage(),
-    env: process.env.NODE_ENV,
+    env: process.env.NODE_ENV || "development",
   });
 });
 
@@ -72,3 +81,4 @@ app.use("/api/websocket", require("./routes/websocket"));
 app.use(require("./middlewares/errorHandler"));
 
 module.exports = app;
+module.exports.APP_VERSION = APP_VERSION;

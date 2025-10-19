@@ -1,7 +1,7 @@
 {
   "name": "elpatio-backend",
-  "version": "1.0.0",
-  "description": "",
+  "version": "0.9.0",
+  "description": "Backend API para El Patio - Alpha",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

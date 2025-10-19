@@ -5,9 +5,18 @@ const socketManager = require("./websocket/socketManager");
 
 const PORT = process.env.PORT || 3000;
 
+// Variable para el servidor (declarada en scope superior)
+let server;
+
 // Función para shutdown graceful
 const gracefulShutdown = (signal) => {
   console.log(`\n🛑 Recibida señal ${signal}. Iniciando shutdown graceful...`);
+
+  if (!server) {
+    console.log("⚠️ Servidor no inicializado, saliendo directamente...");
+    process.exit(0);
+    return;
+  }
 
   server.close(() => {
     console.log("✅ Servidor HTTP cerrado");
@@ -43,8 +52,8 @@ process.on("unhandledRejection", (reason, promise) => {
 // Iniciar servidor
 connectDB()
   .then(() => {
-    const server = app.listen(PORT, "0.0.0.0", () => {
-      console.log(`🚀 Servidor corriendo en el puerto ${PORT}`);
+    server = app.listen(PORT, "0.0.0.0", () => {
+      console.log(`🚀 Servidor El Patio Backend v${app.APP_VERSION} [ALPHA] corriendo en el puerto ${PORT}`);
       console.log(
         `📊 Health check disponible en: http://localhost:${PORT}/health`
       );
