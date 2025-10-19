@@ -21,7 +21,9 @@ router.get("/cajero", auth, async (req, res) => {
     }
 
     const cajeroId = req.user._id || req.user.id;
-    console.log(`🔍 [NOTIFICACIONES] Cajero: ${cajeroId}, rol: ${req.user.rol}`);
+    console.log(
+      `🔍 [NOTIFICACIONES] Cajero: ${cajeroId}, rol: ${req.user.rol}`
+    );
 
     if (!cajeroId) {
       console.error("❌ [NOTIFICACIONES] cajeroId es undefined");
@@ -42,13 +44,25 @@ router.get("/cajero", auth, async (req, res) => {
       });
     }
 
-    // Modificar query para usar el cajeroId del token
-    req.query.destinatarioId = cajeroId.toString();
-    req.query.destinatarioTipo = "cajero";
+    // Obtener notificaciones directamente (no podemos modificar req.query)
+    const limit = parseInt(req.query.limit) || 10;
+    const Notificacion = require("../models/Notificacion");
+    
+    const notificaciones = await Notificacion.find({
+      destinatarioId: cajeroId,
+      destinatarioTipo: "cajero",
+    })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
 
-    console.log(`🔍 [NOTIFICACIONES] Query params: destinatarioId=${req.query.destinatarioId}, tipo=${req.query.destinatarioTipo}`);
+    console.log(`✅ [NOTIFICACIONES] Encontradas ${notificaciones.length} notificaciones`);
 
-    return notificacionesController.obtenerNotificaciones(req, res);
+    return res.status(200).json({
+      mensaje: "Notificaciones obtenidas exitosamente",
+      notificaciones,
+      total: notificaciones.length,
+    });
   } catch (error) {
     console.error("❌ Error en ruta cajero:", error.message);
     return res.status(500).json({
