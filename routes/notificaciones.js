@@ -47,7 +47,7 @@ router.get("/cajero", auth, async (req, res) => {
     // Obtener notificaciones directamente (no podemos modificar req.query)
     const limit = parseInt(req.query.limit) || 10;
     const Notificacion = require("../models/Notificacion");
-    
+
     const notificaciones = await Notificacion.find({
       destinatarioId: cajeroId,
       destinatarioTipo: "cajero",
@@ -56,7 +56,9 @@ router.get("/cajero", auth, async (req, res) => {
       .limit(limit)
       .lean();
 
-    console.log(`✅ [NOTIFICACIONES] Encontradas ${notificaciones.length} notificaciones`);
+    console.log(
+      `✅ [NOTIFICACIONES] Encontradas ${notificaciones.length} notificaciones`
+    );
 
     return res.status(200).json({
       mensaje: "Notificaciones obtenidas exitosamente",

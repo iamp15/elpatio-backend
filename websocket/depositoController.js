@@ -974,49 +974,8 @@ class DepositoWebSocketController {
       `📢 [DEPOSITO] Nueva solicitud notificada a cajeros disponibles`
     );
 
-    // Crear notificaciones persistentes para cada cajero disponible
-    try {
-      const cajerosConectados =
-        this.socketManager.roomsManager.getCajerosConectados();
-
-      for (const cajero of cajerosConectados) {
-        await crearNotificacionInterna({
-          destinatarioId: cajero.id,
-          destinatarioTipo: "cajero",
-          tipo: "nueva_solicitud",
-          titulo: "Nueva solicitud de depósito",
-          mensaje: `${notificacion.jugador.nombre} solicita depositar ${(
-            transaccion.monto / 100
-          ).toFixed(2)} Bs`,
-          datos: {
-            transaccionId: transaccion._id.toString(),
-            monto: transaccion.monto,
-            jugadorNombre: notificacion.jugador.nombre,
-            metodoPago: notificacion.metodoPago,
-          },
-          eventoId: `solicitud-${transaccion._id}`,
-        });
-
-        // Emitir evento de nueva notificación al cajero
-        this.socketManager.roomsManager.notificarCajeroEspecifico(
-          cajero.id,
-          "nuevaNotificacion",
-          {
-            tipo: "nueva_solicitud",
-            titulo: "Nueva solicitud de depósito",
-            mensaje: `${notificacion.jugador.nombre} solicita depositar ${(
-              transaccion.monto / 100
-            ).toFixed(2)} Bs`,
-            transaccionId: transaccion._id.toString(),
-          }
-        );
-      }
-    } catch (error) {
-      console.error(
-        "❌ Error creando notificaciones persistentes:",
-        error.message
-      );
-    }
+    // Nota: Las notificaciones persistentes se crearán cuando un cajero específico
+    // acepte la solicitud, no para todos los cajeros disponibles
   }
 
   /**
