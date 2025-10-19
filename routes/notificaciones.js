@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const notificacionesController = require("../controllers/notificacionesController");
 const verificarAdmin = require("../middlewares/verificarAdmin");
-const telegramAuth = require("../middlewares/telegramAuth");
+const { telegramAuth } = require("../middlewares/telegramAuth");
 
 /**
  * GET /api/notificaciones/cajero
