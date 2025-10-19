@@ -686,9 +686,7 @@ class DepositoWebSocketController {
               `✅ [DEPOSITO] Evento deposito-completado enviado al socket ${jugadorSocketId}`
             );
           } else {
-            console.log(
-              `📢 [DEPOSITO] Jugador no conectado`
-            );
+            console.log(`📢 [DEPOSITO] Jugador no conectado`);
           }
 
           // Crear notificación persistente para el JUGADOR

@@ -13,18 +13,40 @@ const { telegramAuth } = require("../middlewares/telegramAuth");
 router.get("/cajero", auth, async (req, res) => {
   try {
     // El middleware auth agrega req.user con info del usuario autenticado
+    if (!req.user) {
+      console.error("❌ [NOTIFICACIONES] req.user no existe");
+      return res.status(401).json({
+        mensaje: "No autenticado",
+      });
+    }
+
     const cajeroId = req.user._id || req.user.id;
+    console.log(`🔍 [NOTIFICACIONES] Cajero: ${cajeroId}, rol: ${req.user.rol}`);
+
+    if (!cajeroId) {
+      console.error("❌ [NOTIFICACIONES] cajeroId es undefined");
+      return res.status(400).json({
+        mensaje: "ID de cajero no encontrado en token",
+      });
+    }
 
     // Verificar que el usuario sea cajero
-    if (req.user.rol !== "cajero" && req.user.rol !== "admin" && req.user.rol !== "superadmin") {
+    if (
+      req.user.rol !== "cajero" &&
+      req.user.rol !== "admin" &&
+      req.user.rol !== "superadmin"
+    ) {
       return res.status(403).json({
-        mensaje: "Acceso denegado: solo cajeros pueden ver notificaciones de cajero",
+        mensaje:
+          "Acceso denegado: solo cajeros pueden ver notificaciones de cajero",
       });
     }
 
     // Modificar query para usar el cajeroId del token
-    req.query.destinatarioId = cajeroId;
+    req.query.destinatarioId = cajeroId.toString();
     req.query.destinatarioTipo = "cajero";
+
+    console.log(`🔍 [NOTIFICACIONES] Query params: destinatarioId=${req.query.destinatarioId}, tipo=${req.query.destinatarioTipo}`);
 
     return notificacionesController.obtenerNotificaciones(req, res);
   } catch (error) {
@@ -59,11 +81,7 @@ router.post("/", verificarAdmin, notificacionesController.crearNotificacion);
  * Eliminar una notificación específica
  * Puede ser usado por cajeros (con auth) o jugadores (con telegramAuth)
  */
-router.delete(
-  "/:id",
-  auth,
-  notificacionesController.eliminarNotificacion
-);
+router.delete("/:id", auth, notificacionesController.eliminarNotificacion);
 
 /**
  * POST /api/notificaciones/limpieza

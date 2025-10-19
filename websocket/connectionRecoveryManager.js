@@ -126,8 +126,11 @@ class ConnectionRecoveryManager {
     // Re-unir a rooms de transacciones
     const recoveredTransactions = [];
     for (const transaccionId of disconnectionInfo.transaccionesActivas) {
-      const wasRecovered = await this.rejoinTransactionRoom(socket, transaccionId);
-      
+      const wasRecovered = await this.rejoinTransactionRoom(
+        socket,
+        transaccionId
+      );
+
       // Solo agregar a la lista si realmente se recuperó (no estaba en estado final)
       if (wasRecovered) {
         recoveredTransactions.push(transaccionId);
@@ -246,7 +249,7 @@ class ConnectionRecoveryManager {
       console.log(
         `✅ [RECOVERY] Socket re-unido a transacción ${transaccionId} en estado: ${transaccion.estado}`
       );
-      
+
       return true; // Transacción recuperada exitosamente
     } catch (error) {
       console.error(
