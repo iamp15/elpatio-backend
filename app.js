@@ -1,6 +1,6 @@
 /**
  * Backend API para El Patio
- * @version 0.9.0
+ * @version 0.10.0
  */
 
 const express = require("express");
@@ -9,7 +9,7 @@ const morgan = require("morgan");
 require("dotenv").config();
 
 // Constante de versión
-const APP_VERSION = "0.9.0"; // Alpha - Infraestructura lista, falta implementar juegos
+const APP_VERSION = "0.10.0"; // Alpha - Sistema de notificaciones push implementado
 
 const app = express();
 
@@ -76,6 +76,7 @@ app.use("/api/payment-config", require("./routes/paymentConfig"));
 app.use("/api/transacciones", require("./routes/transacciones"));
 app.use("/api/webapp", require("./routes/webapp"));
 app.use("/api/websocket", require("./routes/websocket"));
+app.use("/api/notificaciones", require("./routes/notificaciones"));
 
 //Manejo de errores
 app.use(require("./middlewares/errorHandler"));

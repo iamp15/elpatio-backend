@@ -2,6 +2,7 @@ const app = require("./app");
 const connectDB = require("./config/db");
 const mongoose = require("mongoose");
 const socketManager = require("./websocket/socketManager");
+const { iniciarLimpiezaAutomatica } = require("./utils/notificationCleanup");
 
 const PORT = process.env.PORT || 3000;
 
@@ -53,7 +54,9 @@ process.on("unhandledRejection", (reason, promise) => {
 connectDB()
   .then(() => {
     server = app.listen(PORT, "0.0.0.0", () => {
-      console.log(`🚀 Servidor El Patio Backend v${app.APP_VERSION} [ALPHA] corriendo en el puerto ${PORT}`);
+      console.log(
+        `🚀 Servidor El Patio Backend v${app.APP_VERSION} [ALPHA] corriendo en el puerto ${PORT}`
+      );
       console.log(
         `📊 Health check disponible en: http://localhost:${PORT}/health`
       );
@@ -73,6 +76,17 @@ connectDB()
     app.get("/api/websocket/stats", (req, res) => {
       res.json(socketManager.getStats());
     });
+
+    // Iniciar limpieza automática de notificaciones
+    try {
+      iniciarLimpiezaAutomatica();
+    } catch (error) {
+      console.error(
+        "⚠️ Error iniciando limpieza automática de notificaciones:",
+        error.message
+      );
+      console.log("💡 Asegúrate de instalar node-cron: npm install node-cron");
+    }
   })
   .catch((error) => {
     console.error("❌ Error al iniciar servidor:", error);

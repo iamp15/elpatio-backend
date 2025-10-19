@@ -3,6 +3,9 @@ const Jugador = require("../models/Jugador");
 const Cajero = require("../models/Cajero");
 const mongoose = require("mongoose");
 const { registrarLog } = require("../utils/logHelper");
+const {
+  crearNotificacionInterna,
+} = require("../controllers/notificacionesController");
 
 /**
  * Controlador WebSocket para manejo de depósitos en tiempo real
@@ -210,6 +213,47 @@ class DepositoWebSocketController {
       // Notificar al jugador que su solicitud fue aceptada
       await this.notificarJugadorSolicitudAceptada(transaccion, cajero);
 
+      // Crear notificación persistente para el cajero
+      try {
+        await crearNotificacionInterna({
+          destinatarioId: cajeroId,
+          destinatarioTipo: "cajero",
+          tipo: "solicitud_asignada",
+          titulo: "Solicitud asignada",
+          mensaje: `Se te asignó la solicitud de ${
+            transaccion.jugadorId.nickname ||
+            transaccion.jugadorId.firstName ||
+            "Usuario"
+          } por ${(transaccion.monto / 100).toFixed(2)} Bs`,
+          datos: {
+            transaccionId: transaccion._id.toString(),
+            monto: transaccion.monto,
+            jugadorNombre:
+              transaccion.jugadorId.nickname ||
+              transaccion.jugadorId.firstName ||
+              "Usuario",
+          },
+          eventoId: `asignada-${transaccion._id}-${cajeroId}`,
+        });
+
+        // Emitir evento de nueva notificación al cajero
+        socket.emit("nuevaNotificacion", {
+          tipo: "solicitud_asignada",
+          titulo: "Solicitud asignada",
+          mensaje: `Se te asignó la solicitud de ${
+            transaccion.jugadorId.nickname ||
+            transaccion.jugadorId.firstName ||
+            "Usuario"
+          } por ${(transaccion.monto / 100).toFixed(2)} Bs`,
+          transaccionId: transaccion._id.toString(),
+        });
+      } catch (error) {
+        console.error(
+          "❌ Error creando notificación de asignación:",
+          error.message
+        );
+      }
+
       // Registrar log
       await registrarLog({
         accion: "Solicitud de depósito aceptada via WebSocket",
@@ -361,6 +405,52 @@ class DepositoWebSocketController {
         ...notificacion,
         target: "jugador", // Solo jugador procesa
       });
+
+      // Crear notificación persistente para el cajero
+      try {
+        if (transaccion.cajeroId) {
+          const cajeroId = transaccion.cajeroId._id || transaccion.cajeroId;
+          await crearNotificacionInterna({
+            destinatarioId: cajeroId,
+            destinatarioTipo: "cajero",
+            tipo: "pago_realizado",
+            titulo: "Pago realizado",
+            mensaje: `${
+              transaccion.jugadorId.nickname ||
+              transaccion.jugadorId.firstName ||
+              "Usuario"
+            } confirmó el pago de ${(transaccion.monto / 100).toFixed(2)} Bs`,
+            datos: {
+              transaccionId: transaccion._id.toString(),
+              monto: transaccion.monto,
+              jugadorNombre:
+                transaccion.jugadorId.nickname ||
+                transaccion.jugadorId.firstName ||
+                "Usuario",
+              referencia: transaccion.infoPago.numeroReferencia,
+            },
+            eventoId: `pago-${transaccion._id}`,
+          });
+
+          // Emitir evento de nueva notificación al cajero
+          this.io.to(`transaccion-${transaccionId}`).emit("nuevaNotificacion", {
+            tipo: "pago_realizado",
+            titulo: "Pago realizado",
+            mensaje: `${
+              transaccion.jugadorId.nickname ||
+              transaccion.jugadorId.firstName ||
+              "Usuario"
+            } confirmó el pago de ${(transaccion.monto / 100).toFixed(2)} Bs`,
+            transaccionId: transaccion._id.toString(),
+            target: "cajero",
+          });
+        }
+      } catch (error) {
+        console.error(
+          "❌ Error creando notificación de pago realizado:",
+          error.message
+        );
+      }
 
       // Registrar log
       await registrarLog({
@@ -603,6 +693,46 @@ class DepositoWebSocketController {
             // await this.notificarBotTelegram(transaccion, notificacion);
           }
 
+          // Crear notificación persistente para el cajero
+          try {
+            const cajeroId = socket.cajeroId;
+            const jugador = await Jugador.findById(transaccion.jugadorId);
+            const jugadorNombre =
+              jugador?.nickname || jugador?.firstName || "Usuario";
+
+            await crearNotificacionInterna({
+              destinatarioId: cajeroId,
+              destinatarioTipo: "cajero",
+              tipo: "transaccion_completada",
+              titulo: "Transacción completada",
+              mensaje: `Depósito de ${jugadorNombre} por ${(
+                transaccion.monto / 100
+              ).toFixed(2)} Bs completado exitosamente`,
+              datos: {
+                transaccionId: transaccion._id.toString(),
+                monto: transaccion.monto,
+                jugadorNombre,
+                saldoNuevo,
+              },
+              eventoId: `completada-${transaccion._id}`,
+            });
+
+            // Emitir evento de nueva notificación al cajero
+            socket.emit("nuevaNotificacion", {
+              tipo: "transaccion_completada",
+              titulo: "Transacción completada",
+              mensaje: `Depósito de ${jugadorNombre} por ${(
+                transaccion.monto / 100
+              ).toFixed(2)} Bs completado exitosamente`,
+              transaccionId: transaccion._id.toString(),
+            });
+          } catch (error) {
+            console.error(
+              "❌ Error creando notificación de transacción completada:",
+              error.message
+            );
+          }
+
           // Registrar log
           await registrarLog({
             accion: "Depósito completado via WebSocket",
@@ -779,6 +909,50 @@ class DepositoWebSocketController {
     console.log(
       `📢 [DEPOSITO] Nueva solicitud notificada a cajeros disponibles`
     );
+
+    // Crear notificaciones persistentes para cada cajero disponible
+    try {
+      const cajerosConectados =
+        this.socketManager.roomsManager.getCajerosConectados();
+
+      for (const cajero of cajerosConectados) {
+        await crearNotificacionInterna({
+          destinatarioId: cajero.id,
+          destinatarioTipo: "cajero",
+          tipo: "nueva_solicitud",
+          titulo: "Nueva solicitud de depósito",
+          mensaje: `${notificacion.jugador.nombre} solicita depositar ${(
+            transaccion.monto / 100
+          ).toFixed(2)} Bs`,
+          datos: {
+            transaccionId: transaccion._id.toString(),
+            monto: transaccion.monto,
+            jugadorNombre: notificacion.jugador.nombre,
+            metodoPago: notificacion.metodoPago,
+          },
+          eventoId: `solicitud-${transaccion._id}`,
+        });
+
+        // Emitir evento de nueva notificación al cajero
+        this.socketManager.roomsManager.notificarCajeroEspecifico(
+          cajero.id,
+          "nuevaNotificacion",
+          {
+            tipo: "nueva_solicitud",
+            titulo: "Nueva solicitud de depósito",
+            mensaje: `${notificacion.jugador.nombre} solicita depositar ${(
+              transaccion.monto / 100
+            ).toFixed(2)} Bs`,
+            transaccionId: transaccion._id.toString(),
+          }
+        );
+      }
+    } catch (error) {
+      console.error(
+        "❌ Error creando notificaciones persistentes:",
+        error.message
+      );
+    }
   }
 
   /**
