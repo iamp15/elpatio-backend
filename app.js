@@ -1,6 +1,6 @@
 /**
  * Backend API para El Patio
- * @version 0.10.0
+ * @version 0.10.1
  */
 
 const express = require("express");
@@ -9,7 +9,7 @@ const morgan = require("morgan");
 require("dotenv").config();
 
 // Constante de versión
-const APP_VERSION = "0.10.0"; // Alpha - Sistema de notificaciones push implementado
+const APP_VERSION = "0.10.1"; // Alpha - Sistema de notificaciones push (fixes autenticación)
 
 const app = express();
 

@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const notificacionesController = require("../controllers/notificacionesController");
+const auth = require("../middlewares/auth");
 const verificarAdmin = require("../middlewares/verificarAdmin");
 const { telegramAuth } = require("../middlewares/telegramAuth");
 
@@ -9,10 +10,17 @@ const { telegramAuth } = require("../middlewares/telegramAuth");
  * Obtener notificaciones del cajero autenticado
  * Requiere autenticación de cajero
  */
-router.get("/cajero", verificarAdmin, async (req, res) => {
+router.get("/cajero", auth, async (req, res) => {
   try {
-    // El middleware verificarAdmin agrega req.usuario con info del cajero
-    const cajeroId = req.usuario._id || req.usuario.id;
+    // El middleware auth agrega req.user con info del usuario autenticado
+    const cajeroId = req.user._id || req.user.id;
+
+    // Verificar que el usuario sea cajero
+    if (req.user.rol !== "cajero" && req.user.rol !== "admin" && req.user.rol !== "superadmin") {
+      return res.status(403).json({
+        mensaje: "Acceso denegado: solo cajeros pueden ver notificaciones de cajero",
+      });
+    }
 
     // Modificar query para usar el cajeroId del token
     req.query.destinatarioId = cajeroId;
@@ -49,11 +57,11 @@ router.post("/", verificarAdmin, notificacionesController.crearNotificacion);
 /**
  * DELETE /api/notificaciones/:id
  * Eliminar una notificación específica
- * Puede ser usado por cajeros o jugadores para eliminar sus propias notificaciones
+ * Puede ser usado por cajeros (con auth) o jugadores (con telegramAuth)
  */
 router.delete(
   "/:id",
-  telegramAuth,
+  auth,
   notificacionesController.eliminarNotificacion
 );
 
