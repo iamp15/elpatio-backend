@@ -974,8 +974,60 @@ class DepositoWebSocketController {
       `📢 [DEPOSITO] Nueva solicitud notificada a cajeros disponibles`
     );
 
-    // Nota: Las notificaciones persistentes se crearán cuando un cajero específico
-    // acepte la solicitud, no para todos los cajeros disponibles
+    // Crear notificaciones persistentes para todos los cajeros conectados
+    try {
+      const cajerosConectados = Array.from(
+        this.socketManager.connectedCajeros.keys()
+      );
+
+      console.log(
+        `🔍 [NOTIFICACIONES] Cajeros conectados: ${cajerosConectados.length}`
+      );
+
+      for (const cajeroId of cajerosConectados) {
+        await crearNotificacionInterna({
+          destinatarioId: cajeroId,
+          destinatarioTipo: "cajero",
+          tipo: "nueva_solicitud",
+          titulo: "Nueva solicitud de depósito",
+          mensaje: `${notificacion.jugador.nombre} solicita depositar ${(
+            transaccion.monto / 100
+          ).toFixed(2)} Bs`,
+          datos: {
+            transaccionId: transaccion._id.toString(),
+            monto: transaccion.monto,
+            jugadorNombre: notificacion.jugador.nombre,
+            metodoPago: notificacion.metodoPago,
+          },
+          eventoId: `solicitud-${transaccion._id}`,
+        });
+
+        // Emitir evento de nueva notificación al cajero específico
+        const socketId = this.socketManager.connectedCajeros.get(cajeroId);
+        if (socketId) {
+          const socket = this.socketManager.io.sockets.sockets.get(socketId);
+          if (socket) {
+            socket.emit("nuevaNotificacion", {
+              tipo: "nueva_solicitud",
+              titulo: "Nueva solicitud de depósito",
+              mensaje: `${notificacion.jugador.nombre} solicita depositar ${(
+                transaccion.monto / 100
+              ).toFixed(2)} Bs`,
+              transaccionId: transaccion._id.toString(),
+            });
+          }
+        }
+      }
+
+      console.log(
+        `✅ [NOTIFICACIONES] Creadas ${cajerosConectados.length} notificaciones de nueva solicitud`
+      );
+    } catch (error) {
+      console.error(
+        "❌ Error creando notificaciones persistentes:",
+        error.message
+      );
+    }
   }
 
   /**
