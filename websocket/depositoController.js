@@ -6,6 +6,9 @@ const { registrarLog } = require("../utils/logHelper");
 const {
   crearNotificacionInterna,
 } = require("../controllers/notificacionesController");
+const {
+  crearNotificacionBot,
+} = require("../controllers/notificacionesBotController");
 
 /**
  * Controlador WebSocket para manejo de depósitos en tiempo real
@@ -114,6 +117,9 @@ class DepositoWebSocketController {
       // Notificar a todos los cajeros conectados
       await this.notificarCajerosNuevaSolicitud(transaccion, jugador);
 
+      // Crear y emitir notificación al bot para el jugador
+      await this.notificarBotNuevoDeposito(transaccion, jugador);
+
       // Registrar log
       await registrarLog({
         accion: "Solicitud de depósito creada via WebSocket",
@@ -212,6 +218,9 @@ class DepositoWebSocketController {
 
       // Notificar al jugador que su solicitud fue aceptada
       await this.notificarJugadorSolicitudAceptada(transaccion, cajero);
+
+      // Crear y emitir notificación al bot sobre aceptación de solicitud
+      await this.notificarBotSolicitudAceptada(transaccion, cajero);
 
       // Crear notificación persistente para el cajero
       try {
@@ -406,6 +415,9 @@ class DepositoWebSocketController {
         target: "jugador", // Solo jugador procesa
       });
 
+      // Crear y emitir notificación al bot sobre confirmación de pago
+      await this.notificarBotPagoConfirmado(transaccion);
+
       // Crear notificación persistente para el cajero
       try {
         if (transaccion.cajeroId) {
@@ -570,10 +582,10 @@ class DepositoWebSocketController {
           await transaccion.save({ session });
 
           // Procesar saldo del jugador
-          const jugador = await Jugador.findById(transaccion.jugadorId).session(
-            session
-          );
-          const saldoNuevo = jugador.saldo + transaccion.monto;
+          const jugadorConSesion = await Jugador.findById(
+            transaccion.jugadorId
+          ).session(session);
+          const saldoNuevo = jugadorConSesion.saldo + transaccion.monto;
 
           await Jugador.findByIdAndUpdate(
             transaccion.jugadorId,
@@ -689,9 +701,11 @@ class DepositoWebSocketController {
             console.log(`📢 [DEPOSITO] Jugador no conectado`);
           }
 
+          // Obtener datos del jugador (una sola vez)
+          const jugador = await Jugador.findById(transaccion.jugadorId);
+
           // Crear notificación persistente para el JUGADOR
           try {
-            const jugador = await Jugador.findById(transaccion.jugadorId);
             if (jugador) {
               await crearNotificacionInterna({
                 destinatarioId: jugador._id,
@@ -723,10 +737,18 @@ class DepositoWebSocketController {
             );
           }
 
+          // Crear y emitir notificación al bot sobre depósito completado
+          if (jugador) {
+            await this.notificarBotDepositoCompletado(
+              transaccion,
+              jugador,
+              saldoNuevo
+            );
+          }
+
           // Crear notificación persistente para el cajero
           try {
             const cajeroId = socket.cajeroId;
-            const jugador = await Jugador.findById(transaccion.jugadorId);
             const jugadorNombre =
               jugador?.nickname || jugador?.firstName || "Usuario";
 
@@ -836,6 +858,13 @@ class DepositoWebSocketController {
 
               console.log(
                 `✅ Notificación de depósito rechazado creada para jugador ${jugador.telegramId}`
+              );
+
+              // Crear y emitir notificación al bot sobre depósito rechazado
+              await this.notificarBotDepositoRechazado(
+                transaccion,
+                jugador,
+                motivo
               );
             }
           } catch (error) {
@@ -1219,6 +1248,232 @@ class DepositoWebSocketController {
     console.log(
       `📢 [DEPOSITO] Rechazo de depósito enviado al jugador ${transaccion.telegramId}`
     );
+  }
+
+  /**
+   * Notificar al bot sobre solicitud aceptada
+   */
+  async notificarBotSolicitudAceptada(transaccion, cajero) {
+    try {
+      const jugador = await Jugador.findById(transaccion.jugadorId);
+      if (!jugador) {
+        console.error("❌ [BOT] Jugador no encontrado para notificación");
+        return;
+      }
+
+      const notificacion = await crearNotificacionBot({
+        transaccionId: transaccion._id,
+        jugadorTelegramId: jugador.telegramId,
+        tipo: "deposito_aceptado",
+        titulo: "Solicitud de depósito aceptada",
+        mensaje: `El cajero ${
+          cajero.nombreCompleto
+        } aceptó tu solicitud de depósito por ${(
+          transaccion.monto / 100
+        ).toFixed(2)} Bs`,
+        datos: {
+          monto: transaccion.monto,
+          cajeroNombre: cajero.nombreCompleto,
+          referencia: transaccion.referencia,
+        },
+        eventoId: `deposito-aceptado-${transaccion._id}`,
+      });
+
+      if (!notificacion) return;
+
+      if (this.socketManager.connectedBots.size > 0) {
+        this.io.emit("bot-notificacion", {
+          notificacionId: notificacion._id.toString(),
+          tipo: notificacion.tipo,
+          titulo: notificacion.titulo,
+          mensaje: notificacion.mensaje,
+          jugadorTelegramId: notificacion.jugadorTelegramId,
+          datos: notificacion.datos,
+        });
+      }
+    } catch (error) {
+      console.error("❌ [BOT] Error notificando aceptación:", error.message);
+    }
+  }
+
+  /**
+   * Notificar al bot sobre pago confirmado
+   */
+  async notificarBotPagoConfirmado(transaccion) {
+    try {
+      const jugador = await Jugador.findById(transaccion.jugadorId);
+      if (!jugador) {
+        console.error("❌ [BOT] Jugador no encontrado para notificación");
+        return;
+      }
+
+      const notificacion = await crearNotificacionBot({
+        transaccionId: transaccion._id,
+        jugadorTelegramId: jugador.telegramId,
+        tipo: "pago_confirmado",
+        titulo: "Pago confirmado",
+        mensaje: `Los datos de tu pago con referencia ${transaccion.infoPago.numeroReferencia} se enviaron al cajero`,
+        datos: {
+          monto: transaccion.monto,
+          referencia: transaccion.infoPago.numeroReferencia,
+        },
+        eventoId: `pago-confirmado-${transaccion._id}`,
+      });
+
+      if (!notificacion) return;
+
+      if (this.socketManager.connectedBots.size > 0) {
+        this.io.emit("bot-notificacion", {
+          notificacionId: notificacion._id.toString(),
+          tipo: notificacion.tipo,
+          titulo: notificacion.titulo,
+          mensaje: notificacion.mensaje,
+          jugadorTelegramId: notificacion.jugadorTelegramId,
+          datos: notificacion.datos,
+        });
+      }
+    } catch (error) {
+      console.error(
+        "❌ [BOT] Error notificando pago confirmado:",
+        error.message
+      );
+    }
+  }
+
+  /**
+   * Notificar al bot sobre depósito completado
+   */
+  async notificarBotDepositoCompletado(transaccion, jugador, saldoNuevo) {
+    try {
+      const notificacion = await crearNotificacionBot({
+        transaccionId: transaccion._id,
+        jugadorTelegramId: jugador.telegramId,
+        tipo: "deposito_completado",
+        titulo: "Depósito completado",
+        mensaje: `Tu depósito por ${(transaccion.monto / 100).toFixed(
+          2
+        )} Bs se completó correctamente\n\nNuevo saldo: ${(
+          saldoNuevo / 100
+        ).toFixed(2)} Bs`,
+        datos: {
+          monto: transaccion.monto,
+          saldoNuevo,
+        },
+        eventoId: `deposito-completado-${transaccion._id}`,
+      });
+
+      if (!notificacion) return;
+
+      if (this.socketManager.connectedBots.size > 0) {
+        this.io.emit("bot-notificacion", {
+          notificacionId: notificacion._id.toString(),
+          tipo: notificacion.tipo,
+          titulo: notificacion.titulo,
+          mensaje: notificacion.mensaje,
+          jugadorTelegramId: notificacion.jugadorTelegramId,
+          datos: notificacion.datos,
+        });
+      }
+    } catch (error) {
+      console.error(
+        "❌ [BOT] Error notificando depósito completado:",
+        error.message
+      );
+    }
+  }
+
+  /**
+   * Notificar al bot sobre depósito rechazado
+   */
+  async notificarBotDepositoRechazado(transaccion, jugador, motivo) {
+    try {
+      const notificacion = await crearNotificacionBot({
+        transaccionId: transaccion._id,
+        jugadorTelegramId: jugador.telegramId,
+        tipo: "deposito_rechazado",
+        titulo: "Depósito rechazado",
+        mensaje: `Tu solicitud de depósito por ${(
+          transaccion.monto / 100
+        ).toFixed(2)} Bs fue rechazada por el cajero\n\nMotivo: ${
+          motivo || "No especificado"
+        }`,
+        datos: {
+          monto: transaccion.monto,
+          motivo,
+        },
+        eventoId: `deposito-rechazado-${transaccion._id}`,
+      });
+
+      if (!notificacion) return;
+
+      if (this.socketManager.connectedBots.size > 0) {
+        this.io.emit("bot-notificacion", {
+          notificacionId: notificacion._id.toString(),
+          tipo: notificacion.tipo,
+          titulo: notificacion.titulo,
+          mensaje: notificacion.mensaje,
+          jugadorTelegramId: notificacion.jugadorTelegramId,
+          datos: notificacion.datos,
+        });
+      }
+    } catch (error) {
+      console.error(
+        "❌ [BOT] Error notificando depósito rechazado:",
+        error.message
+      );
+    }
+  }
+
+  /**
+   * Notificar al bot sobre nuevo depósito
+   */
+  async notificarBotNuevoDeposito(transaccion, jugador) {
+    try {
+      // Crear notificación persistente
+      const notificacion = await crearNotificacionBot({
+        transaccionId: transaccion._id,
+        jugadorTelegramId: jugador.telegramId,
+        tipo: "deposito_creado",
+        titulo: "Solicitud de depósito creada",
+        mensaje: `Has solicitado hacer un depósito por ${(
+          transaccion.monto / 100
+        ).toFixed(2)} Bs`,
+        datos: {
+          monto: transaccion.monto,
+          referencia: transaccion.referencia,
+        },
+        eventoId: `deposito-creado-${transaccion._id}`,
+      });
+
+      if (!notificacion) {
+        console.log(
+          "⚠️ [BOT] Notificación duplicada o no creada para nuevo depósito"
+        );
+        return;
+      }
+
+      // Si hay bot conectado, emitir evento WebSocket
+      if (this.socketManager.connectedBots.size > 0) {
+        this.io.emit("bot-notificacion", {
+          notificacionId: notificacion._id.toString(),
+          tipo: notificacion.tipo,
+          titulo: notificacion.titulo,
+          mensaje: notificacion.mensaje,
+          jugadorTelegramId: notificacion.jugadorTelegramId,
+          datos: notificacion.datos,
+        });
+        console.log(`📬 [BOT] Notificación enviada vía WebSocket al bot`);
+      } else {
+        console.log(
+          "⚠️ [BOT] No hay bot conectado, la notificación quedará pendiente para polling"
+        );
+      }
+    } catch (error) {
+      console.error(
+        "❌ [BOT] Error creando/emitiendo notificación de nuevo depósito:",
+        error.message
+      );
+    }
   }
 }
 

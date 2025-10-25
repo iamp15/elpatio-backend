@@ -13,6 +13,7 @@ class SocketManager {
     this.io = null;
     this.connectedUsers = new Map(); // telegramId -> socketId
     this.connectedCajeros = new Map(); // cajeroId -> socketId
+    this.connectedBots = new Map(); // botId -> socketId
     this.depositoController = null; // Controlador de depósitos
     this.roomsManager = null; // Manager de rooms
     this.connectionStateManager = null; // Manager de estado de conexión
@@ -103,6 +104,22 @@ class SocketManager {
           socket.emit("auth-result", result);
         } catch (error) {
           console.error("❌ Error autenticando cajero:", error);
+          socket.emit("auth-result", {
+            success: false,
+            message: "Error interno del servidor",
+          });
+        }
+      });
+
+      // Autenticación de bot (JWT)
+      socket.on("auth-bot", async (data) => {
+        console.log("🔐 [AUTH] Evento auth-bot recibido:", data);
+        try {
+          const result = await this.authenticateBot(socket, data);
+          console.log("🔐 [AUTH] Resultado autenticación bot:", result);
+          socket.emit("auth-result", result);
+        } catch (error) {
+          console.error("❌ Error autenticando bot:", error);
           socket.emit("auth-result", {
             success: false,
             message: "Error interno del servidor",
@@ -324,6 +341,14 @@ class SocketManager {
         break;
       }
     }
+
+    for (let [botId, socketId] of this.connectedBots.entries()) {
+      if (socketId === socket.id) {
+        this.connectedBots.delete(botId);
+        console.log(`🤖 Bot desconectado: ${botId}`);
+        break;
+      }
+    }
   }
 
   /**
@@ -333,6 +358,7 @@ class SocketManager {
     return {
       jugadoresConectados: this.connectedUsers.size,
       cajerosConectados: this.connectedCajeros.size,
+      botsConectados: this.connectedBots.size,
       totalConexiones: this.io.engine.clientsCount,
     };
   }
@@ -508,6 +534,55 @@ class SocketManager {
       };
     } catch (error) {
       console.error("Error autenticando cajero:", error);
+      return {
+        success: false,
+        message: "Token JWT inválido",
+      };
+    }
+  }
+
+  /**
+   * Autenticar bot vía WebSocket
+   */
+  async authenticateBot(socket, data) {
+    const { token } = data;
+
+    if (!token) {
+      return {
+        success: false,
+        message: "Token JWT requerido",
+      };
+    }
+
+    try {
+      // Verificar JWT
+      const jwt = require("jsonwebtoken");
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      if (decoded.rol !== "bot") {
+        return {
+          success: false,
+          message: "Token no válido para bot",
+        };
+      }
+
+      // Registrar conexión
+      this.connectedBots.set(decoded.id, socket.id);
+      socket.botId = decoded.id;
+      socket.userType = "bot";
+
+      console.log(`🤖 Bot autenticado: ${decoded.id}`);
+
+      return {
+        success: true,
+        message: "Autenticación exitosa",
+        user: {
+          id: decoded.id,
+          rol: "bot",
+        },
+      };
+    } catch (error) {
+      console.error("Error autenticando bot:", error);
       return {
         success: false,
         message: "Token JWT inválido",
