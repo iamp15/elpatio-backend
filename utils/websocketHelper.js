@@ -151,15 +151,16 @@ class WebSocketHelper {
       console.log("🔴 [HTTP→WS] CajeroId:", transaccion.cajeroId);
 
       const transaccionIdStr = transaccion._id.toString();
+      const jugadorNombre =
+        transaccion.jugadorId.nickname ||
+        transaccion.jugadorId.firstName ||
+        "Usuario";
       const notificationData = {
         transaccionId: transaccion._id,
         jugador: {
           id: transaccion.jugadorId._id || transaccion.jugadorId,
           telegramId: transaccion.telegramId,
-          nombre:
-            transaccion.jugadorId.nickname ||
-            transaccion.jugadorId.firstName ||
-            "Usuario",
+          nombre: jugadorNombre,
         },
         motivo: motivo || "Cancelada por el usuario",
         timestamp: new Date().toISOString(),
@@ -177,6 +178,61 @@ class WebSocketHelper {
           `transaccion-${transaccionIdStr}`
         );
 
+        // Importar crearNotificacionInterna
+        const {
+          crearNotificacionInterna,
+        } = require("../controllers/notificacionesController");
+
+        // Crear notificación persistente para el cajero
+        try {
+          await crearNotificacionInterna({
+            destinatarioId: cajeroId,
+            destinatarioTipo: "cajero",
+            tipo: "transaccion_cancelada",
+            titulo: "Depósito cancelado por jugador",
+            mensaje: `El jugador ${jugadorNombre} canceló el depósito de ${(
+              transaccion.monto / 100
+            ).toFixed(2)} Bs`,
+            datos: {
+              transaccionId: transaccion._id.toString(),
+              jugadorNombre: jugadorNombre,
+              monto: transaccion.monto,
+              motivo: motivo || "Cancelada por el usuario",
+            },
+            eventoId: `cancelacion-${transaccion._id}`,
+          });
+
+          console.log(
+            `✅ [HTTP→WS] Notificación persistente creada para cajero ${cajeroId}`
+          );
+
+          // Emitir evento de nueva notificación al cajero específico
+          const socketId = this.socketManager.connectedCajeros.get(
+            cajeroId.toString()
+          );
+          if (socketId) {
+            const socket = this.socketManager.io.sockets.sockets.get(socketId);
+            if (socket) {
+              socket.emit("nuevaNotificacion", {
+                tipo: "transaccion_cancelada",
+                titulo: "Depósito cancelado por jugador",
+                mensaje: `El jugador ${jugadorNombre} canceló el depósito de ${(
+                  transaccion.monto / 100
+                ).toFixed(2)} Bs`,
+                transaccionId: transaccion._id.toString(),
+              });
+              console.log(
+                `📨 [HTTP→WS] Evento nuevaNotificacion emitido al cajero`
+              );
+            }
+          }
+        } catch (notifError) {
+          console.error(
+            `❌ [HTTP→WS] Error creando notificación persistente:`,
+            notifError
+          );
+        }
+
         this.socketManager.roomsManager.notificarTransaccion(
           transaccionIdStr,
           "transaccion-cancelada-por-jugador",
@@ -190,6 +246,64 @@ class WebSocketHelper {
         // Si no hay cajero asignado (pendiente), notificar a todos los cajeros
         console.log("🔴 [HTTP→WS] No hay cajero asignado (estado pendiente)");
         console.log("🔴 [HTTP→WS] Notificando a todos los cajeros disponibles");
+
+        // Importar crearNotificacionInterna
+        const {
+          crearNotificacionInterna,
+        } = require("../controllers/notificacionesController");
+
+        // Crear notificaciones persistentes para todos los cajeros conectados
+        try {
+          const cajerosConectados = Array.from(
+            this.socketManager.connectedCajeros.keys()
+          );
+
+          for (const cajeroIdStr of cajerosConectados) {
+            await crearNotificacionInterna({
+              destinatarioId: cajeroIdStr,
+              destinatarioTipo: "cajero",
+              tipo: "transaccion_cancelada",
+              titulo: "Solicitud de depósito cancelada",
+              mensaje: `El jugador ${jugadorNombre} canceló su solicitud de depósito de ${(
+                transaccion.monto / 100
+              ).toFixed(2)} Bs`,
+              datos: {
+                transaccionId: transaccion._id.toString(),
+                jugadorNombre: jugadorNombre,
+                monto: transaccion.monto,
+                motivo: motivo || "Cancelada por el usuario",
+              },
+              eventoId: `cancelacion-${transaccion._id}`,
+            });
+
+            // Emitir evento de nueva notificación al cajero específico
+            const socketId =
+              this.socketManager.connectedCajeros.get(cajeroIdStr);
+            if (socketId) {
+              const socket =
+                this.socketManager.io.sockets.sockets.get(socketId);
+              if (socket) {
+                socket.emit("nuevaNotificacion", {
+                  tipo: "transaccion_cancelada",
+                  titulo: "Solicitud de depósito cancelada",
+                  mensaje: `El jugador ${jugadorNombre} canceló su solicitud de depósito de ${(
+                    transaccion.monto / 100
+                  ).toFixed(2)} Bs`,
+                  transaccionId: transaccion._id.toString(),
+                });
+              }
+            }
+          }
+
+          console.log(
+            `✅ [HTTP→WS] Notificaciones persistentes creadas para ${cajerosConectados.length} cajero(s)`
+          );
+        } catch (notifError) {
+          console.error(
+            `❌ [HTTP→WS] Error creando notificaciones persistentes:`,
+            notifError
+          );
+        }
 
         this.socketManager.roomsManager.notificarCajerosDisponibles(
           "transaccion-cancelada-por-jugador",
