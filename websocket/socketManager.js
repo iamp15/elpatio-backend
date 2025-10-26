@@ -14,6 +14,7 @@ class SocketManager {
     this.connectedUsers = new Map(); // telegramId -> socketId
     this.connectedCajeros = new Map(); // cajeroId -> socketId
     this.connectedBots = new Map(); // botId -> socketId
+    this.connectedPlayers = new Map(); // telegramId -> socketId (solo jugadores en app de depósitos)
     this.depositoController = null; // Controlador de depósitos
     this.roomsManager = null; // Manager de rooms
     this.connectionStateManager = null; // Manager de estado de conexión
@@ -329,6 +330,8 @@ class SocketManager {
     for (let [telegramId, socketId] of this.connectedUsers.entries()) {
       if (socketId === socket.id) {
         this.connectedUsers.delete(telegramId);
+        // También eliminar de la lista de jugadores en app de depósitos
+        this.connectedPlayers.delete(telegramId);
         console.log(`👤 Jugador desconectado: ${telegramId}`);
         break;
       }
@@ -393,6 +396,7 @@ class SocketManager {
 
       // Registrar conexión
       this.connectedUsers.set(telegramId, socket.id);
+      this.connectedPlayers.set(telegramId, socket.id); // Registrar como jugador en app de depósitos
       socket.telegramId = telegramId;
       socket.jugadorId = jugador._id; // Agregar jugadorId al socket
       socket.userType = "jugador";

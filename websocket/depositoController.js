@@ -1261,6 +1261,18 @@ class DepositoWebSocketController {
         return;
       }
 
+      // Verificar si el jugador tiene la app de depósitos abierta
+      const tieneAppAbierta = this.socketManager.connectedPlayers.has(
+        jugador.telegramId
+      );
+
+      if (tieneAppAbierta) {
+        console.log(
+          `ℹ️ [BOT] Jugador ${jugador.telegramId} tiene la app de depósitos abierta, no enviar notificación a Telegram`
+        );
+        return; // No enviar notificación a Telegram si tiene la app abierta
+      }
+
       const notificacion = await crearNotificacionBot({
         transaccionId: transaccion._id,
         jugadorTelegramId: jugador.telegramId,
@@ -1309,6 +1321,18 @@ class DepositoWebSocketController {
         return;
       }
 
+      // Verificar si el jugador tiene la app de depósitos abierta
+      const tieneAppAbierta = this.socketManager.connectedPlayers.has(
+        jugador.telegramId
+      );
+
+      if (tieneAppAbierta) {
+        console.log(
+          `ℹ️ [BOT] Jugador ${jugador.telegramId} tiene la app de depósitos abierta, no enviar notificación a Telegram`
+        );
+        return; // No enviar notificación a Telegram si tiene la app abierta
+      }
+
       const notificacion = await crearNotificacionBot({
         transaccionId: transaccion._id,
         jugadorTelegramId: jugador.telegramId,
@@ -1347,6 +1371,18 @@ class DepositoWebSocketController {
    */
   async notificarBotDepositoCompletado(transaccion, jugador, saldoNuevo) {
     try {
+      // Verificar si el jugador tiene la app de depósitos abierta
+      const tieneAppAbierta = this.socketManager.connectedPlayers.has(
+        jugador.telegramId
+      );
+
+      if (tieneAppAbierta) {
+        console.log(
+          `ℹ️ [BOT] Jugador ${jugador.telegramId} tiene la app de depósitos abierta, no enviar notificación a Telegram`
+        );
+        return; // No enviar notificación a Telegram si tiene la app abierta
+      }
+
       const notificacion = await crearNotificacionBot({
         transaccionId: transaccion._id,
         jugadorTelegramId: jugador.telegramId,
@@ -1389,6 +1425,18 @@ class DepositoWebSocketController {
    */
   async notificarBotDepositoRechazado(transaccion, jugador, motivo) {
     try {
+      // Verificar si el jugador tiene la app de depósitos abierta
+      const tieneAppAbierta = this.socketManager.connectedPlayers.has(
+        jugador.telegramId
+      );
+
+      if (tieneAppAbierta) {
+        console.log(
+          `ℹ️ [BOT] Jugador ${jugador.telegramId} tiene la app de depósitos abierta, no enviar notificación a Telegram`
+        );
+        return; // No enviar notificación a Telegram si tiene la app abierta
+      }
+
       const notificacion = await crearNotificacionBot({
         transaccionId: transaccion._id,
         jugadorTelegramId: jugador.telegramId,
@@ -1431,6 +1479,18 @@ class DepositoWebSocketController {
    */
   async notificarBotNuevoDeposito(transaccion, jugador) {
     try {
+      // Verificar si el jugador tiene la app de depósitos abierta
+      const tieneAppAbierta = this.socketManager.connectedPlayers.has(
+        jugador.telegramId
+      );
+
+      if (tieneAppAbierta) {
+        console.log(
+          `ℹ️ [BOT] Jugador ${jugador.telegramId} tiene la app de depósitos abierta, no enviar notificación a Telegram`
+        );
+        return; // No enviar notificación a Telegram si tiene la app abierta
+      }
+
       // Crear notificación persistente
       const notificacion = await crearNotificacionBot({
         transaccionId: transaccion._id,

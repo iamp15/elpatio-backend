@@ -270,6 +270,18 @@ class TransactionTimeoutManager {
         try {
           const jugador = await Jugador.findById(transaccion.jugadorId);
           if (jugador && jugador.telegramId) {
+            // Verificar si el jugador tiene la app de depósitos abierta
+            const tieneAppAbierta = this.socketManager.connectedPlayers.has(
+              jugador.telegramId
+            );
+
+            if (tieneAppAbierta) {
+              console.log(
+                `ℹ️ [TIMEOUT] Jugador ${jugador.telegramId} tiene la app de depósitos abierta, no enviar notificación a Telegram`
+              );
+              return; // No enviar notificación a Telegram si tiene la app abierta
+            }
+
             const notificacion = await crearNotificacionBot({
               transaccionId: transaccion._id,
               jugadorTelegramId: jugador.telegramId,
