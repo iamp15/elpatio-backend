@@ -22,6 +22,7 @@ const notificacionBotSchema = new mongoose.Schema(
         "pago_confirmado",
         "deposito_completado",
         "deposito_rechazado",
+        "deposito_cancelado",
       ],
     },
     titulo: {

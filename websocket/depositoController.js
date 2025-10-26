@@ -1270,7 +1270,9 @@ class DepositoWebSocketController {
           cajero.nombreCompleto
         } aceptó tu solicitud de depósito por ${(
           transaccion.monto / 100
-        ).toFixed(2)} Bs`,
+        ).toFixed(
+          2
+        )} Bs. Para continuar abre la app de depositos y haz el pago.`,
         datos: {
           monto: transaccion.monto,
           cajeroNombre: cajero.nombreCompleto,
@@ -1312,7 +1314,7 @@ class DepositoWebSocketController {
         jugadorTelegramId: jugador.telegramId,
         tipo: "pago_confirmado",
         titulo: "Pago confirmado",
-        mensaje: `Los datos de tu pago con referencia ${transaccion.infoPago.numeroReferencia} se enviaron al cajero`,
+        mensaje: `Los datos de tu pago con referencia ${transaccion.infoPago.numeroReferencia} se enviaron al cajero. Te notificaremos cuando tu deposito se haya completado.`,
         datos: {
           monto: transaccion.monto,
           referencia: transaccion.infoPago.numeroReferencia,

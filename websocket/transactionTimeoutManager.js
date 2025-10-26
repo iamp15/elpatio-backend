@@ -8,7 +8,11 @@
  */
 
 const Transaccion = require("../models/Transaccion");
+const Jugador = require("../models/Jugador");
 const { registrarLog } = require("../utils/logHelper");
+const {
+  crearNotificacionBot,
+} = require("../controllers/notificacionesBotController");
 
 class TransactionTimeoutManager {
   constructor(socketManager) {
@@ -261,6 +265,62 @@ class TransactionTimeoutManager {
         console.log(
           `📢 [TIMEOUT] Jugador ${transaccion.telegramId} notificado de cancelación`
         );
+
+        // Notificar al bot de Telegram
+        try {
+          const jugador = await Jugador.findById(transaccion.jugadorId);
+          if (jugador && jugador.telegramId) {
+            const notificacion = await crearNotificacionBot({
+              transaccionId: transaccion._id,
+              jugadorTelegramId: jugador.telegramId,
+              tipo: "deposito_cancelado",
+              titulo: "Depósito cancelado",
+              mensaje: mensaje,
+              datos: {
+                monto: transaccion.monto,
+                tiempoTranscurrido: minutos,
+                motivo: "timeout",
+              },
+              eventoId: `deposito-cancelado-timeout-${transaccion._id}`,
+            });
+
+            console.log(
+              `🔍 [TIMEOUT] Verificando bot conectado: ${this.socketManager.connectedBots.size} bot(es)`
+            );
+
+            if (notificacion && this.socketManager.connectedBots.size > 0) {
+              console.log(
+                `📤 [TIMEOUT] Emitiendo evento bot-notificacion para jugador ${jugador.telegramId}`
+              );
+
+              this.socketManager.io.emit("bot-notificacion", {
+                notificacionId: notificacion._id.toString(),
+                tipo: notificacion.tipo,
+                titulo: notificacion.titulo,
+                mensaje: notificacion.mensaje,
+                jugadorTelegramId: notificacion.jugadorTelegramId,
+                datos: notificacion.datos,
+              });
+
+              console.log(
+                `✅ [TIMEOUT] Notificación bot creada y emitida para jugador ${jugador.telegramId}`
+              );
+            } else if (!notificacion) {
+              console.log(
+                `⚠️ [TIMEOUT] No se pudo crear notificación bot (duplicado?)`
+              );
+            } else {
+              console.log(
+                `⚠️ [TIMEOUT] Bot no está conectado, notificación quedará pendiente para polling`
+              );
+            }
+          }
+        } catch (error) {
+          console.error(
+            "❌ [TIMEOUT] Error notificando al bot por timeout:",
+            error.message
+          );
+        }
       }
 
       // Si es transacción pendiente (sin cajero), solo actualizar listas de cajeros
