@@ -84,6 +84,7 @@ const transaccionSchema = new mongoose.Schema(
         "fallida", // Error en el procesamiento
         "revertida", // Transacción revertida
         "cancelada", // Cancelada por el usuario
+        "requiere_revision_admin", // Requiere revisión administrativa
       ],
       default: function () {
         // Las transacciones internas se completan inmediatamente
@@ -125,6 +126,37 @@ const transaccionSchema = new mongoose.Schema(
       notasCajero: String, // Notas del cajero
       telefonoOrigen: String, // Para pago móvil
       cedulaOrigen: String, // Para pago móvil
+    },
+
+    // === MOTIVO DE RECHAZO (solo para transacciones rechazadas) ===
+    motivoRechazo: {
+      categoria: {
+        type: String,
+        enum: [
+          "monto_insuficiente",
+          "datos_incorrectos",
+          "pago_no_recibido",
+          "otro",
+        ],
+      },
+      descripcionDetallada: String, // Texto libre del cajero
+      severidad: {
+        type: String,
+        enum: ["leve", "grave"], // Para errores de datos
+      },
+      fechaRechazo: Date,
+    },
+
+    // === AJUSTE DE MONTO (cuando el monto depositado es diferente al solicitado) ===
+    ajusteMonto: {
+      montoOriginal: Number, // Monto solicitado originalmente
+      montoReal: Number, // Monto realmente depositado
+      razon: String, // Razón del ajuste
+      fechaAjuste: Date,
+      ajustadoPor: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Cajero",
+      },
     },
 
     // === REFERENCIAS EXTERNAS ===
@@ -215,9 +247,14 @@ transaccionSchema.methods.cambiarEstado = function (
   const estadosValidos = {
     pendiente: ["en_proceso", "cancelada"],
     en_proceso: ["realizada", "rechazada", "cancelada"],
-    realizada: ["confirmada", "rechazada"],
+    realizada: [
+      "confirmada",
+      "rechazada",
+      "requiere_revision_admin",
+    ],
     confirmada: ["completada"],
     completada: ["revertida"],
+    requiere_revision_admin: ["rechazada", "confirmada"],
   };
 
   if (!estadosValidos[this.estado]?.includes(nuevoEstado)) {

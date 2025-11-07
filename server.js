@@ -52,7 +52,7 @@ process.on("unhandledRejection", (reason, promise) => {
 
 // Iniciar servidor
 connectDB()
-  .then(() => {
+  .then(async () => {
     server = app.listen(PORT, "0.0.0.0", () => {
       console.log(
         `🚀 Servidor El Patio Backend v${app.APP_VERSION} [ALPHA] corriendo en el puerto ${PORT}`
@@ -86,6 +86,18 @@ connectDB()
         error.message
       );
       console.log("💡 Asegúrate de instalar node-cron: npm install node-cron");
+    }
+
+    // Inicializar configuraciones del sistema
+    try {
+      const ConfiguracionSistema = require("./models/ConfiguracionSistema");
+      await ConfiguracionSistema.inicializarDefaults();
+      console.log("✅ Configuraciones del sistema inicializadas");
+    } catch (error) {
+      console.error(
+        "⚠️ Error inicializando configuraciones del sistema:",
+        error.message
+      );
     }
   })
   .catch((error) => {

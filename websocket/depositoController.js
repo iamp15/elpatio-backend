@@ -799,21 +799,36 @@ class DepositoWebSocketController {
             },
           });
         } else {
-          // Rechazar el pago
+          // Rechazar el pago - ahora con estructura mejorada
+          const motivoRechazo = data.motivoRechazo || {};
+          
+          // Guardar información del rechazo
+          transaccion.motivoRechazo = {
+            categoria: motivoRechazo.categoria || "otro",
+            descripcionDetallada: motivoRechazo.descripcionDetallada || motivo || "Pago no verificado",
+            severidad: motivoRechazo.severidad || null,
+            fechaRechazo: new Date(),
+          };
+
           transaccion.cambiarEstado(
             "rechazada",
-            motivo || "Pago no verificado"
+            motivoRechazo.descripcionDetallada || motivo || "Pago no verificado"
           );
           await transaccion.save({ session });
 
           await session.commitTransaction();
 
-          console.log(`❌ [DEPOSITO] Depósito rechazado: ${transaccionId}`);
+          console.log(`❌ [DEPOSITO] Depósito rechazado: ${transaccionId}`, {
+            categoria: transaccion.motivoRechazo.categoria,
+            severidad: transaccion.motivoRechazo.severidad,
+          });
 
           // 2. USAR ROOMS PARA NOTIFICAR A TODOS LOS PARTICIPANTES
           const notificacion = {
             transaccionId: transaccion._id,
-            motivo: notas || "Pago no verificado",
+            motivo: transaccion.motivoRechazo.descripcionDetallada,
+            categoria: transaccion.motivoRechazo.categoria,
+            severidad: transaccion.motivoRechazo.severidad,
             timestamp: new Date().toISOString(),
           };
 
@@ -837,21 +852,39 @@ class DepositoWebSocketController {
           try {
             const jugador = await Jugador.findById(transaccion.jugadorId);
             if (jugador) {
+              // Personalizar mensaje según categoría
+              let mensajePersonalizado = `Tu depósito de ${(transaccion.monto / 100).toFixed(2)} Bs ha sido rechazado.\n\n`;
+              
+              switch (transaccion.motivoRechazo.categoria) {
+                case "monto_insuficiente":
+                  mensajePersonalizado += "El monto depositado es menor al mínimo permitido.\n\n";
+                  break;
+                case "datos_incorrectos":
+                  const severidadTexto = transaccion.motivoRechazo.severidad === "grave" 
+                    ? "Los datos no coinciden" 
+                    : "Hay un error en los datos";
+                  mensajePersonalizado += `${severidadTexto}.\n\n`;
+                  break;
+                case "pago_no_recibido":
+                  mensajePersonalizado += "El pago no fue recibido por el cajero.\n\n";
+                  break;
+              }
+              
+              mensajePersonalizado += `Motivo: ${transaccion.motivoRechazo.descripcionDetallada}`;
+
               await crearNotificacionInterna({
                 destinatarioId: jugador._id,
                 destinatarioTipo: "jugador",
                 telegramId: jugador.telegramId,
                 tipo: "deposito_rechazado",
                 titulo: "Depósito Rechazado ❌",
-                mensaje: `Tu depósito de ${(transaccion.monto / 100).toFixed(
-                  2
-                )} Bs ha sido rechazado.\n\nMotivo: ${
-                  motivo || "No especificado"
-                }`,
+                mensaje: mensajePersonalizado,
                 datos: {
                   transaccionId: transaccion._id.toString(),
                   monto: transaccion.monto,
-                  motivo: motivo || "No especificado",
+                  motivo: transaccion.motivoRechazo.descripcionDetallada,
+                  categoria: transaccion.motivoRechazo.categoria,
+                  severidad: transaccion.motivoRechazo.severidad,
                 },
                 eventoId: `deposito-rechazado-${transaccion._id}`,
               });
@@ -864,7 +897,7 @@ class DepositoWebSocketController {
               await this.notificarBotDepositoRechazado(
                 transaccion,
                 jugador,
-                motivo
+                transaccion.motivoRechazo.descripcionDetallada
               );
             }
           } catch (error) {
@@ -882,7 +915,7 @@ class DepositoWebSocketController {
             detalle: {
               transaccionId: transaccion._id,
               jugadorId: transaccion.jugadorId,
-              motivo: notas,
+              motivoRechazo: transaccion.motivoRechazo,
               socketId: socket.id,
             },
           });
@@ -929,6 +962,299 @@ class DepositoWebSocketController {
       details:
         "No se pudo procesar la verificación después de múltiples intentos",
     });
+  }
+
+  /**
+   * Referir transacción a administrador
+   * Evento: 'referir-a-admin'
+   */
+  async referirAAdmin(socket, data) {
+    const session = await mongoose.startSession();
+
+    try {
+      console.log("🔍 [DEPOSITO] Referir a admin:", data);
+
+      const { transaccionId, motivo, descripcion } = data;
+
+      // Validar datos requeridos
+      if (!transaccionId) {
+        socket.emit("error", {
+          message: "ID de transacción requerido",
+        });
+        return;
+      }
+
+      // Validar que el socket esté autenticado como cajero
+      if (!socket.userType || socket.userType !== "cajero") {
+        socket.emit("error", {
+          message: "Solo los cajeros pueden referir transacciones",
+        });
+        return;
+      }
+
+      // Verificar si ya se está procesando esta transacción
+      if (this.processingTransactions.has(transaccionId)) {
+        socket.emit("error", {
+          message: "La transacción ya está siendo procesada",
+        });
+        return;
+      }
+
+      // Marcar como procesando
+      this.processingTransactions.add(transaccionId);
+
+      await session.startTransaction();
+
+      // Buscar la transacción
+      const transaccion = await Transaccion.findById(transaccionId).session(
+        session
+      );
+
+      if (!transaccion) {
+        await session.abortTransaction();
+        this.processingTransactions.delete(transaccionId);
+        socket.emit("error", {
+          message: "Transacción no encontrada",
+        });
+        return;
+      }
+
+      // Verificar que la transacción esté en estado "realizada"
+      if (transaccion.estado !== "realizada") {
+        await session.abortTransaction();
+        this.processingTransactions.delete(transaccionId);
+        socket.emit("error", {
+          message: `La transacción debe estar en estado "realizada". Estado actual: ${transaccion.estado}`,
+        });
+        return;
+      }
+
+      // Cambiar estado a requiere_revision_admin
+      transaccion.cambiarEstado("requiere_revision_admin");
+      
+      // Guardar información del motivo
+      transaccion.motivoRechazo = {
+        categoria: "pago_no_recibido",
+        descripcionDetallada: descripcion || motivo || "Requiere revisión administrativa",
+        fechaRechazo: new Date(),
+      };
+
+      await transaccion.save({ session });
+      await session.commitTransaction();
+
+      console.log(
+        `⚠️ [DEPOSITO] Transacción ${transaccionId} referida a admin`
+      );
+
+      // Notificar al cajero
+      socket.emit("transaccion-referida-admin", {
+        transaccionId: transaccion._id,
+        mensaje: "La transacción ha sido referida a un administrador",
+        timestamp: new Date().toISOString(),
+      });
+
+      // Notificar al jugador
+      this.io
+        .to(`transaccion-${transaccionId}`)
+        .emit("transaccion-en-revision", {
+          transaccionId: transaccion._id,
+          mensaje:
+            "Tu transacción está siendo revisada por un administrador. Te contactaremos pronto.",
+          timestamp: new Date().toISOString(),
+        });
+
+      // Crear notificación para el jugador
+      try {
+        const jugador = await Jugador.findById(transaccion.jugadorId);
+        if (jugador) {
+          await crearNotificacionInterna({
+            destinatarioId: jugador._id,
+            destinatarioTipo: "jugador",
+            telegramId: jugador.telegramId,
+            tipo: "transaccion_en_revision",
+            titulo: "Transacción en Revisión ⏳",
+            mensaje: `Tu depósito de ${(transaccion.monto / 100).toFixed(
+              2
+            )} Bs está siendo revisado por un administrador. Te contactaremos pronto para resolver cualquier inconveniente.`,
+            datos: {
+              transaccionId: transaccion._id.toString(),
+              monto: transaccion.monto,
+            },
+            eventoId: `transaccion-revision-${transaccion._id}`,
+          });
+        }
+      } catch (error) {
+        console.error(
+          "❌ Error creando notificación para jugador:",
+          error.message
+        );
+      }
+
+      // Registrar log
+      await registrarLog({
+        accion: "Transacción referida a administrador",
+        usuario: socket.cajeroId,
+        rol: "cajero",
+        detalle: {
+          transaccionId: transaccion._id,
+          jugadorId: transaccion.jugadorId,
+          motivo: descripcion || motivo,
+          socketId: socket.id,
+        },
+      });
+
+      this.processingTransactions.delete(transaccionId);
+      await session.endSession();
+    } catch (error) {
+      await session.abortTransaction();
+      await session.endSession();
+      console.error("❌ [DEPOSITO] Error en referirAAdmin:", error);
+      this.processingTransactions.delete(data.transaccionId);
+      socket.emit("error", {
+        message: "Error interno del servidor",
+        details: error.message,
+      });
+    }
+  }
+
+  /**
+   * Ajustar monto de depósito
+   * Evento: 'ajustar-monto-deposito'
+   */
+  async ajustarMontoDeposito(socket, data) {
+    const session = await mongoose.startSession();
+
+    try {
+      console.log("💰 [DEPOSITO] Ajustar monto:", data);
+
+      const { transaccionId, montoReal, razon } = data;
+
+      // Validar datos requeridos
+      if (!transaccionId || !montoReal) {
+        socket.emit("error", {
+          message: "ID de transacción y monto real requeridos",
+        });
+        return;
+      }
+
+      // Validar que el socket esté autenticado como cajero
+      if (!socket.userType || socket.userType !== "cajero") {
+        socket.emit("error", {
+          message: "Solo los cajeros pueden ajustar montos",
+        });
+        return;
+      }
+
+      // Verificar si ya se está procesando esta transacción
+      if (this.processingTransactions.has(transaccionId)) {
+        socket.emit("error", {
+          message: "La transacción ya está siendo procesada",
+        });
+        return;
+      }
+
+      // Marcar como procesando
+      this.processingTransactions.add(transaccionId);
+
+      await session.startTransaction();
+
+      // Buscar la transacción
+      const transaccion = await Transaccion.findById(transaccionId).session(
+        session
+      );
+
+      if (!transaccion) {
+        await session.abortTransaction();
+        this.processingTransactions.delete(transaccionId);
+        socket.emit("error", {
+          message: "Transacción no encontrada",
+        });
+        return;
+      }
+
+      // Verificar que la transacción esté en estado "realizada"
+      if (transaccion.estado !== "realizada") {
+        await session.abortTransaction();
+        this.processingTransactions.delete(transaccionId);
+        socket.emit("error", {
+          message: `La transacción debe estar en estado "realizada". Estado actual: ${transaccion.estado}`,
+        });
+        return;
+      }
+
+      // Obtener configuración de monto mínimo
+      const ConfiguracionSistema = require("../models/ConfiguracionSistema");
+      const montoMinimo =
+        (await ConfiguracionSistema.obtenerValor("deposito_monto_minimo")) ||
+        10;
+
+      // Validar que el monto real sea mayor o igual al mínimo
+      if (montoReal < montoMinimo) {
+        await session.abortTransaction();
+        this.processingTransactions.delete(transaccionId);
+        socket.emit("error", {
+          message: `El monto real debe ser mayor o igual al mínimo (${montoMinimo} Bs)`,
+          montoMinimo,
+        });
+        return;
+      }
+
+      // Guardar información del ajuste
+      transaccion.ajusteMonto = {
+        montoOriginal: transaccion.monto,
+        montoReal: montoReal,
+        razon: razon || "Ajuste de monto por discrepancia",
+        fechaAjuste: new Date(),
+        ajustadoPor: socket.cajeroId,
+      };
+
+      // Actualizar el monto de la transacción
+      const montoOriginal = transaccion.monto;
+      transaccion.monto = montoReal;
+
+      await transaccion.save({ session });
+
+      console.log(
+        `✅ [DEPOSITO] Monto ajustado para ${transaccionId}: ${montoOriginal} -> ${montoReal}`
+      );
+
+      // Notificar al cajero que puede continuar con la confirmación
+      socket.emit("monto-ajustado", {
+        transaccionId: transaccion._id,
+        montoOriginal,
+        montoReal,
+        mensaje: "Monto ajustado exitosamente. Ahora puedes confirmar el pago.",
+        timestamp: new Date().toISOString(),
+      });
+
+      // Registrar log
+      await registrarLog({
+        accion: "Monto de depósito ajustado",
+        usuario: socket.cajeroId,
+        rol: "cajero",
+        detalle: {
+          transaccionId: transaccion._id,
+          jugadorId: transaccion.jugadorId,
+          montoOriginal,
+          montoReal,
+          razon,
+          socketId: socket.id,
+        },
+      });
+
+      await session.commitTransaction();
+      this.processingTransactions.delete(transaccionId);
+      await session.endSession();
+    } catch (error) {
+      await session.abortTransaction();
+      await session.endSession();
+      console.error("❌ [DEPOSITO] Error en ajustarMontoDeposito:", error);
+      this.processingTransactions.delete(data.transaccionId);
+      socket.emit("error", {
+        message: "Error interno del servidor",
+        details: error.message,
+      });
+    }
   }
 
   // ===== MÉTODOS AUXILIARES =====

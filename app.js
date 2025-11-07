@@ -78,6 +78,7 @@ app.use("/api/webapp", require("./routes/webapp"));
 app.use("/api/websocket", require("./routes/websocket"));
 app.use("/api/notificaciones", require("./routes/notificaciones"));
 app.use("/api/bot", require("./routes/notificacionesBot"));
+app.use("/api/config", require("./routes/configuracion"));
 
 //Manejo de errores
 app.use(require("./middlewares/errorHandler"));

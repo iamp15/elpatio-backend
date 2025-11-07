@@ -253,6 +253,27 @@ class SocketManager {
         await this.depositoController.verificarPagoCajero(socket, data);
       });
 
+      // Referir transacción a administrador
+      socket.removeAllListeners("referir-a-admin");
+      socket.on("referir-a-admin", async (data) => {
+        console.log("⚠️ [SOCKET] Evento referir-a-admin recibido:", {
+          transaccionId: data.transaccionId,
+          socketId: socket.id,
+        });
+        await this.depositoController.referirAAdmin(socket, data);
+      });
+
+      // Ajustar monto de depósito
+      socket.removeAllListeners("ajustar-monto-deposito");
+      socket.on("ajustar-monto-deposito", async (data) => {
+        console.log("💰 [SOCKET] Evento ajustar-monto-deposito recibido:", {
+          transaccionId: data.transaccionId,
+          montoReal: data.montoReal,
+          socketId: socket.id,
+        });
+        await this.depositoController.ajustarMontoDeposito(socket, data);
+      });
+
       // ===== EVENTOS DE DASHBOARD DE ESTADO =====
 
       // Obtener estado completo del sistema
