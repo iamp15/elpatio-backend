@@ -359,6 +359,39 @@ class RoomsManager {
   }
 
   /**
+   * Notificar a participantes de una transacción excluyendo un socket específico
+   * Útil para no notificar al participante que causó el evento (ej: su propia desconexión)
+   */
+  notificarTransaccionExcluyendo(transaccionId, evento, datos, socketIdExcluir) {
+    const room = this.socketManager.io.sockets.adapter.rooms.get(
+      `transaccion-${transaccionId}`
+    );
+
+    if (!room) {
+      console.log(
+        `⚠️ [ROOMS] Room de transacción ${transaccionId} no existe`
+      );
+      return;
+    }
+
+    // Emitir a todos los sockets del room excepto el excluido
+    let count = 0;
+    room.forEach((socketId) => {
+      if (socketId !== socketIdExcluir) {
+        const socket = this.socketManager.io.sockets.sockets.get(socketId);
+        if (socket) {
+          socket.emit(evento, datos);
+          count++;
+        }
+      }
+    });
+
+    console.log(
+      `📢 [ROOMS] Notificación enviada a transacción ${transaccionId} (excluyendo ${socketIdExcluir}): ${count} sockets notificados`
+    );
+  }
+
+  /**
    * Notificar a administradores
    */
   notificarAdmins(evento, datos) {

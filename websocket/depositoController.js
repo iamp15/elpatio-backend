@@ -1227,6 +1227,9 @@ class DepositoWebSocketController {
         timestamp: new Date().toISOString(),
       });
 
+      // Notificar al jugador sobre el ajuste de monto
+      await this.notificarJugadorAjusteMonto(transaccion, montoOriginal, montoReal, razon);
+
       // Registrar log
       await registrarLog({
         accion: "Monto de depósito ajustado",
@@ -1458,6 +1461,65 @@ class DepositoWebSocketController {
     );
     console.log(
       `📢 [DEPOSITO] Datos bancarios enviados al jugador ${transaccion.telegramId}`
+    );
+  }
+
+  /**
+   * Notificar al jugador sobre el ajuste de monto
+   */
+  async notificarJugadorAjusteMonto(transaccion, montoOriginal, montoReal, razon) {
+    // Verificar si el jugador está conectado usando rooms
+    const jugadorConectado =
+      this.socketManager.roomsManager.rooms.jugadores.has(
+        transaccion.telegramId
+      );
+
+    if (!jugadorConectado) {
+      console.log(
+        "⚠️ [DEPOSITO] Jugador no conectado para notificar ajuste de monto"
+      );
+      return;
+    }
+
+    const notificacion = {
+      transaccionId: transaccion._id,
+      montoOriginal,
+      montoReal,
+      razon: razon || "Ajuste de monto por discrepancia",
+      timestamp: new Date().toISOString(),
+    };
+
+    // Agregar jugador al room de la transacción si no está
+    const jugadorSocketSet =
+      this.socketManager.roomsManager.rooms.jugadores.get(
+        transaccion.telegramId
+      );
+    const jugadorSocketId = jugadorSocketSet
+      ? Array.from(jugadorSocketSet)[0]
+      : null;
+
+    if (jugadorSocketId) {
+      this.socketManager.roomsManager.agregarParticipanteTransaccion(
+        transaccion._id.toString(),
+        jugadorSocketId
+      );
+    }
+
+    // Enviar notificación usando rooms
+    this.socketManager.roomsManager.notificarJugador(
+      transaccion.telegramId,
+      "monto-ajustado",
+      notificacion
+    );
+
+    // También enviar directamente a la room de la transacción
+    this.io.to(`transaccion-${transaccion._id}`).emit("monto-ajustado", {
+      ...notificacion,
+      target: "jugador",
+    });
+
+    console.log(
+      `📢 [DEPOSITO] Notificación de ajuste de monto enviada al jugador ${transaccion.telegramId}`
     );
   }
 

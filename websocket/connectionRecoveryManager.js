@@ -267,7 +267,31 @@ class ConnectionRecoveryManager {
     const disconnectionInfo = this.disconnectedUsers.get(socketId);
 
     if (!disconnectionInfo) {
-      return; // Ya fue procesado
+      // Ya fue procesado (probablemente el usuario se reconectó)
+      console.log(
+        `ℹ️ [RECOVERY] Timer de gracia expirado para socket ${socketId} pero ya fue procesado (probablemente reconectó)`
+      );
+      return;
+    }
+
+    // Verificar si el usuario ya se reconectó buscando por userId y tipo
+    // (podría haber reconectado con un nuevo socketId)
+    const userReconnected = this.checkUserReconnected(
+      disconnectionInfo.userId,
+      disconnectionInfo.tipo
+    );
+
+    if (userReconnected) {
+      console.log(
+        `ℹ️ [RECOVERY] Usuario ${disconnectionInfo.tipo} ${disconnectionInfo.userId} ya reconectó antes del timeout. Cancelando notificación de timeout.`
+      );
+      // Limpiar de usuarios desconectados sin notificar timeout
+      this.disconnectedUsers.delete(socketId);
+      // Limpiar transacciones pendientes
+      for (const transaccionId of disconnectionInfo.transaccionesActivas) {
+        this.pendingTransactions.delete(transaccionId);
+      }
+      return;
     }
 
     console.log(
@@ -288,6 +312,25 @@ class ConnectionRecoveryManager {
 
     // Notificar timeout
     this.notifyDisconnectionTimeout(disconnectionInfo);
+  }
+
+  /**
+   * Verificar si un usuario ya se reconectó (aunque con un socketId diferente)
+   */
+  checkUserReconnected(userId, tipo) {
+    // Buscar en los sockets conectados si el usuario está online
+    if (tipo === "cajero") {
+      // Verificar en connectedCajeros del socketManager
+      const cajeroState = this.socketManager.connectionStateManager.connectionStates.cajeros.get(
+        userId
+      );
+      return cajeroState && cajeroState.socketId;
+    } else if (tipo === "jugador") {
+      // Verificar en jugadores conectados del roomsManager
+      const jugadorSockets = this.socketManager.roomsManager.rooms.jugadores.get(userId);
+      return jugadorSockets && jugadorSockets.size > 0;
+    }
+    return false;
   }
 
   /**
@@ -410,11 +453,11 @@ class ConnectionRecoveryManager {
    * Notificar desconexión temporal
    */
   notifyTemporaryDisconnection(disconnectionInfo) {
-    const { transaccionesActivas, tipo, userId } = disconnectionInfo;
+    const { transaccionesActivas, tipo, userId, socketId } = disconnectionInfo;
 
     transaccionesActivas.forEach((transaccionId) => {
-      // Notificar a otros participantes de la transacción
-      this.socketManager.roomsManager.notificarTransaccion(
+      // Notificar a otros participantes de la transacción (excluyendo al que se desconectó)
+      this.socketManager.roomsManager.notificarTransaccionExcluyendo(
         transaccionId,
         "participant-disconnected",
         {
@@ -423,7 +466,8 @@ class ConnectionRecoveryManager {
           transaccionId,
           mensaje: `${tipo} se desconectó temporalmente. Esperando reconexión...`,
           timestamp: new Date().toISOString(),
-        }
+        },
+        socketId // Excluir el socket que se desconectó
       );
     });
   }
@@ -436,6 +480,7 @@ class ConnectionRecoveryManager {
     recoveredTransactions,
     disconnectionDuration
   ) {
+    // Notificar directamente al socket reconectado (no necesita excluirse a sí mismo)
     socket.emit("reconnection-successful", {
       mensaje: "Conexión recuperada exitosamente",
       transaccionesRecuperadas: recoveredTransactions,
@@ -443,9 +488,9 @@ class ConnectionRecoveryManager {
       timestamp: new Date().toISOString(),
     });
 
-    // Notificar a otros participantes
+    // Notificar a otros participantes (excluyendo al que se reconectó)
     recoveredTransactions.forEach((transaccionId) => {
-      this.socketManager.roomsManager.notificarTransaccion(
+      this.socketManager.roomsManager.notificarTransaccionExcluyendo(
         transaccionId,
         "participant-reconnected",
         {
@@ -455,7 +500,8 @@ class ConnectionRecoveryManager {
           transaccionId,
           mensaje: "Participante reconectado",
           timestamp: new Date().toISOString(),
-        }
+        },
+        socket.id // Excluir el socket que se reconectó
       );
     });
   }
@@ -464,10 +510,13 @@ class ConnectionRecoveryManager {
    * Notificar timeout de desconexión
    */
   notifyDisconnectionTimeout(disconnectionInfo) {
-    const { transaccionesActivas, tipo, userId } = disconnectionInfo;
+    const { transaccionesActivas, tipo, userId, socketId } = disconnectionInfo;
 
     transaccionesActivas.forEach((transaccionId) => {
-      this.socketManager.roomsManager.notificarTransaccion(
+      // Notificar a otros participantes (excluyendo al que tuvo timeout)
+      // Nota: El socket ya no existe, pero excluimos por userId/tipo para evitar notificaciones redundantes
+      // Si el usuario reconectó, su nuevo socket no recibirá esta notificación
+      this.socketManager.roomsManager.notificarTransaccionExcluyendo(
         transaccionId,
         "participant-disconnected-timeout",
         {
@@ -476,7 +525,8 @@ class ConnectionRecoveryManager {
           transaccionId,
           mensaje: `${tipo} no pudo reconectar. La transacción requiere verificación manual.`,
           timestamp: new Date().toISOString(),
-        }
+        },
+        socketId // Excluir el socket que tuvo timeout (aunque ya no existe)
       );
     });
   }
