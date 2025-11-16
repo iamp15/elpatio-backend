@@ -581,34 +581,89 @@ class DepositoWebSocketController {
         }
 
         if (accion === "confirmar") {
+          console.log(
+            `🔍 [DEPOSITO] [DEBUG] Entrando en acción confirmar para ${transaccionId}`
+          );
+          console.log(
+            `🔍 [DEPOSITO] [DEBUG] Estado actual de transacción: ${transaccion.estado}`
+          );
+          console.log(
+            `🔍 [DEPOSITO] [DEBUG] Monto de transacción: ${transaccion.monto}`
+          );
+
           // Confirmar el pago
+          console.log(
+            `🔍 [DEPOSITO] [DEBUG] Estableciendo fechaConfirmacionCajero y notasCajero`
+          );
           transaccion.fechaConfirmacionCajero = new Date();
           transaccion.infoPago = {
             ...transaccion.infoPago,
             notasCajero: notas || "Pago verificado correctamente",
           };
+          console.log(
+            `🔍 [DEPOSITO] [DEBUG] Cambiando estado a "confirmada"`
+          );
           transaccion.cambiarEstado("confirmada");
+          console.log(
+            `🔍 [DEPOSITO] [DEBUG] Guardando transacción en estado "confirmada"`
+          );
           await transaccion.save({ session });
+          console.log(
+            `🔍 [DEPOSITO] [DEBUG] Transacción guardada en estado "confirmada" exitosamente`
+          );
 
           // Procesar saldo del jugador
+          console.log(
+            `🔍 [DEPOSITO] [DEBUG] Obteniendo jugador para procesar saldo: ${transaccion.jugadorId}`
+          );
           const jugadorConSesion = await Jugador.findById(
             transaccion.jugadorId
           ).session(session);
+          if (!jugadorConSesion) {
+            throw new Error(`Jugador ${transaccion.jugadorId} no encontrado`);
+          }
+          console.log(
+            `🔍 [DEPOSITO] [DEBUG] Saldo actual del jugador: ${jugadorConSesion.saldo}`
+          );
           const saldoNuevo = jugadorConSesion.saldo + transaccion.monto;
+          console.log(
+            `🔍 [DEPOSITO] [DEBUG] Calculando nuevo saldo: ${jugadorConSesion.saldo} + ${transaccion.monto} = ${saldoNuevo}`
+          );
 
+          console.log(
+            `🔍 [DEPOSITO] [DEBUG] Actualizando saldo del jugador en BD`
+          );
           await Jugador.findByIdAndUpdate(
             transaccion.jugadorId,
             { saldo: saldoNuevo },
             { session }
           );
+          console.log(
+            `🔍 [DEPOSITO] [DEBUG] Saldo del jugador actualizado exitosamente`
+          );
 
           // Completar transacción
+          console.log(
+            `🔍 [DEPOSITO] [DEBUG] Cambiando estado a "completada"`
+          );
           transaccion.cambiarEstado("completada");
           transaccion.saldoNuevo = saldoNuevo;
           transaccion.fechaProcesamiento = new Date();
+          console.log(
+            `🔍 [DEPOSITO] [DEBUG] Guardando transacción en estado "completada"`
+          );
           await transaccion.save({ session });
+          console.log(
+            `🔍 [DEPOSITO] [DEBUG] Transacción guardada en estado "completada" exitosamente`
+          );
 
+          console.log(
+            `🔍 [DEPOSITO] [DEBUG] Haciendo commit de la transacción de BD`
+          );
           await session.commitTransaction();
+          console.log(
+            `🔍 [DEPOSITO] [DEBUG] Commit de transacción de BD exitoso`
+          );
 
           console.log(
             `✅ [DEPOSITO] Depósito completado: ${transaccionId}, nuevo saldo: ${saldoNuevo}`
@@ -795,6 +850,9 @@ class DepositoWebSocketController {
           }
 
           // Registrar log
+          console.log(
+            `🔍 [DEPOSITO] [DEBUG] Registrando log de depósito completado`
+          );
           await registrarLog({
             accion: "Depósito completado via WebSocket",
             usuario: socket.cajeroId,
@@ -807,6 +865,9 @@ class DepositoWebSocketController {
               socketId: socket.id,
             },
           });
+          console.log(
+            `🔍 [DEPOSITO] [DEBUG] Log registrado exitosamente, finalizando flujo de confirmación`
+          );
         } else {
           // Rechazar el pago - ahora con estructura mejorada
           const motivoRechazo = data.motivoRechazo || {};
@@ -931,10 +992,36 @@ class DepositoWebSocketController {
         }
 
         // Si llegamos aquí, la transacción fue exitosa
+        console.log(
+          `🔍 [DEPOSITO] [DEBUG] Transacción ${transaccionId} procesada exitosamente, limpiando processingTransactions`
+        );
         this.processingTransactions.delete(transaccionId);
+        console.log(
+          `🔍 [DEPOSITO] [DEBUG] Cerrando sesión de BD`
+        );
         await session.endSession();
+        console.log(
+          `🔍 [DEPOSITO] [DEBUG] Sesión de BD cerrada, saliendo del método verificarPagoCajero`
+        );
         return; // Salir del bucle de reintentos
       } catch (error) {
+        console.error(
+          `❌ [DEPOSITO] [DEBUG] ERROR CAPTURADO en verificarPagoCajero para ${transaccionId}:`,
+          error
+        );
+        console.error(
+          `❌ [DEPOSITO] [DEBUG] Stack trace del error:`,
+          error.stack
+        );
+        console.error(
+          `❌ [DEPOSITO] [DEBUG] Código del error:`,
+          error.code
+        );
+        console.error(
+          `❌ [DEPOSITO] [DEBUG] Mensaje del error:`,
+          error.message
+        );
+        
         await session.abortTransaction();
         await session.endSession();
 
