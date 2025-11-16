@@ -683,14 +683,35 @@ class SocketManager {
       return;
     }
 
-    const { jugadorSocketId, transaccionId } = data;
-    const jugadorSocket = this.io.sockets.sockets.get(jugadorSocketId);
+    const { jugadorSocketId, transaccionId, notas } = data || {};
 
-    if (jugadorSocket) {
-      jugadorSocket.emit("deposito-confirmado", {
+    // Compatibilidad hacia atrás: antes solo notificábamos al jugador.
+    // Ahora delegamos al flujo oficial que CONFIRMA y COMPLETA la transacción,
+    // acredita saldo y emite los eventos correspondientes.
+    try {
+      console.log(
+        "🔄 [BACKCOMPAT] Delegando confirmar-deposito -> verificar-pago-cajero (confirmar)",
+        { transaccionId, socketId: socket.id }
+      );
+      this.depositoController.verificarPagoCajero(socket, {
         transaccionId,
-        message: "Depósito confirmado exitosamente",
+        accion: "confirmar",
+        notas: notas || "Confirmado vía confirmar-deposito (compatibilidad)",
       });
+    } catch (error) {
+      console.error("❌ Error delegando confirmar-deposito:", error);
+      socket.emit("error", { message: "Error confirmando depósito" });
+    }
+
+    // Además, mantener la notificación directa al jugador por compatibilidad
+    if (jugadorSocketId) {
+      const jugadorSocket = this.io.sockets.sockets.get(jugadorSocketId);
+      if (jugadorSocket) {
+        jugadorSocket.emit("deposito-confirmado", {
+          transaccionId,
+          message: "Depósito confirmado exitosamente",
+        });
+      }
     }
 
     console.log(`✅ Depósito confirmado por cajero ${socket.cajeroId}`);
