@@ -562,13 +562,22 @@ class DepositoWebSocketController {
           return;
         }
 
-        // Verificar que la transacción esté en estado "realizada" (usuario ya reportó el pago)
-        if (transaccion.estado !== "realizada") {
+        // Verificar estado de la transacción
+        // Regla original: debe estar "realizada" (usuario reportó pago).
+        // Ajuste: permitir también "en_proceso" para casos donde el cajero valida y confirma
+        // (p.ej., después de un ajuste de monto), para no bloquear la acreditación.
+        const estadosPermitidos = ["realizada", "en_proceso"];
+        if (!estadosPermitidos.includes(transaccion.estado)) {
           await session.abortTransaction();
           socket.emit("error", {
-            message: `La transacción debe estar en estado "realizada". Estado actual: ${transaccion.estado}`,
+            message: `La transacción debe estar en estado "realizada" o "en_proceso". Estado actual: ${transaccion.estado}`,
           });
           return;
+        }
+        if (transaccion.estado === "en_proceso") {
+          console.log(
+            `ℹ️ [DEPOSITO] Verificación de cajero permitida desde estado en_proceso para ${transaccionId}`
+          );
         }
 
         if (accion === "confirmar") {
