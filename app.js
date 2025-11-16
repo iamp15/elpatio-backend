@@ -1,6 +1,6 @@
 /**
  * Backend API para El Patio
- * @version 0.10.1
+ * @version (leído dinámicamente desde package.json)
  */
 
 const express = require("express");
@@ -8,8 +8,9 @@ const cors = require("cors");
 const morgan = require("morgan");
 require("dotenv").config();
 
-// Constante de versión
-const APP_VERSION = "0.10.1"; // Alpha - Sistema de notificaciones push (fixes autenticación)
+// Leer versión dinámicamente desde package.json
+const packageJson = require('./package.json');
+const APP_VERSION = packageJson.version;
 
 const app = express();
 
