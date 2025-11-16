@@ -1315,13 +1315,22 @@ class DepositoWebSocketController {
       );
 
       // Notificar al cajero que puede continuar con la confirmación
-      socket.emit("monto-ajustado", {
+      const datosAjuste = {
         transaccionId: transaccion._id,
         montoOriginal,
         montoReal,
+        razon: razon || "Ajuste de monto por discrepancia",
         mensaje: "Monto ajustado exitosamente. Ahora puedes confirmar el pago.",
         timestamp: new Date().toISOString(),
-      });
+      };
+      console.log(
+        `💰 [DEPOSITO] Enviando evento monto-ajustado al cajero ${socket.cajeroId} (socket ${socket.id}):`,
+        datosAjuste
+      );
+      socket.emit("monto-ajustado", datosAjuste);
+      console.log(
+        `💰 [DEPOSITO] Evento monto-ajustado enviado al cajero ${socket.cajeroId}`
+      );
 
       // Notificar al jugador sobre el ajuste de monto
       await this.notificarJugadorAjusteMonto(transaccion, montoOriginal, montoReal, razon);
