@@ -1316,7 +1316,7 @@ class DepositoWebSocketController {
 
       // Notificar al cajero que puede continuar con la confirmación
       const datosAjuste = {
-        transaccionId: transaccion._id,
+        transaccionId: transaccion._id.toString(), // Convertir ObjectId a string
         montoOriginal,
         montoReal,
         razon: razon || "Ajuste de monto por discrepancia",
@@ -1326,6 +1326,9 @@ class DepositoWebSocketController {
       console.log(
         `💰 [DEPOSITO] Enviando evento monto-ajustado al cajero ${socket.cajeroId} (socket ${socket.id}):`,
         datosAjuste
+      );
+      console.log(
+        `💰 [DEPOSITO] Socket conectado: ${socket.connected}, Socket ID: ${socket.id}`
       );
       socket.emit("monto-ajustado", datosAjuste);
       console.log(
