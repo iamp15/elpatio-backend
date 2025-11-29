@@ -600,9 +600,7 @@ class DepositoWebSocketController {
             ...transaccion.infoPago,
             notasCajero: notas || "Pago verificado correctamente",
           };
-          console.log(
-            `🔍 [DEPOSITO] [DEBUG] Cambiando estado a "confirmada"`
-          );
+          console.log(`🔍 [DEPOSITO] [DEBUG] Cambiando estado a "confirmada"`);
           transaccion.cambiarEstado("confirmada");
           console.log(
             `🔍 [DEPOSITO] [DEBUG] Guardando transacción en estado "confirmada"`
@@ -643,9 +641,7 @@ class DepositoWebSocketController {
           );
 
           // Completar transacción
-          console.log(
-            `🔍 [DEPOSITO] [DEBUG] Cambiando estado a "completada"`
-          );
+          console.log(`🔍 [DEPOSITO] [DEBUG] Cambiando estado a "completada"`);
           transaccion.cambiarEstado("completada");
           transaccion.saldoNuevo = saldoNuevo;
           transaccion.fechaProcesamiento = new Date();
@@ -871,11 +867,14 @@ class DepositoWebSocketController {
         } else {
           // Rechazar el pago - ahora con estructura mejorada
           const motivoRechazo = data.motivoRechazo || {};
-          
+
           // Guardar información del rechazo
           transaccion.motivoRechazo = {
             categoria: motivoRechazo.categoria || "otro",
-            descripcionDetallada: motivoRechazo.descripcionDetallada || motivo || "Pago no verificado",
+            descripcionDetallada:
+              motivoRechazo.descripcionDetallada ||
+              motivo ||
+              "Pago no verificado",
             severidad: motivoRechazo.severidad || null,
             fechaRechazo: new Date(),
           };
@@ -923,23 +922,28 @@ class DepositoWebSocketController {
             const jugador = await Jugador.findById(transaccion.jugadorId);
             if (jugador) {
               // Personalizar mensaje según categoría
-              let mensajePersonalizado = `Tu depósito de ${(transaccion.monto / 100).toFixed(2)} Bs ha sido rechazado.\n\n`;
-              
+              let mensajePersonalizado = `Tu depósito de ${(
+                transaccion.monto / 100
+              ).toFixed(2)} Bs ha sido rechazado.\n\n`;
+
               switch (transaccion.motivoRechazo.categoria) {
                 case "monto_insuficiente":
-                  mensajePersonalizado += "El monto depositado es menor al mínimo permitido.\n\n";
+                  mensajePersonalizado +=
+                    "El monto depositado es menor al mínimo permitido.\n\n";
                   break;
                 case "datos_incorrectos":
-                  const severidadTexto = transaccion.motivoRechazo.severidad === "grave" 
-                    ? "Los datos no coinciden" 
-                    : "Hay un error en los datos";
+                  const severidadTexto =
+                    transaccion.motivoRechazo.severidad === "grave"
+                      ? "Los datos no coinciden"
+                      : "Hay un error en los datos";
                   mensajePersonalizado += `${severidadTexto}.\n\n`;
                   break;
                 case "pago_no_recibido":
-                  mensajePersonalizado += "El pago no fue recibido por el cajero.\n\n";
+                  mensajePersonalizado +=
+                    "El pago no fue recibido por el cajero.\n\n";
                   break;
               }
-              
+
               mensajePersonalizado += `Motivo: ${transaccion.motivoRechazo.descripcionDetallada}`;
 
               await crearNotificacionInterna({
@@ -996,9 +1000,7 @@ class DepositoWebSocketController {
           `🔍 [DEPOSITO] [DEBUG] Transacción ${transaccionId} procesada exitosamente, limpiando processingTransactions`
         );
         this.processingTransactions.delete(transaccionId);
-        console.log(
-          `🔍 [DEPOSITO] [DEBUG] Cerrando sesión de BD`
-        );
+        console.log(`🔍 [DEPOSITO] [DEBUG] Cerrando sesión de BD`);
         await session.endSession();
         console.log(
           `🔍 [DEPOSITO] [DEBUG] Sesión de BD cerrada, saliendo del método verificarPagoCajero`
@@ -1013,15 +1015,12 @@ class DepositoWebSocketController {
           `❌ [DEPOSITO] [DEBUG] Stack trace del error:`,
           error.stack
         );
-        console.error(
-          `❌ [DEPOSITO] [DEBUG] Código del error:`,
-          error.code
-        );
+        console.error(`❌ [DEPOSITO] [DEBUG] Código del error:`, error.code);
         console.error(
           `❌ [DEPOSITO] [DEBUG] Mensaje del error:`,
           error.message
         );
-        
+
         await session.abortTransaction();
         await session.endSession();
 
@@ -1127,11 +1126,12 @@ class DepositoWebSocketController {
 
       // Cambiar estado a requiere_revision_admin
       transaccion.cambiarEstado("requiere_revision_admin");
-      
+
       // Guardar información del motivo
       transaccion.motivoRechazo = {
         categoria: "pago_no_recibido",
-        descripcionDetallada: descripcion || motivo || "Requiere revisión administrativa",
+        descripcionDetallada:
+          descripcion || motivo || "Requiere revisión administrativa",
         fechaRechazo: new Date(),
       };
 
@@ -1280,20 +1280,38 @@ class DepositoWebSocketController {
 
       // Obtener configuración de monto mínimo
       const ConfiguracionSistema = require("../models/ConfiguracionSistema");
-      const montoMinimo =
+      const montoMinimoBs =
         (await ConfiguracionSistema.obtenerValor("deposito_monto_minimo")) ||
         10;
 
+      // Convertir monto mínimo de bolívares a centavos para comparar con montoReal
+      const montoMinimoCentavos = montoMinimoBs * 100;
+
+      console.log(
+        `💰 [DEPOSITO] Validando monto ajustado: montoReal=${montoReal} centavos (${(
+          montoReal / 100
+        ).toFixed(
+          2
+        )} Bs), montoMinimo=${montoMinimoCentavos} centavos (${montoMinimoBs} Bs)`
+      );
+
       // Validar que el monto real sea mayor o igual al mínimo
-      if (montoReal < montoMinimo) {
+      if (montoReal < montoMinimoCentavos) {
+        console.log(
+          `❌ [DEPOSITO] Monto ajustado rechazado: ${montoReal} centavos < ${montoMinimoCentavos} centavos (mínimo)`
+        );
         await session.abortTransaction();
         this.processingTransactions.delete(transaccionId);
         socket.emit("error", {
-          message: `El monto real debe ser mayor o igual al mínimo (${montoMinimo} Bs)`,
-          montoMinimo,
+          message: `El monto real debe ser mayor o igual al mínimo (${montoMinimoBs} Bs)`,
+          montoMinimo: montoMinimoBs,
         });
         return;
       }
+
+      console.log(
+        `✅ [DEPOSITO] Monto ajustado válido: ${montoReal} centavos >= ${montoMinimoCentavos} centavos (mínimo)`
+      );
 
       // Guardar información del ajuste
       transaccion.ajusteMonto = {
@@ -1336,7 +1354,12 @@ class DepositoWebSocketController {
       );
 
       // Notificar al jugador sobre el ajuste de monto
-      await this.notificarJugadorAjusteMonto(transaccion, montoOriginal, montoReal, razon);
+      await this.notificarJugadorAjusteMonto(
+        transaccion,
+        montoOriginal,
+        montoReal,
+        razon
+      );
 
       // Registrar log
       await registrarLog({
@@ -1575,7 +1598,12 @@ class DepositoWebSocketController {
   /**
    * Notificar al jugador sobre el ajuste de monto
    */
-  async notificarJugadorAjusteMonto(transaccion, montoOriginal, montoReal, razon) {
+  async notificarJugadorAjusteMonto(
+    transaccion,
+    montoOriginal,
+    montoReal,
+    razon
+  ) {
     // Verificar si el jugador está conectado usando rooms
     const jugadorConectado =
       this.socketManager.roomsManager.rooms.jugadores.has(
