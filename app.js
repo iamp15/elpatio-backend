@@ -14,8 +14,40 @@ const APP_VERSION = packageJson.version;
 
 const app = express();
 
+// Configurar CORS
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Lista de orígenes permitidos
+    const allowedOrigins = process.env.NODE_ENV === "production"
+      ? [
+          "https://elpatio-miniapps.vercel.app",
+          "https://elpatio-backend.fly.dev",
+          "https://telegram.org",
+          "https://web.telegram.org",
+        ]
+      : ["http://localhost:3000", "http://localhost:3002", "http://localhost:5173", "*"];
+
+    // Permitir peticiones sin origen (como Postman, curl, etc.) solo en desarrollo
+    if (!origin && process.env.NODE_ENV !== "production") {
+      return callback(null, true);
+    }
+
+    // Verificar si el origen está permitido
+    if (allowedOrigins.includes("*") || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`⚠️ CORS: Origen bloqueado: ${origin}`);
+      callback(new Error("No permitido por CORS"));
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  exposedHeaders: ["Authorization"],
+};
+
 // Middlewares
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(morgan("dev"));
 app.use(express.json());
 
