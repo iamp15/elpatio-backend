@@ -40,6 +40,27 @@ class ConnectionRecoveryManager {
     // Obtener transacciones activas del socket
     const activeTransactions = this.getActiveTransactions(socket.id);
 
+    // Log de depuración: mostrar todas las transacciones y sus participantes
+    console.log(
+      `🔍 [RECOVERY] Verificando transacciones activas para ${userType} ${userId} (socket ${socket.id})`
+    );
+    console.log(
+      `🔍 [RECOVERY] Total de rooms de transacciones: ${this.socketManager.roomsManager.rooms.transacciones.size}`
+    );
+    for (const [
+      transaccionId,
+      sockets,
+    ] of this.socketManager.roomsManager.rooms.transacciones.entries()) {
+      console.log(
+        `🔍 [RECOVERY] Transacción ${transaccionId} tiene ${sockets.size} participantes:`,
+        Array.from(sockets)
+      );
+    }
+    console.log(
+      `🔍 [RECOVERY] Transacciones activas encontradas para socket ${socket.id}:`,
+      activeTransactions
+    );
+
     // Si no hay transacciones activas, limpiar inmediatamente
     if (activeTransactions.length === 0) {
       console.log(
