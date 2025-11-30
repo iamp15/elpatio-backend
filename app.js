@@ -33,8 +33,10 @@ const corsOptions = {
             "*",
           ];
 
-    // Permitir peticiones sin origen (como Postman, curl, etc.) solo en desarrollo
-    if (!origin && process.env.NODE_ENV !== "production") {
+    // Permitir peticiones sin origen (como Postman, curl, servicios internos, etc.)
+    // En producción, esto puede ser peticiones desde el mismo servidor o servicios internos
+    if (!origin) {
+      // Permitir peticiones sin origen (pueden ser servicios internos o peticiones directas)
       return callback(null, true);
     }
 

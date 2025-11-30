@@ -129,8 +129,25 @@ class ConnectionRecoveryManager {
 
     if (!disconnectionInfo) {
       console.log(
-        `ℹ️ [RECOVERY] ${userType} ${userId} reconectó pero no hay desconexión pendiente`
+        `ℹ️ [RECOVERY] ${userType} ${userId} reconectó pero no hay desconexión pendiente registrada`
       );
+      
+      // Intentar recuperar transacciones activas desde la base de datos
+      // Esto es útil si el periodo de gracia expiró pero la transacción aún está activa
+      if (userType === "jugador") {
+        console.log(
+          `🔍 [RECOVERY] Buscando transacciones activas para jugador ${userId} en la base de datos...`
+        );
+        const recoveredFromDB = await this.recoverActiveTransactionsFromDB(
+          socket,
+          userId,
+          userType
+        );
+        if (recoveredFromDB.recovered) {
+          return recoveredFromDB;
+        }
+      }
+      
       return { recovered: false };
     }
 
@@ -176,6 +193,75 @@ class ConnectionRecoveryManager {
       transactionsRecovered: recoveredTransactions,
       disconnectionDuration: disconnectionDuration,
     };
+  }
+
+  /**
+   * Recuperar transacciones activas desde la base de datos
+   * Útil cuando el periodo de gracia expiró pero la transacción aún está activa
+   */
+  async recoverActiveTransactionsFromDB(socket, userId, userType) {
+    try {
+      if (userType !== "jugador") {
+        return { recovered: false };
+      }
+
+      const Transaccion = require("../models/Transaccion");
+      const Jugador = require("../models/Jugador");
+
+      // Buscar jugador por telegramId
+      const jugador = await Jugador.findOne({ telegramId: userId });
+      if (!jugador) {
+        console.log(
+          `ℹ️ [RECOVERY] Jugador ${userId} no encontrado en la base de datos`
+        );
+        return { recovered: false };
+      }
+
+      // Buscar transacciones activas del jugador
+      const estadosActivos = ["pendiente", "en_proceso", "realizada"];
+      const transaccionesActivas = await Transaccion.find({
+        jugadorId: jugador._id,
+        estado: { $in: estadosActivos },
+        categoria: "deposito",
+      })
+        .populate("cajeroId", "nombreCompleto email datosPagoMovil")
+        .sort({ updatedAt: -1 })
+        .limit(5); // Limitar a las 5 más recientes
+
+      if (transaccionesActivas.length === 0) {
+        console.log(
+          `ℹ️ [RECOVERY] No se encontraron transacciones activas para jugador ${userId}`
+        );
+        return { recovered: false };
+      }
+
+      console.log(
+        `✅ [RECOVERY] Encontradas ${transaccionesActivas.length} transacciones activas para jugador ${userId}`
+      );
+
+      // Recuperar la transacción más reciente (la primera del array ordenado)
+      const transaccionMasReciente = transaccionesActivas[0];
+      const wasRecovered = await this.rejoinTransactionRoom(
+        socket,
+        transaccionMasReciente._id.toString()
+      );
+
+      if (wasRecovered) {
+        return {
+          recovered: true,
+          transactionsRecovered: [transaccionMasReciente._id.toString()],
+          disconnectionDuration: null, // No sabemos cuánto tiempo pasó
+        };
+      }
+
+      return { recovered: false };
+    } catch (error) {
+      console.error(
+        `❌ [RECOVERY] Error recuperando transacciones desde BD:`,
+        error
+      );
+      return { recovered: false };
+    }
   }
 
   /**
