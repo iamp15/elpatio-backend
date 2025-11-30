@@ -9,7 +9,7 @@ const morgan = require("morgan");
 require("dotenv").config();
 
 // Leer versión dinámicamente desde package.json
-const packageJson = require('./package.json');
+const packageJson = require("./package.json");
 const APP_VERSION = packageJson.version;
 
 const app = express();
@@ -18,14 +18,20 @@ const app = express();
 const corsOptions = {
   origin: function (origin, callback) {
     // Lista de orígenes permitidos
-    const allowedOrigins = process.env.NODE_ENV === "production"
-      ? [
-          "https://elpatio-miniapps.vercel.app",
-          "https://elpatio-backend.fly.dev",
-          "https://telegram.org",
-          "https://web.telegram.org",
-        ]
-      : ["http://localhost:3000", "http://localhost:3002", "http://localhost:5173", "*"];
+    const allowedOrigins =
+      process.env.NODE_ENV === "production"
+        ? [
+            "https://elpatio-miniapps.vercel.app",
+            "https://elpatio-backend.fly.dev",
+            "https://telegram.org",
+            "https://web.telegram.org",
+          ]
+        : [
+            "http://localhost:3000",
+            "http://localhost:3002",
+            "http://localhost:5173",
+            "*",
+          ];
 
     // Permitir peticiones sin origen (como Postman, curl, etc.) solo en desarrollo
     if (!origin && process.env.NODE_ENV !== "production") {
@@ -42,7 +48,14 @@ const corsOptions = {
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-Requested-With",
+    "X-Telegram-Id",
+    "X-Telegram-Data",
+    "X-Telegram-Hash",
+  ],
   exposedHeaders: ["Authorization"],
 };
 
