@@ -41,6 +41,7 @@ const notificacionSchema = new mongoose.Schema(
         "retiro_rechazado",
         "sala_completa",
         "juego_iniciado",
+        "transaccion_en_revision",
       ],
     },
 
