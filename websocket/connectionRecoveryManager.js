@@ -20,6 +20,10 @@ class ConnectionRecoveryManager {
     // Transacciones en espera de reconexión
     // Map<transaccionId, {jugadorId, cajeroId, estado, timestamp}>
     this.pendingTransactions = new Map();
+
+    // Rooms protegidos durante periodo de gracia
+    // Set<transaccionId>
+    this.protectedRooms = new Set();
   }
 
   /**
@@ -29,7 +33,31 @@ class ConnectionRecoveryManager {
     const userType = socket.userType; // 'jugador' o 'cajero'
     const userId = userType === "jugador" ? socket.telegramId : socket.cajeroId;
 
+    // MEJORA: Obtener transacciones activas ANTES de verificar tipo/ID
+    // Esto permite proteger rooms incluso si el socket no tiene tipo/ID
+    const activeTransactions = this.getActiveTransactions(socket.id);
+
+    // Si el socket no tiene tipo/ID pero tiene transacciones activas,
+    // verificar si otros sockets en esas transacciones necesitan protección
     if (!userType || !userId) {
+      if (activeTransactions.length > 0) {
+        console.log(
+          `⚠️ [RECOVERY] Socket ${socket.id} sin tipo/ID pero tiene ${activeTransactions.length} transacciones activas. Verificando si otros participantes necesitan protección...`
+        );
+        
+        // Proteger rooms si hay otros participantes que podrían necesitar recovery
+        activeTransactions.forEach((transaccionId) => {
+          const room = this.socketManager.roomsManager.rooms.transacciones.get(transaccionId);
+          if (room && room.size > 1) {
+            // Hay otros participantes, proteger el room
+            this.protectTransactionRoom(transaccionId);
+            console.log(
+              `🛡️ [RECOVERY] Room ${transaccionId} protegido porque hay otros participantes activos`
+            );
+          }
+        });
+      }
+      
       console.log(
         "⚠️ [RECOVERY] Socket sin tipo o ID, limpiando inmediatamente"
       );
@@ -37,29 +65,37 @@ class ConnectionRecoveryManager {
       return;
     }
 
-    // Obtener transacciones activas del socket
-    const activeTransactions = this.getActiveTransactions(socket.id);
-
-    // Log de depuración: mostrar todas las transacciones y sus participantes
+    // Log de depuración: mostrar solo las transacciones relevantes para este socket
     console.log(
       `🔍 [RECOVERY] Verificando transacciones activas para ${userType} ${userId} (socket ${socket.id})`
     );
-    console.log(
-      `🔍 [RECOVERY] Total de rooms de transacciones: ${this.socketManager.roomsManager.rooms.transacciones.size}`
-    );
-    for (const [
-      transaccionId,
-      sockets,
-    ] of this.socketManager.roomsManager.rooms.transacciones.entries()) {
+    
+    // Solo mostrar las transacciones activas de ESTE socket específico
+    if (activeTransactions.length > 0) {
       console.log(
-        `🔍 [RECOVERY] Transacción ${transaccionId} tiene ${sockets.size} participantes:`,
-        Array.from(sockets)
+        `🔍 [RECOVERY] Transacciones activas encontradas para socket ${socket.id}:`,
+        activeTransactions
+      );
+      
+      // Mostrar detalles solo de las transacciones relevantes
+      activeTransactions.forEach((transaccionId) => {
+        const room = this.socketManager.roomsManager.rooms.transacciones.get(transaccionId);
+        if (room) {
+          console.log(
+            `🔍 [RECOVERY] Transacción ${transaccionId} tiene ${room.size} participantes:`,
+            Array.from(room)
+          );
+        } else {
+          console.log(
+            `⚠️ [RECOVERY] Transacción ${transaccionId} no tiene room (puede haber sido eliminado)`
+          );
+        }
+      });
+    } else {
+      console.log(
+        `🔍 [RECOVERY] Socket ${socket.id} no tiene transacciones activas`
       );
     }
-    console.log(
-      `🔍 [RECOVERY] Transacciones activas encontradas para socket ${socket.id}:`,
-      activeTransactions
-    );
 
     // Si no hay transacciones activas, limpiar inmediatamente
     if (activeTransactions.length === 0) {
@@ -69,6 +105,12 @@ class ConnectionRecoveryManager {
       this.cleanupImmediately(socket.id);
       return;
     }
+
+    // MEJORA: Proteger los rooms ANTES de limpiar el socket
+    // Esto previene que otros sockets eliminen el room
+    activeTransactions.forEach((transaccionId) => {
+      this.protectTransactionRoom(transaccionId);
+    });
 
     const gracePeriod = this.gracePeriodsMs[userType];
     const disconnectionTime = Date.now();
@@ -107,6 +149,9 @@ class ConnectionRecoveryManager {
     }, gracePeriod);
 
     disconnectionInfo.timer = timer;
+
+    // AHORA SÍ limpiar el socket (los rooms ya están protegidos)
+    this.socketManager.roomsManager.limpiarSocket(socket.id);
   }
 
   /**
@@ -265,6 +310,26 @@ class ConnectionRecoveryManager {
   }
 
   /**
+   * Proteger un room de transacción durante el periodo de gracia
+   */
+  protectTransactionRoom(transaccionId) {
+    this.protectedRooms.add(transaccionId);
+    console.log(
+      `🛡️ [RECOVERY] Room de transacción ${transaccionId} protegido`
+    );
+  }
+
+  /**
+   * Desproteger un room de transacción
+   */
+  unprotectTransactionRoom(transaccionId) {
+    this.protectedRooms.delete(transaccionId);
+    console.log(
+      `🔓 [RECOVERY] Room de transacción ${transaccionId} desprotegido`
+    );
+  }
+
+  /**
    * Re-unir socket a room de transacción
    */
   async rejoinTransactionRoom(socket, transaccionId) {
@@ -272,6 +337,22 @@ class ConnectionRecoveryManager {
       console.log(
         `🔄 [RECOVERY] Re-uniendo socket ${socket.id} a transacción ${transaccionId}`
       );
+
+      // MEJORA: Verificar si el room existe antes de intentar acceder
+      const roomExists = this.socketManager.roomsManager.rooms.transacciones.has(
+        transaccionId
+      );
+
+      if (!roomExists) {
+        console.log(
+          `⚠️ [RECOVERY] Room de transacción ${transaccionId} no existe, recreándolo...`
+        );
+        // Recrear el room si no existe
+        this.socketManager.roomsManager.rooms.transacciones.set(
+          transaccionId,
+          new Set()
+        );
+      }
 
       // Obtener estado actual de la transacción desde la BD
       const Transaccion = require("../models/Transaccion");
@@ -309,17 +390,20 @@ class ConnectionRecoveryManager {
       }
 
       // Solo para estados activos: pendiente, en_proceso, realizada
-      console.log(
-        `✅ [RECOVERY] Transacción ${transaccionId} en estado activo: ${transaccion.estado} - Recuperando`
-      );
+    console.log(
+      `✅ [RECOVERY] Transacción ${transaccionId} en estado activo: ${transaccion.estado} - Recuperando`
+    );
 
-      // Agregar a room usando roomsManager
-      this.socketManager.roomsManager.agregarParticipanteTransaccion(
-        transaccionId,
-        socket.id
-      );
+    // Agregar a room usando roomsManager
+    this.socketManager.roomsManager.agregarParticipanteTransaccion(
+      transaccionId,
+      socket.id
+    );
 
-      // Preparar datos para enviar
+    // Desproteger el room ahora que se re-unieron
+    this.unprotectTransactionRoom(transaccionId);
+
+    // Preparar datos para enviar
       const recoveryData = {
         transaccionId: transaccion._id,
         estado: transaccion.estado,
@@ -392,12 +476,13 @@ class ConnectionRecoveryManager {
       console.log(
         `ℹ️ [RECOVERY] Usuario ${disconnectionInfo.tipo} ${disconnectionInfo.userId} ya reconectó antes del timeout. Cancelando notificación de timeout.`
       );
+      // Desproteger rooms antes de limpiar
+      disconnectionInfo.transaccionesActivas.forEach((transaccionId) => {
+        this.unprotectTransactionRoom(transaccionId);
+        this.pendingTransactions.delete(transaccionId);
+      });
       // Limpiar de usuarios desconectados sin notificar timeout
       this.disconnectedUsers.delete(socketId);
-      // Limpiar transacciones pendientes
-      for (const transaccionId of disconnectionInfo.transaccionesActivas) {
-        this.pendingTransactions.delete(transaccionId);
-      }
       return;
     }
 
@@ -409,6 +494,8 @@ class ConnectionRecoveryManager {
     for (const transaccionId of disconnectionInfo.transaccionesActivas) {
       this.handleTransactionDisconnectionTimeout(transaccionId);
       this.pendingTransactions.delete(transaccionId);
+      // Desproteger el room
+      this.unprotectTransactionRoom(transaccionId);
     }
 
     // Limpiar socket completamente

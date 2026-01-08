@@ -148,9 +148,29 @@ class RoomsManager {
   }
 
   /**
+   * Verificar si un room está protegido (en periodo de gracia)
+   */
+  isRoomProtected(transaccionId) {
+    if (!this.socketManager.connectionRecoveryManager) {
+      return false;
+    }
+    return this.socketManager.connectionRecoveryManager.isTransactionPending(
+      transaccionId
+    );
+  }
+
+  /**
    * Limpiar room de transacción
    */
   limpiarRoomTransaccion(transaccionId) {
+    // Verificar si el room está protegido
+    if (this.isRoomProtected(transaccionId)) {
+      console.log(
+        `🛡️ [ROOMS] Room de transacción ${transaccionId} está protegido, no se puede limpiar`
+      );
+      return;
+    }
+
     if (this.rooms.transacciones.has(transaccionId)) {
       const participantes = this.rooms.transacciones.get(transaccionId);
 
@@ -217,15 +237,30 @@ class RoomsManager {
       }
     }
 
-    // Remover de transacciones
+    // Remover de transacciones (MEJORADO: verificar protección)
+    const transaccionesParaLimpiar = [];
     for (const [transaccionId, sockets] of this.rooms.transacciones.entries()) {
       if (sockets.has(socketId)) {
         sockets.delete(socketId);
+
+        // Si el room queda vacío, verificar si está protegido
         if (sockets.size === 0) {
-          this.rooms.transacciones.delete(transaccionId);
+          if (this.isRoomProtected(transaccionId)) {
+            console.log(
+              `🛡️ [ROOMS] Room de transacción ${transaccionId} protegido durante periodo de gracia`
+            );
+            // NO eliminar el room, mantenerlo para recovery
+          } else {
+            transaccionesParaLimpiar.push(transaccionId);
+          }
         }
       }
     }
+
+    // Limpiar solo los rooms no protegidos
+    transaccionesParaLimpiar.forEach((transaccionId) => {
+      this.limpiarRoomTransaccion(transaccionId);
+    });
 
     // Remover de admin dashboard
     this.rooms.adminDashboard.delete(socketId);
