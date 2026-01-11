@@ -1,0 +1,370 @@
+---
+description: Convenciones y estándares específicos para el backend de El Patio
+globs: ["elpatio-backend/**/*.js"]
+alwaysApply: false
+---
+
+# Backend - El Patio - Convenciones y Estándares
+
+## 📋 Estructura del Módulo
+
+El backend sigue una arquitectura MVC con Express.js y MongoDB:
+
+```
+elpatio-backend/
+├── app.js                  # Configuración de Express y middleware
+├── server.js               # Punto de entrada e inicialización del servidor
+├── config/                 # Configuraciones (DB, roles, etc.)
+├── routes/                 # Definición de rutas (solo routing, sin lógica)
+├── controllers/            # Lógica de negocio y manejo de requests
+├── models/                 # Modelos de Mongoose
+├── middlewares/            # Middlewares personalizados
+├── websocket/              # Gestión de WebSockets
+└── utils/                  # Utilidades y helpers
+```
+
+## 🛣️ Rutas (routes/)
+
+### Estructura de Archivos de Rutas
+
+- Un archivo por recurso (ej: `jugadores.js`, `salas.js`, `transacciones.js`)
+- Usar Express Router
+- Solo definir rutas y middlewares, sin lógica de negocio
+- Importar controllers usando destructuring cuando hay múltiples funciones
+- Comentarios descriptivos en español para cada ruta
+
+### Patrones de Rutas
+
+```javascript
+const express = require("express");
+const router = express.Router();
+const {
+  crearJugador,
+  obtenerJugadores,
+  obtenerJugadorPorId,
+} = require("../controllers/jugadoresController");
+const auth = require("../middlewares/auth");
+const verificarMinimo = require("../middlewares/verificarMinimo");
+
+// Ruta con comentario descriptivo
+router.post("/", auth, verificarMinimo("bot"), crearJugador);
+router.get("/", auth, verificarMinimo("bot"), obtenerJugadores);
+router.get("/:id", auth, verificarMinimo("bot"), obtenerJugadorPorId);
+
+module.exports = router;
+```
+
+### Convenciones de Nombres de Rutas
+
+- Usar kebab-case para parámetros en URLs: `/:telegramId`, `/:transaccionId`
+- Rutas específicas antes de rutas genéricas (ej: `/check-nickname/:nickname` antes de `/:telegramId`)
+- Agrupar rutas relacionadas: `/:telegramId/saldo/acreditar`
+- Usar verbos HTTP apropiados:
+  - `GET` para obtener/leer
+  - `POST` para crear
+  - `PUT` para actualizar completo
+  - `PATCH` para actualizaciones parciales (si se usa)
+  - `DELETE` para eliminar
+
+## 🎮 Controllers
+
+### Estructura de Controllers
+
+- Usar `exports.functionName` en lugar de `module.exports = { ... }`
+- Funciones async/await (nunca Promises.then())
+- Try-catch en todas las funciones async
+- Nombres de funciones descriptivos en español (camelCase)
+- Una función por operación (ej: `crearJugador`, `obtenerJugadores`, `actualizarJugador`)
+
+### Patrón de Controller
+
+```javascript
+const Model = require("../models/Model");
+
+exports.crearRecurso = async (req, res) => {
+  try {
+    // Validación de entrada
+    const { campo1, campo2 } = req.body;
+    
+    if (!campo1) {
+      return res.status(400).json({
+        error: "Campo requerido",
+        code: "CAMPO_REQUERIDO",
+      });
+    }
+
+    // Lógica de negocio
+    const nuevoRecurso = new Model({ campo1, campo2 });
+    await nuevoRecurso.save();
+
+    // Respuesta exitosa
+    res.status(201).json({
+      message: "Recurso creado correctamente",
+      recurso: nuevoRecurso,
+    });
+  } catch (error) {
+    console.error("Error creando recurso:", error);
+    
+    // Manejo específico de errores
+    if (error.code === 11000) {
+      return res.status(409).json({
+        error: "Recurso duplicado",
+        code: "DUPLICADO",
+      });
+    }
+
+    res.status(500).json({
+      error: "Error interno del servidor",
+      message: error.message,
+    });
+  }
+};
+```
+
+### Convenciones de Nombres de Funciones
+
+- `crear*` - Crear un nuevo recurso
+- `obtener*` - Obtener un recurso (singular)
+- `obtener*s` - Obtener múltiples recursos (plural)
+- `obtener*Por*` - Obtener por un campo específico
+- `actualizar*` - Actualizar un recurso
+- `eliminar*` - Eliminar un recurso
+- `verificar*` - Verificar algo
+- `check*` - Verificar disponibilidad o existencia
+
+### Respuestas API
+
+- **Éxito (200/201)**: `res.status(201).json({ message: "...", data: ... })`
+- **Error de validación (400)**: `res.status(400).json({ error: "...", code: "CODIGO_ERROR" })`
+- **No autorizado (401)**: `res.status(401).json({ mensaje: "Token no proporcionado" })`
+- **Prohibido (403)**: `res.status(403).json({ mensaje: "Acceso denegado" })`
+- **No encontrado (404)**: `res.status(404).json({ error: "...", code: "NO_ENCONTRADO" })`
+- **Conflicto (409)**: `res.status(409).json({ error: "...", code: "DUPLICADO" })`
+- **Error servidor (500)**: `res.status(500).json({ error: "Error interno del servidor" })`
+
+- Incluir código de error cuando sea útil para el cliente
+- Mensajes de error descriptivos en español
+- No exponer detalles internos en producción
+
+## 🗄️ Models (Mongoose)
+
+### Estructura de Schemas
+
+- Usar `mongoose.Schema` con objetos de configuración
+- Especificar `collection` cuando el nombre difiere del modelo
+- Campos descriptivos con tipos apropiados
+- Validaciones en el schema (required, min, max, enum, etc.)
+- Valores por defecto cuando sea apropiado
+- Índices únicos para campos que deben ser únicos
+- Campos de fecha con `default: Date.now` (no usar timestamps: true)
+
+### Patrón de Model
+
+```javascript
+const mongoose = require("mongoose");
+
+const modeloSchema = new mongoose.Schema(
+  {
+    campoUnico: {
+      type: String,
+      unique: true,
+      required: true,
+    },
+    campoOpcional: {
+      type: String,
+    },
+    estado: {
+      type: String,
+      enum: ["activo", "inactivo", "bloqueado"],
+      default: "activo",
+    },
+    fechaCreacion: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { collection: "nombre_coleccion" }
+);
+
+module.exports = mongoose.model("Modelo", modeloSchema);
+```
+
+### Convenciones de Nombres
+
+- Nombres de modelos en PascalCase (ej: `Jugador`, `Sala`, `Transaccion`)
+- Nombres de colecciones en plural y lowercase (ej: `jugadores`, `salas`)
+- Campos en camelCase (ej: `telegramId`, `fechaCreacion`, `datosBancarios`)
+- Enums en lowercase con valores descriptivos en español
+
+## 🔐 Middlewares
+
+### Estructura de Middlewares
+
+- Funciones simples que reciben `(req, res, next)`
+- Exportar la función directamente o una función que retorna middleware
+- Usar `next()` para continuar, `return res.status(...).json(...)` para detener
+- Colocar información en `req` para uso posterior (ej: `req.user`)
+
+### Middlewares Existentes
+
+- `auth.js` - Verificación de token JWT (coloca `req.user`)
+- `verificarMinimo.js` - Verificación de rol mínimo (retorna función)
+- `verificarAdmin.js` - Verificación de admin
+- `verificarSuperadmin.js` - Verificación de superadmin
+- `telegramAuth.js` - Autenticación para Telegram Web Apps
+- `errorHandler.js` - Manejo global de errores (debe ser el último middleware)
+
+### Patrón de Middleware
+
+```javascript
+// Middleware simple
+const middleware = (req, res, next) => {
+  // Lógica de verificación
+  if (!req.headers.authorization) {
+    return res.status(401).json({ mensaje: "No autorizado" });
+  }
+  // Agregar datos a req si es necesario
+  req.user = decoded;
+  next();
+};
+
+module.exports = middleware;
+
+// Middleware que retorna función
+const middlewareFactory = (parametro) => {
+  return (req, res, next) => {
+    // Usar parámetro
+    if (req.user.rol !== parametro) {
+      return res.status(403).json({ mensaje: "Acceso denegado" });
+    }
+    next();
+  };
+};
+
+module.exports = middlewareFactory;
+```
+
+## 🌐 WebSocket
+
+### Estructura WebSocket
+
+- `socketManager.js` - Clase principal que gestiona Socket.IO
+- Managers separados por responsabilidad (rooms, conexiones, timeouts, etc.)
+- Eventos descriptivos en español usando kebab-case
+- Manejo de desconexiones con sistema de recuperación
+- Logs descriptivos con emojis para debugging
+
+### Patrones WebSocket
+
+```javascript
+// En socketManager.js
+class SocketManager {
+  constructor() {
+    this.io = null;
+    this.connectedUsers = new Map();
+    // Inicializar managers
+  }
+
+  initialize(server) {
+    const { Server } = require("socket.io");
+    this.io = new Server(server, {
+      cors: {
+        origin: "*",
+        methods: ["GET", "POST"],
+      },
+    });
+    this.setupEventHandlers();
+  }
+
+  setupEventHandlers() {
+    this.io.on("connection", (socket) => {
+      console.log(`🔗 Cliente conectado: ${socket.id}`);
+      
+      socket.on("evento-cliente", async (data) => {
+        try {
+          // Manejo del evento
+        } catch (error) {
+          console.error("❌ Error:", error);
+          socket.emit("error", { mensaje: error.message });
+        }
+      });
+
+      socket.on("disconnect", (reason) => {
+        console.log(`🔌 Cliente desconectado: ${socket.id}, razón: ${reason}`);
+        this.handleDisconnect(socket);
+      });
+    });
+  }
+}
+```
+
+### Convenciones WebSocket
+
+- Nombres de eventos en kebab-case y español
+- Emitir eventos de error con estructura consistente
+- Manejar desconexiones gracefully
+- Usar rooms para agrupar sockets relacionados
+- Logs con emojis: 🔗 conexión, 🔌 desconexión, ❌ error, ✅ éxito
+
+## 🔧 Configuración
+
+### app.js
+
+- Configurar CORS con orígenes permitidos por ambiente
+- Middlewares globales: cors, morgan, express.json
+- Health check endpoint en `/health`
+- Rutas de prueba (test-*.html) para desarrollo
+- Registro de rutas API con `/api/*`
+- ErrorHandler como último middleware
+
+### server.js
+
+- Conexión a MongoDB antes de iniciar servidor
+- Shutdown graceful con manejo de señales (SIGTERM, SIGINT)
+- Manejo de errores no capturados (uncaughtException, unhandledRejection)
+- Inicialización de WebSocket después de iniciar servidor
+- Inicialización de servicios adicionales (limpieza automática, configuraciones)
+- Logs informativos con emojis y versión de la aplicación
+
+### Variables de Entorno
+
+- Usar `dotenv` para cargar variables
+- Validar variables críticas al inicio
+- Proporcionar valores por defecto cuando sea apropiado
+- Documentar en `env.example`
+
+## 📝 Logging
+
+- Usar `console.log` con emojis para información:
+  - ✅ Éxito
+  - ❌ Error
+  - ⚠️ Advertencia
+  - 🔄 Proceso
+  - 🛑 Detención
+  - 🔗 Conexión
+  - 🔌 Desconexión
+- Usar `console.error` para errores
+- Incluir contexto relevante en logs (IDs, estados, etc.)
+- En producción, considerar sistema de logging más robusto
+
+## 🚫 Errores Comunes a Evitar
+
+1. **No usar try-catch en funciones async** - Siempre incluir manejo de errores
+2. **Lógica de negocio en rutas** - Toda la lógica debe estar en controllers
+3. **Validaciones solo en el cliente** - Validar también en el backend
+4. **Exponer detalles de error en producción** - Usar mensajes genéricos
+5. **No manejar errores de MongoDB** - Manejar códigos de error específicos (11000 para duplicados)
+6. **Rutas sin autenticación** - Verificar que rutas protegidas tengan middlewares de auth
+7. **Nombres de funciones genéricos** - Usar nombres descriptivos y específicos
+8. **Comentarios innecesarios** - Comentar solo cuando sea necesario explicar lógica compleja
+
+## ✅ Buenas Prácticas
+
+1. **Validación de entrada** - Validar todos los datos de entrada
+2. **Códigos HTTP apropiados** - Usar códigos correctos para cada situación
+3. **Mensajes descriptivos** - Mensajes claros para el cliente
+4. **Manejo de errores específico** - Manejar errores conocidos (duplicados, no encontrado, etc.)
+5. **Transacciones atómicas** - Usar transacciones de MongoDB cuando sea necesario
+6. **Índices apropiados** - Agregar índices para consultas frecuentes
+7. **Separación de responsabilidades** - Cada archivo/módulo con una responsabilidad clara
+8. **Documentación** - Comentarios JSDoc para funciones complejas
