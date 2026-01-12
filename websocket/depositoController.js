@@ -808,18 +808,18 @@ class DepositoWebSocketController {
 
           // Remover explícitamente a todos los participantes del room después de completar
           // Esto asegura que el cajero y el jugador salgan del room inmediatamente
-          const room =
+          const roomTransaccion =
             this.socketManager.roomsManager.rooms.transacciones.get(
               transaccionId
             );
 
-          if (room && room.size > 0) {
+          if (roomTransaccion && roomTransaccion.size > 0) {
             console.log(
-              `🧹 [DEPOSITO] Removiendo ${room.size} participantes del room de transacción ${transaccionId}`
+              `🧹 [DEPOSITO] Removiendo ${roomTransaccion.size} participantes del room de transacción ${transaccionId}`
             );
 
             // Remover cada participante del room
-            const participantesARemover = Array.from(room);
+            const participantesARemover = Array.from(roomTransaccion);
             participantesARemover.forEach((socketId) => {
               const socket =
                 this.socketManager.io.sockets.sockets.get(socketId);
@@ -840,18 +840,18 @@ class DepositoWebSocketController {
                 socket.leave(`transaccion-${transaccionId}`);
 
                 // Remover del Map interno
-                room.delete(socketId);
+                roomTransaccion.delete(socketId);
               } else {
                 // Socket no existe, solo remover del Map
                 console.log(
                   `⚠️ [DEPOSITO] Socket ${socketId} no existe, removiendo del Map`
                 );
-                room.delete(socketId);
+                roomTransaccion.delete(socketId);
               }
             });
 
             // Si el room quedó vacío, eliminarlo completamente
-            if (room.size === 0) {
+            if (roomTransaccion.size === 0) {
               this.socketManager.roomsManager.rooms.transacciones.delete(
                 transaccionId
               );
@@ -860,7 +860,7 @@ class DepositoWebSocketController {
               );
             } else {
               console.log(
-                `⚠️ [DEPOSITO] Room de transacción ${transaccionId} aún tiene ${room.size} participantes después de limpiar`
+                `⚠️ [DEPOSITO] Room de transacción ${transaccionId} aún tiene ${roomTransaccion.size} participantes después de limpiar`
               );
             }
           } else {
