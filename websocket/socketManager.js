@@ -209,6 +209,16 @@ class SocketManager {
         this.handleObtenerStatsRooms(socket);
       });
 
+      // Diagnosticar rooms de transacciones
+      socket.on("diagnosticar-rooms-transacciones", () => {
+        this.handleDiagnosticarRoomsTransacciones(socket);
+      });
+
+      // Limpiar rooms huérfanos
+      socket.on("limpiar-rooms-huerfanos", () => {
+        this.handleLimpiarRoomsHuerfanos(socket);
+      });
+
       // ===== EVENTOS DE PRUEBA DE NOTIFICACIONES =====
 
       // Prueba de notificación a cajeros disponibles
@@ -825,6 +835,58 @@ class SocketManager {
   handleObtenerStatsRooms(socket) {
     const stats = this.roomsManager.getStats();
     socket.emit("stats-rooms", stats);
+  }
+
+  /**
+   * Manejar diagnóstico de rooms de transacciones
+   */
+  handleDiagnosticarRoomsTransacciones(socket) {
+    // Verificar permisos (solo admins/cajeros)
+    if (socket.userType !== "cajero" && socket.userType !== "admin") {
+      socket.emit("error", {
+        message: "Solo cajeros y administradores pueden diagnosticar rooms",
+      });
+      return;
+    }
+
+    const diagnostico = this.roomsManager.diagnosticarRoomsTransacciones();
+    socket.emit("diagnostico-rooms-transacciones", diagnostico);
+
+    console.log(
+      `🔍 [DIAGNOSTICO] Diagnóstico de rooms enviado a ${socket.id}:`,
+      {
+        total: diagnostico.totalRooms,
+        conParticipantes: diagnostico.roomsConParticipantes,
+        vacios: diagnostico.roomsVacios,
+        protegidos: diagnostico.roomsProtegidos,
+        huerfanos: diagnostico.roomsHuerfanos,
+      }
+    );
+  }
+
+  /**
+   * Manejar limpieza de rooms huérfanos
+   */
+  handleLimpiarRoomsHuerfanos(socket) {
+    // Verificar permisos (solo admins/cajeros)
+    if (socket.userType !== "cajero" && socket.userType !== "admin") {
+      socket.emit("error", {
+        message: "Solo cajeros y administradores pueden limpiar rooms",
+      });
+      return;
+    }
+
+    const resultado = this.roomsManager.limpiarRoomsVacios();
+    socket.emit("limpieza-rooms-completada", resultado);
+
+    console.log(
+      `🧹 [LIMPIEZA] Limpieza de rooms completada por ${socket.id}:`,
+      {
+        limpiados: resultado.limpiados,
+        protegidos: resultado.protegidos,
+        conParticipantes: resultado.conParticipantes,
+      }
+    );
   }
 
   /**

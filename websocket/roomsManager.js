@@ -283,6 +283,125 @@ class RoomsManager {
   }
 
   /**
+   * Diagnosticar estado de rooms de transacciones
+   * Retorna información detallada sobre cada room
+   */
+  diagnosticarRoomsTransacciones() {
+    const diagnostico = {
+      totalRooms: this.rooms.transacciones.size,
+      roomsConParticipantes: 0,
+      roomsVacios: 0,
+      roomsProtegidos: 0,
+      roomsHuerfanos: 0,
+      detalles: [],
+    };
+
+    for (const [transaccionId, sockets] of this.rooms.transacciones.entries()) {
+      const estaProtegido = this.isRoomProtected(transaccionId);
+      const tieneParticipantes = sockets.size > 0;
+      const esHuerfano = !tieneParticipantes && !estaProtegido;
+
+      if (tieneParticipantes) {
+        diagnostico.roomsConParticipantes++;
+      } else {
+        diagnostico.roomsVacios++;
+      }
+
+      if (estaProtegido) {
+        diagnostico.roomsProtegidos++;
+      }
+
+      if (esHuerfano) {
+        diagnostico.roomsHuerfanos++;
+      }
+
+      diagnostico.detalles.push({
+        transaccionId,
+        participantes: sockets.size,
+        socketIds: Array.from(sockets),
+        protegido: estaProtegido,
+        huerfano: esHuerfano,
+      });
+    }
+
+    return diagnostico;
+  }
+
+  /**
+   * Limpiar rooms huérfanos (sin participantes y no protegidos)
+   * @returns {number} Número de rooms limpiados
+   */
+  limpiarRoomsHuerfanos() {
+    const roomsParaLimpiar = [];
+
+    for (const [transaccionId, sockets] of this.rooms.transacciones.entries()) {
+      // Verificar si el room está vacío y no protegido
+      if (sockets.size === 0 && !this.isRoomProtected(transaccionId)) {
+        roomsParaLimpiar.push(transaccionId);
+      }
+    }
+
+    if (roomsParaLimpiar.length > 0) {
+      console.log(
+        `🧹 [ROOMS] Limpiando ${roomsParaLimpiar.length} rooms huérfanos...`
+      );
+      roomsParaLimpiar.forEach((transaccionId) => {
+        this.limpiarRoomTransaccion(transaccionId);
+        console.log(`🧹 [ROOMS] Room huérfano ${transaccionId} limpiado`);
+      });
+      this.logRoomStats();
+    } else {
+      console.log(`✅ [ROOMS] No se encontraron rooms huérfanos para limpiar`);
+    }
+
+    return roomsParaLimpiar.length;
+  }
+
+  /**
+   * Limpiar rooms vacíos que no están protegidos
+   * Útil para mantenimiento periódico
+   * @returns {Object} Resumen de la limpieza
+   */
+  limpiarRoomsVacios() {
+    const resultado = {
+      limpiados: 0,
+      protegidos: 0,
+      conParticipantes: 0,
+      detalles: [],
+    };
+
+    for (const [transaccionId, sockets] of this.rooms.transacciones.entries()) {
+      if (sockets.size === 0) {
+        if (this.isRoomProtected(transaccionId)) {
+          resultado.protegidos++;
+          resultado.detalles.push({
+            transaccionId,
+            razon: "protegido",
+          });
+        } else {
+          this.limpiarRoomTransaccion(transaccionId);
+          resultado.limpiados++;
+          resultado.detalles.push({
+            transaccionId,
+            razon: "vacío y no protegido",
+          });
+        }
+      } else {
+        resultado.conParticipantes++;
+      }
+    }
+
+    if (resultado.limpiados > 0) {
+      console.log(
+        `🧹 [ROOMS] Limpieza completada: ${resultado.limpiados} limpiados, ${resultado.protegidos} protegidos, ${resultado.conParticipantes} con participantes`
+      );
+      this.logRoomStats();
+    }
+
+    return resultado;
+  }
+
+  /**
    * Log de estadísticas de rooms
    */
   logRoomStats() {

@@ -88,6 +88,17 @@ connectDB()
       console.log("💡 Asegúrate de instalar node-cron: npm install node-cron");
     }
 
+    // Iniciar limpieza automática de rooms (opcional, deshabilitado por defecto)
+    try {
+      const { iniciarLimpiezaAutomatica: iniciarLimpiezaRooms } = require("./utils/roomsCleanup");
+      iniciarLimpiezaRooms(socketManager);
+    } catch (error) {
+      console.error(
+        "⚠️ Error iniciando limpieza automática de rooms:",
+        error.message
+      );
+    }
+
     // Inicializar configuraciones del sistema
     try {
       const ConfiguracionSistema = require("./models/ConfiguracionSistema");
