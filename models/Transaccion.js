@@ -283,6 +283,33 @@ transaccionSchema.methods.esAutomatica = function () {
   return !this.requiereCajero();
 };
 
+/**
+ * Verifica si un estado es final (la transacción ha terminado)
+ * Estados finales: completada, rechazada, fallida, cancelada, revertida, requiere_revision_admin
+ * Estados no finales: pendiente, en_proceso, realizada, confirmada
+ * 
+ * Nota: requiere_revision_admin se considera final porque un admin resolverá el conflicto
+ * manualmente y ya no se necesita comunicación entre cajero y jugador
+ */
+transaccionSchema.statics.esEstadoFinal = function (estado) {
+  const estadosFinales = [
+    "completada",
+    "rechazada",
+    "fallida",
+    "cancelada",
+    "revertida",
+    "requiere_revision_admin",
+  ];
+  return estadosFinales.includes(estado);
+};
+
+/**
+ * Verifica si el estado actual de la transacción es final
+ */
+transaccionSchema.methods.esEstadoFinal = function () {
+  return this.constructor.esEstadoFinal(this.estado);
+};
+
 // === MIDDLEWARE ===
 
 /**

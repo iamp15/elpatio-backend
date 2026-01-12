@@ -482,6 +482,9 @@ exports.confirmarPorCajero = async (req, res) => {
       await websocketHelper.emitTransaccionCompletada(transaccion, jugador);
     }
 
+    // Limpiar room de transacción cuando finaliza
+    await websocketHelper.limpiarRoomTransaccionFinalizada(transaccion);
+
     res.json({
       mensaje: "Transacción confirmada y procesada exitosamente",
       transaccion: {
@@ -586,6 +589,9 @@ exports.cancelarTransaccionJugador = async (req, res) => {
       motivo || "Cancelada por el usuario"
     );
 
+    // Limpiar room de transacción cuando finaliza
+    await websocketHelper.limpiarRoomTransaccionFinalizada(transaccion);
+
     res.json({
       mensaje: "Transacción cancelada exitosamente",
       transaccion: {
@@ -654,6 +660,9 @@ exports.rechazarTransaccion = async (req, res) => {
         );
       }
     }
+
+    // Limpiar room de transacción cuando finaliza
+    await websocketHelper.limpiarRoomTransaccionFinalizada(transaccion);
 
     res.json({
       mensaje: "Transacción rechazada exitosamente",

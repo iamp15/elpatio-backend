@@ -348,6 +348,55 @@ class WebSocketHelper {
       `📊 [HTTP→WS] ${context} - Jugadores: ${stats.jugadoresConectados}, Cajeros: ${stats.cajerosConectados}`
     );
   }
+
+  /**
+   * Limpiar room de transacción cuando finaliza
+   * Se llama automáticamente cuando una transacción cambia a un estado final
+   * Estados finales: completada, rechazada, fallida, cancelada, revertida
+   */
+  async limpiarRoomTransaccionFinalizada(transaccion) {
+    if (!this.socketManager) {
+      console.log(
+        `⚠️ [HTTP→WS] socketManager no inicializado, no se puede limpiar room de transacción ${transaccion._id}`
+      );
+      return;
+    }
+
+    try {
+      const Transaccion = require("../models/Transaccion");
+      const esEstadoFinal = Transaccion.esEstadoFinal(transaccion.estado);
+
+      if (!esEstadoFinal) {
+        console.log(
+          `ℹ️ [HTTP→WS] Transacción ${transaccion._id} en estado ${transaccion.estado} (no es final), no se limpia room`
+        );
+        return;
+      }
+
+      console.log(
+        `🧹 [HTTP→WS] Limpiando room de transacción ${transaccion._id} (estado final: ${transaccion.estado})`
+      );
+
+      const limpiado = this.socketManager.roomsManager.limpiarRoomTransaccion(
+        transaccion._id.toString()
+      );
+
+      if (limpiado) {
+        console.log(
+          `✅ [HTTP→WS] Room de transacción ${transaccion._id} limpiado exitosamente`
+        );
+      } else {
+        console.log(
+          `ℹ️ [HTTP→WS] Room de transacción ${transaccion._id} no se pudo limpiar (puede estar protegido o no existir)`
+        );
+      }
+    } catch (error) {
+      console.error(
+        `❌ [HTTP→WS] Error limpiando room de transacción ${transaccion._id}:`,
+        error
+      );
+    }
+  }
 }
 
 // Crear instancia singleton

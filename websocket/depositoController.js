@@ -806,68 +806,11 @@ class DepositoWebSocketController {
             );
           }
 
-          // Remover explícitamente a todos los participantes del room después de completar
-          // Esto asegura que el cajero y el jugador salgan del room inmediatamente
-          const roomTransaccion =
-            this.socketManager.roomsManager.rooms.transacciones.get(
-              transaccionId
-            );
-
-          if (roomTransaccion && roomTransaccion.size > 0) {
-            console.log(
-              `🧹 [DEPOSITO] Removiendo ${roomTransaccion.size} participantes del room de transacción ${transaccionId}`
-            );
-
-            // Remover cada participante del room
-            const participantesARemover = Array.from(roomTransaccion);
-            participantesARemover.forEach((socketId) => {
-              const socket =
-                this.socketManager.io.sockets.sockets.get(socketId);
-              if (socket) {
-                const userType = socket.userType || "desconocido";
-                const userId =
-                  socket.userType === "jugador"
-                    ? socket.telegramId
-                    : socket.userType === "cajero"
-                    ? socket.cajeroId
-                    : null;
-
-                console.log(
-                  `🧹 [DEPOSITO] Removiendo ${userType} ${userId} (socket ${socketId}) del room`
-                );
-
-                // Remover del room de Socket.IO
-                socket.leave(`transaccion-${transaccionId}`);
-
-                // Remover del Map interno
-                roomTransaccion.delete(socketId);
-              } else {
-                // Socket no existe, solo remover del Map
-                console.log(
-                  `⚠️ [DEPOSITO] Socket ${socketId} no existe, removiendo del Map`
-                );
-                roomTransaccion.delete(socketId);
-              }
-            });
-
-            // Si el room quedó vacío, eliminarlo completamente
-            if (roomTransaccion.size === 0) {
-              this.socketManager.roomsManager.rooms.transacciones.delete(
-                transaccionId
-              );
-              console.log(
-                `✅ [DEPOSITO] Room de transacción ${transaccionId} eliminado (vacío)`
-              );
-            } else {
-              console.log(
-                `⚠️ [DEPOSITO] Room de transacción ${transaccionId} aún tiene ${roomTransaccion.size} participantes después de limpiar`
-              );
-            }
-          } else {
-            console.log(
-              `ℹ️ [DEPOSITO] Room de transacción ${transaccionId} no existe o está vacío`
-            );
-          }
+          // Limpiar room de transacción usando el método centralizado
+          // Esto se hace después de notificar a todos los participantes
+          const websocketHelper = require("../utils/websocketHelper");
+          websocketHelper.initialize(this.socketManager);
+          await websocketHelper.limpiarRoomTransaccionFinalizada(transaccion);
 
           // Crear notificación persistente para el cajero
           try {
@@ -1056,6 +999,11 @@ class DepositoWebSocketController {
               socketId: socket.id,
             },
           });
+
+          // Limpiar room de transacción usando el método centralizado
+          const websocketHelper = require("../utils/websocketHelper");
+          websocketHelper.initialize(this.socketManager);
+          await websocketHelper.limpiarRoomTransaccionFinalizada(transaccion);
         }
 
         // Si llegamos aquí, la transacción fue exitosa
@@ -1261,6 +1209,11 @@ class DepositoWebSocketController {
           socketId: socket.id,
         },
       });
+
+      // Limpiar room de transacción cuando finaliza (requiere_revision_admin es estado final)
+      const websocketHelper = require("../utils/websocketHelper");
+      websocketHelper.initialize(this.socketManager);
+      await websocketHelper.limpiarRoomTransaccionFinalizada(transaccion);
 
       this.processingTransactions.delete(transaccionId);
       await session.endSession();
