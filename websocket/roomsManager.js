@@ -168,22 +168,42 @@ class RoomsManager {
       console.log(
         `🛡️ [ROOMS] Room de transacción ${transaccionId} está protegido, no se puede limpiar`
       );
-      return;
+      return false; // Retornar false para indicar que no se pudo limpiar
     }
 
     if (this.rooms.transacciones.has(transaccionId)) {
       const participantes = this.rooms.transacciones.get(transaccionId);
 
-      // Hacer que todos salgan del room
+      console.log(
+        `🧹 [ROOMS] Limpiando room de transacción ${transaccionId} con ${participantes.size} participantes`
+      );
+
+      // Log de participantes antes de limpiar
       participantes.forEach((socketId) => {
         const socket = this.socketManager.io.sockets.sockets.get(socketId);
         if (socket) {
+          console.log(
+            `🧹 [ROOMS] Removiendo participante: ${socketId} (${socket.userType || "desconocido"})`
+          );
           socket.leave(`transaccion-${transaccionId}`);
+        } else {
+          console.log(
+            `⚠️ [ROOMS] Socket ${socketId} no existe pero está en el room`
+          );
         }
       });
 
       this.rooms.transacciones.delete(transaccionId);
-      console.log(`💰 [ROOMS] Room de transacción ${transaccionId} limpiado`);
+      console.log(
+        `✅ [ROOMS] Room de transacción ${transaccionId} limpiado exitosamente`
+      );
+      this.logRoomStats();
+      return true; // Retornar true para indicar que se limpió exitosamente
+    } else {
+      console.log(
+        `ℹ️ [ROOMS] Room de transacción ${transaccionId} no existe`
+      );
+      return false;
     }
   }
 

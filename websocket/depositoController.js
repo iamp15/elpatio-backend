@@ -806,15 +806,68 @@ class DepositoWebSocketController {
             );
           }
 
-          // Limpiar room de transacción después de completar (con un pequeño delay para asegurar que las notificaciones se envíen)
-          setTimeout(() => {
-            console.log(
-              `🧹 [DEPOSITO] Limpiando room de transacción ${transaccionId} después de completar`
-            );
-            this.socketManager.roomsManager.limpiarRoomTransaccion(
+          // Remover explícitamente a todos los participantes del room después de completar
+          // Esto asegura que el cajero y el jugador salgan del room inmediatamente
+          const room =
+            this.socketManager.roomsManager.rooms.transacciones.get(
               transaccionId
             );
-          }, 2000); // 2 segundos de delay para asegurar que las notificaciones se envíen
+
+          if (room && room.size > 0) {
+            console.log(
+              `🧹 [DEPOSITO] Removiendo ${room.size} participantes del room de transacción ${transaccionId}`
+            );
+
+            // Remover cada participante del room
+            const participantesARemover = Array.from(room);
+            participantesARemover.forEach((socketId) => {
+              const socket =
+                this.socketManager.io.sockets.sockets.get(socketId);
+              if (socket) {
+                const userType = socket.userType || "desconocido";
+                const userId =
+                  socket.userType === "jugador"
+                    ? socket.telegramId
+                    : socket.userType === "cajero"
+                    ? socket.cajeroId
+                    : null;
+
+                console.log(
+                  `🧹 [DEPOSITO] Removiendo ${userType} ${userId} (socket ${socketId}) del room`
+                );
+
+                // Remover del room de Socket.IO
+                socket.leave(`transaccion-${transaccionId}`);
+
+                // Remover del Map interno
+                room.delete(socketId);
+              } else {
+                // Socket no existe, solo remover del Map
+                console.log(
+                  `⚠️ [DEPOSITO] Socket ${socketId} no existe, removiendo del Map`
+                );
+                room.delete(socketId);
+              }
+            });
+
+            // Si el room quedó vacío, eliminarlo completamente
+            if (room.size === 0) {
+              this.socketManager.roomsManager.rooms.transacciones.delete(
+                transaccionId
+              );
+              console.log(
+                `✅ [DEPOSITO] Room de transacción ${transaccionId} eliminado (vacío)`
+              );
+            } else {
+              console.log(
+                `⚠️ [DEPOSITO] Room de transacción ${transaccionId} aún tiene ${room.size} participantes después de limpiar`
+              );
+            }
+          } else {
+            console.log(
+              `ℹ️ [DEPOSITO] Room de transacción ${transaccionId} no existe o está vacío`
+            );
+          }
 
           // Crear notificación persistente para el cajero
           try {
