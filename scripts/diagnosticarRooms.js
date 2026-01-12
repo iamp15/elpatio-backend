@@ -63,8 +63,38 @@ async function diagnosticarRooms() {
           : "⚪ VACÍO";
 
         console.log(
-          `   ${index + 1}. ${room.transaccionId.substring(0, 8)}... | ${estado} | Participantes: ${room.participantes}`
+          `   ${index + 1}. ${room.transaccionId} | ${estado} | Participantes: ${room.participantes}`
         );
+
+        // Mostrar detalles de participantes si existen
+        if (room.participantesDetalle && room.participantesDetalle.length > 0) {
+          room.participantesDetalle.forEach((participante, pIndex) => {
+            const tipoUsuario =
+              participante.userType === "jugador"
+                ? "👤 Jugador"
+                : participante.userType === "cajero"
+                ? "🏦 Cajero"
+                : participante.userType === "bot"
+                ? "🤖 Bot"
+                : "❓ Desconocido";
+
+            const estadoConexion = participante.conectado ? "🟢" : "🔴";
+            const userId = participante.userId
+              ? ` (${participante.userId})`
+              : "";
+
+            console.log(
+              `      ${pIndex + 1}. ${tipoUsuario}${userId} | Socket: ${participante.socketId.substring(0, 8)}... | ${estadoConexion}`
+            );
+          });
+        } else if (room.socketIds && room.socketIds.length > 0) {
+          // Fallback si no hay detalles de participantes
+          room.socketIds.forEach((socketId, sIndex) => {
+            console.log(
+              `      ${sIndex + 1}. Socket: ${socketId.substring(0, 8)}...`
+            );
+          });
+        }
       });
     }
 

@@ -806,6 +806,16 @@ class DepositoWebSocketController {
             );
           }
 
+          // Limpiar room de transacción después de completar (con un pequeño delay para asegurar que las notificaciones se envíen)
+          setTimeout(() => {
+            console.log(
+              `🧹 [DEPOSITO] Limpiando room de transacción ${transaccionId} después de completar`
+            );
+            this.socketManager.roomsManager.limpiarRoomTransaccion(
+              transaccionId
+            );
+          }, 2000); // 2 segundos de delay para asegurar que las notificaciones se envíen
+
           // Crear notificación persistente para el cajero
           try {
             const cajeroId = socket.cajeroId;

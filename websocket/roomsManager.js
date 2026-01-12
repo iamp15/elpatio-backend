@@ -315,10 +315,41 @@ class RoomsManager {
         diagnostico.roomsHuerfanos++;
       }
 
+      // Obtener información detallada de los participantes
+      const participantesDetalle = [];
+      sockets.forEach((socketId) => {
+        const socket = this.socketManager.io.sockets.sockets.get(socketId);
+        if (socket) {
+          participantesDetalle.push({
+            socketId,
+            userType: socket.userType || "desconocido",
+            userId:
+              socket.userType === "jugador"
+                ? socket.telegramId
+                : socket.userType === "cajero"
+                ? socket.cajeroId
+                : socket.userType === "bot"
+                ? socket.botId
+                : null,
+            jugadorId: socket.jugadorId || null,
+            conectado: socket.connected,
+          });
+        } else {
+          // Socket no existe pero está en la lista (inconsistencia)
+          participantesDetalle.push({
+            socketId,
+            userType: "socket_no_existe",
+            userId: null,
+            conectado: false,
+          });
+        }
+      });
+
       diagnostico.detalles.push({
         transaccionId,
         participantes: sockets.size,
         socketIds: Array.from(sockets),
+        participantesDetalle: participantesDetalle,
         protegido: estaProtegido,
         huerfano: esHuerfano,
       });
