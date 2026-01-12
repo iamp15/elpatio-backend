@@ -51,6 +51,16 @@ async function diagnosticarRooms() {
     console.log(`   Rooms protegidos: ${diagnostico.roomsProtegidos}`);
     console.log(`   Rooms huérfanos: ${diagnostico.roomsHuerfanos}`);
 
+    // Mostrar advertencias sobre duplicados si existen
+    if (diagnostico.idsDuplicados && diagnostico.idsDuplicados.length > 0) {
+      console.log(
+        `\n⚠️ ADVERTENCIA: Se encontraron ${diagnostico.idsDuplicados.length} IDs duplicados:`
+      );
+      diagnostico.idsDuplicados.forEach((id) => {
+        console.log(`   - ${id}`);
+      });
+    }
+
     if (diagnostico.detalles && diagnostico.detalles.length > 0) {
       console.log("\n📋 DETALLES:");
       diagnostico.detalles.forEach((room, index) => {
@@ -62,9 +72,21 @@ async function diagnosticarRooms() {
           ? "✅ ACTIVO"
           : "⚪ VACÍO";
 
+        // Mostrar advertencia si hay inconsistencia
+        const inconsistenciaWarning = room.inconsistencia
+          ? " ⚠️ INCONSISTENCIA"
+          : "";
+
         console.log(
-          `   ${index + 1}. ${room.transaccionId} | ${estado} | Participantes: ${room.participantes}`
+          `   ${index + 1}. ${room.transaccionId} | ${estado} | Participantes: ${room.participantes}${inconsistenciaWarning}`
         );
+
+        // Mostrar diferencia si hay inconsistencia
+        if (room.inconsistencia && room.participantesSocketIO !== undefined) {
+          console.log(
+            `      ⚠️ Inconsistencia: Map interno tiene ${room.participantes} participantes, pero Socket.IO adapter tiene ${room.participantesSocketIO}`
+          );
+        }
 
         // Mostrar detalles de participantes si existen
         if (room.participantesDetalle && room.participantesDetalle.length > 0) {

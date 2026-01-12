@@ -105,24 +105,26 @@ class RoomsManager {
    * Crear room para una transacción específica
    */
   crearRoomTransaccion(transaccionId, participantes) {
-    this.rooms.transacciones.set(transaccionId, new Set());
+    // Normalizar transaccionId a string para evitar duplicados
+    const transaccionIdStr = String(transaccionId);
+    this.rooms.transacciones.set(transaccionIdStr, new Set());
 
     // Agregar participantes al room
     participantes.forEach((participante) => {
       if (participante.socketId) {
-        this.rooms.transacciones.get(transaccionId).add(participante.socketId);
+        this.rooms.transacciones.get(transaccionIdStr).add(participante.socketId);
 
         const socket = this.socketManager.io.sockets.sockets.get(
           participante.socketId
         );
         if (socket) {
-          socket.join(`transaccion-${transaccionId}`);
+          socket.join(`transaccion-${transaccionIdStr}`);
         }
       }
     });
 
     console.log(
-      `💰 [ROOMS] Room de transacción ${transaccionId} creado con ${participantes.length} participantes`
+      `💰 [ROOMS] Room de transacción ${transaccionIdStr} creado con ${participantes.length} participantes`
     );
     this.logRoomStats();
   }
@@ -131,19 +133,22 @@ class RoomsManager {
    * Agregar participante a room de transacción
    */
   agregarParticipanteTransaccion(transaccionId, socketId) {
-    if (!this.rooms.transacciones.has(transaccionId)) {
-      this.rooms.transacciones.set(transaccionId, new Set());
+    // Normalizar transaccionId a string para evitar duplicados
+    const transaccionIdStr = String(transaccionId);
+    
+    if (!this.rooms.transacciones.has(transaccionIdStr)) {
+      this.rooms.transacciones.set(transaccionIdStr, new Set());
     }
 
-    this.rooms.transacciones.get(transaccionId).add(socketId);
+    this.rooms.transacciones.get(transaccionIdStr).add(socketId);
 
     const socket = this.socketManager.io.sockets.sockets.get(socketId);
     if (socket) {
-      socket.join(`transaccion-${transaccionId}`);
+      socket.join(`transaccion-${transaccionIdStr}`);
     }
 
     console.log(
-      `💰 [ROOMS] Participante agregado a transacción ${transaccionId}`
+      `💰 [ROOMS] Participante agregado a transacción ${transaccionIdStr}`
     );
   }
 
@@ -154,8 +159,10 @@ class RoomsManager {
     if (!this.socketManager.connectionRecoveryManager) {
       return false;
     }
+    // Normalizar transaccionId a string
+    const transaccionIdStr = String(transaccionId);
     return this.socketManager.connectionRecoveryManager.isTransactionPending(
-      transaccionId
+      transaccionIdStr
     );
   }
 
@@ -163,19 +170,22 @@ class RoomsManager {
    * Limpiar room de transacción
    */
   limpiarRoomTransaccion(transaccionId) {
+    // Normalizar transaccionId a string
+    const transaccionIdStr = String(transaccionId);
+    
     // Verificar si el room está protegido
-    if (this.isRoomProtected(transaccionId)) {
+    if (this.isRoomProtected(transaccionIdStr)) {
       console.log(
-        `🛡️ [ROOMS] Room de transacción ${transaccionId} está protegido, no se puede limpiar`
+        `🛡️ [ROOMS] Room de transacción ${transaccionIdStr} está protegido, no se puede limpiar`
       );
       return false; // Retornar false para indicar que no se pudo limpiar
     }
 
-    if (this.rooms.transacciones.has(transaccionId)) {
-      const participantes = this.rooms.transacciones.get(transaccionId);
+    if (this.rooms.transacciones.has(transaccionIdStr)) {
+      const participantes = this.rooms.transacciones.get(transaccionIdStr);
 
       console.log(
-        `🧹 [ROOMS] Limpiando room de transacción ${transaccionId} con ${participantes.size} participantes`
+        `🧹 [ROOMS] Limpiando room de transacción ${transaccionIdStr} con ${participantes.size} participantes`
       );
 
       // Log de participantes antes de limpiar
@@ -185,7 +195,7 @@ class RoomsManager {
           console.log(
             `🧹 [ROOMS] Removiendo participante: ${socketId} (${socket.userType || "desconocido"})`
           );
-          socket.leave(`transaccion-${transaccionId}`);
+          socket.leave(`transaccion-${transaccionIdStr}`);
         } else {
           console.log(
             `⚠️ [ROOMS] Socket ${socketId} no existe pero está en el room`
@@ -193,15 +203,15 @@ class RoomsManager {
         }
       });
 
-      this.rooms.transacciones.delete(transaccionId);
+      this.rooms.transacciones.delete(transaccionIdStr);
       console.log(
-        `✅ [ROOMS] Room de transacción ${transaccionId} limpiado exitosamente`
+        `✅ [ROOMS] Room de transacción ${transaccionIdStr} limpiado exitosamente`
       );
       this.logRoomStats();
       return true; // Retornar true para indicar que se limpió exitosamente
     } else {
       console.log(
-        `ℹ️ [ROOMS] Room de transacción ${transaccionId} no existe`
+        `ℹ️ [ROOMS] Room de transacción ${transaccionIdStr} no existe`
       );
       return false;
     }
@@ -265,13 +275,15 @@ class RoomsManager {
 
         // Si el room queda vacío, verificar si está protegido
         if (sockets.size === 0) {
-          if (this.isRoomProtected(transaccionId)) {
+          // Normalizar transaccionId a string
+          const transaccionIdStr = String(transaccionId);
+          if (this.isRoomProtected(transaccionIdStr)) {
             console.log(
-              `🛡️ [ROOMS] Room de transacción ${transaccionId} protegido durante periodo de gracia`
+              `🛡️ [ROOMS] Room de transacción ${transaccionIdStr} protegido durante periodo de gracia`
             );
             // NO eliminar el room, mantenerlo para recovery
           } else {
-            transaccionesParaLimpiar.push(transaccionId);
+            transaccionesParaLimpiar.push(transaccionIdStr);
           }
         }
       }
@@ -316,10 +328,40 @@ class RoomsManager {
       detalles: [],
     };
 
+    // Verificar si hay IDs duplicados (no debería pasar con un Map, pero verificamos)
+    const idsVistos = new Set();
+    const idsDuplicados = [];
+
     for (const [transaccionId, sockets] of this.rooms.transacciones.entries()) {
+      // Verificar duplicados
+      const transaccionIdStr = String(transaccionId);
+      if (idsVistos.has(transaccionIdStr)) {
+        idsDuplicados.push(transaccionIdStr);
+        console.error(
+          `⚠️ [DIAGNOSTICO] ID duplicado detectado: ${transaccionIdStr}`
+        );
+      }
+      idsVistos.add(transaccionIdStr);
+
       const estaProtegido = this.isRoomProtected(transaccionId);
       const tieneParticipantes = sockets.size > 0;
       const esHuerfano = !tieneParticipantes && !estaProtegido;
+
+      // Verificar también el adapter de Socket.IO para detectar inconsistencias
+      const roomSocketIO = this.socketManager.io.sockets.adapter.rooms.get(
+        `transaccion-${transaccionId}`
+      );
+      const participantesSocketIO = roomSocketIO ? roomSocketIO.size : 0;
+
+      // Log de depuración si hay inconsistencia
+      if (tieneParticipantes !== (participantesSocketIO > 0)) {
+        console.warn(
+          `⚠️ [DIAGNOSTICO] Inconsistencia detectada para transacción ${transaccionId}:`
+        );
+        console.warn(
+          `   Map interno: ${sockets.size} participantes, Socket.IO adapter: ${participantesSocketIO} participantes`
+        );
+      }
 
       if (tieneParticipantes) {
         diagnostico.roomsConParticipantes++;
@@ -366,13 +408,24 @@ class RoomsManager {
       });
 
       diagnostico.detalles.push({
-        transaccionId,
+        transaccionId: String(transaccionId), // Asegurar que sea string
         participantes: sockets.size,
+        participantesSocketIO: participantesSocketIO, // Agregar para comparación
         socketIds: Array.from(sockets),
         participantesDetalle: participantesDetalle,
         protegido: estaProtegido,
         huerfano: esHuerfano,
+        inconsistencia: tieneParticipantes !== (participantesSocketIO > 0), // Flag de inconsistencia
       });
+    }
+
+    // Agregar información sobre duplicados si los hay
+    if (idsDuplicados.length > 0) {
+      diagnostico.idsDuplicados = idsDuplicados;
+      console.error(
+        `❌ [DIAGNOSTICO] Se encontraron ${idsDuplicados.length} IDs duplicados:`,
+        idsDuplicados
+      );
     }
 
     return diagnostico;
@@ -386,9 +439,12 @@ class RoomsManager {
     const roomsParaLimpiar = [];
 
     for (const [transaccionId, sockets] of this.rooms.transacciones.entries()) {
+      // Normalizar transaccionId a string
+      const transaccionIdStr = String(transaccionId);
+      
       // Verificar si el room está vacío y no protegido
-      if (sockets.size === 0 && !this.isRoomProtected(transaccionId)) {
-        roomsParaLimpiar.push(transaccionId);
+      if (sockets.size === 0 && !this.isRoomProtected(transaccionIdStr)) {
+        roomsParaLimpiar.push(transaccionIdStr);
       }
     }
 
@@ -422,18 +478,21 @@ class RoomsManager {
     };
 
     for (const [transaccionId, sockets] of this.rooms.transacciones.entries()) {
+      // Normalizar transaccionId a string
+      const transaccionIdStr = String(transaccionId);
+      
       if (sockets.size === 0) {
-        if (this.isRoomProtected(transaccionId)) {
+        if (this.isRoomProtected(transaccionIdStr)) {
           resultado.protegidos++;
           resultado.detalles.push({
-            transaccionId,
+            transaccionId: transaccionIdStr,
             razon: "protegido",
           });
         } else {
-          this.limpiarRoomTransaccion(transaccionId);
+          this.limpiarRoomTransaccion(transaccionIdStr);
           resultado.limpiados++;
           resultado.detalles.push({
-            transaccionId,
+            transaccionId: transaccionIdStr,
             razon: "vacío y no protegido",
           });
         }
