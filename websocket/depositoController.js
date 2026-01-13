@@ -1923,16 +1923,32 @@ class DepositoWebSocketController {
         return; // No enviar notificación a Telegram si tiene la app abierta
       }
 
+      // Verificar si hay ajuste de monto
+      let mensaje;
+      if (transaccion.ajusteMonto && transaccion.ajusteMonto.montoOriginal) {
+        const montoOriginal = (transaccion.ajusteMonto.montoOriginal / 100).toFixed(2);
+        const montoAcreditado = (transaccion.monto / 100).toFixed(2);
+        const saldo = (saldoNuevo / 100).toFixed(2);
+        const razon = transaccion.ajusteMonto.razon;
+        
+        mensaje = `Tu depósito se completó con un ajuste de monto.\n\n💰 Monto reportado: ${montoOriginal} Bs\n💰 Monto acreditado: ${montoAcreditado} Bs`;
+        
+        if (razon) {
+          mensaje += `\n📌 Motivo: ${razon}`;
+        }
+        
+        mensaje += `\n\nNuevo saldo: ${saldo} Bs\n\nSi crees que hay un error, ponte en contacto con un Admin.`;
+      } else {
+        // Mensaje sin ajuste (actual)
+        mensaje = `Tu depósito por ${(transaccion.monto / 100).toFixed(2)} Bs se completó correctamente\n\nNuevo saldo: ${(saldoNuevo / 100).toFixed(2)} Bs`;
+      }
+
       const notificacion = await crearNotificacionBot({
         transaccionId: transaccion._id,
         jugadorTelegramId: jugador.telegramId,
         tipo: "deposito_completado",
         titulo: "Depósito completado",
-        mensaje: `Tu depósito por ${(transaccion.monto / 100).toFixed(
-          2
-        )} Bs se completó correctamente\n\nNuevo saldo: ${(
-          saldoNuevo / 100
-        ).toFixed(2)} Bs`,
+        mensaje: mensaje,
         datos: {
           monto: transaccion.monto,
           saldoNuevo,
