@@ -6,6 +6,11 @@ alwaysApply: false
 
 # Backend - El Patio - Convenciones y Estándares
 
+##Estado del backend
+- El proyecto se encuentra en modo de desarrollo, no obstante, el backend esta corriendo en una VM de fly.io.
+- Todas las pruebas se hacen con el servidor live, no se hacen en local.
+
+
 ## 📋 Estructura del Módulo
 
 El backend sigue una arquitectura MVC con Express.js y MongoDB:
