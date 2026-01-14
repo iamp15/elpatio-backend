@@ -1147,31 +1147,35 @@ class DepositoWebSocketController {
       } catch (error) {
         console.error("❌ Error creando notificaciones para admins:", error);
       }
-            }
-          } catch (error) {
-            console.error(
-              "❌ Error creando notificación para jugador:",
-              error.message
-            );
-          }
 
-          // Registrar log
-          await registrarLog({
-            accion: "Depósito rechazado via WebSocket",
-            usuario: socket.cajeroId,
-            rol: "cajero",
-            detalle: {
-              transaccionId: transaccion._id,
-              jugadorId: transaccion.jugadorId,
-              motivoRechazo: transaccion.motivoRechazo,
-              socketId: socket.id,
-            },
-          });
+      // Registrar log
+      await registrarLog({
+        accion: "Revisión administrativa solicitada por jugador",
+        usuario: jugadorId,
+        rol: "jugador",
+        detalle: {
+          transaccionId: transaccion._id,
+          motivo: motivo || "El jugador solicita revisión",
+          socketId: socket.id,
+        },
+      });
 
-          // Limpiar room de transacción usando el método centralizado
-          const websocketHelper = require("../utils/websocketHelper");
-          websocketHelper.initialize(this.socketManager);
-          await websocketHelper.limpiarRoomTransaccionFinalizada(transaccion);
+      // Limpiar room de transacción cuando finaliza
+      const websocketHelper = require("../utils/websocketHelper");
+      websocketHelper.initialize(this.socketManager);
+      await websocketHelper.limpiarRoomTransaccionFinalizada(transaccion);
+
+      await session.endSession();
+    } catch (error) {
+      await session.abortTransaction();
+      await session.endSession();
+      console.error("❌ [DEPOSITO] Error en solicitarRevisionAdmin:", error);
+      socket.emit("error", {
+        message: "Error interno del servidor",
+        details: error.message,
+      });
+    }
+  }
         }
 
         // Si llegamos aquí, la transacción fue exitosa
