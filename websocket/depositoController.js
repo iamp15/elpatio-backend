@@ -961,16 +961,143 @@ class DepositoWebSocketController {
                 eventoId: `deposito-rechazado-${transaccion._id}`,
               });
 
-              console.log(
-                `✅ Notificación de depósito rechazado creada para jugador ${jugador.telegramId}`
-              );
+      console.log(
+        `✅ Notificación de depósito rechazado creada para jugador ${jugador.telegramId}`
+      );
 
-              // Crear y emitir notificación al bot sobre depósito rechazado
-              await this.notificarBotDepositoRechazado(
-                transaccion,
-                jugador,
-                transaccion.motivoRechazo.descripcionDetallada
-              );
+      // Crear y emitir notificación al bot sobre depósito rechazado
+      await this.notificarBotDepositoRechazado(
+        transaccion,
+        jugador,
+        transaccion.motivoRechazo.descripcionDetallada
+      );
+    } catch (error) {
+      console.error("❌ [DEPOSITO] Error creando notificación de rechazo:", error);
+    }
+  }
+
+  /**
+   * Solicitar revisión administrativa de una transacción rechazada (desde jugador)
+   * Evento: 'solicitar-revision-admin'
+   */
+  async solicitarRevisionAdmin(socket, data) {
+    const session = await mongoose.startSession();
+
+    try {
+      console.log("📞 [DEPOSITO] Solicitar revisión admin:", data);
+
+      const { transaccionId, motivo } = data;
+
+      // Validar datos requeridos
+      if (!transaccionId) {
+        socket.emit("error", {
+          message: "ID de transacción requerido",
+        });
+        return;
+      }
+
+      // Validar que el socket esté autenticado como jugador
+      if (!socket.userType || socket.userType !== "jugador") {
+        socket.emit("error", {
+          message: "Solo los jugadores pueden solicitar revisión",
+        });
+        return;
+      }
+
+      await session.startTransaction();
+
+      // Buscar la transacción
+      const transaccion = await Transaccion.findById(transaccionId).session(
+        session
+      );
+
+      if (!transaccion) {
+        await session.abortTransaction();
+        socket.emit("error", {
+          message: "Transacción no encontrada",
+        });
+        return;
+      }
+
+      // Verificar que la transacción esté rechazada
+      if (transaccion.estado !== "rechazada") {
+        await session.abortTransaction();
+        socket.emit("error", {
+          message: `Solo se pueden solicitar revisiones de transacciones rechazadas. Estado actual: ${transaccion.estado}`,
+        });
+        return;
+      }
+
+      // Verificar que el jugador sea el dueño de la transacción
+      const jugadorId = socket.jugadorId || socket.userId;
+      if (transaccion.jugadorId.toString() !== jugadorId.toString()) {
+        await session.abortTransaction();
+        socket.emit("error", {
+          message: "No tienes permiso para solicitar revisión de esta transacción",
+        });
+        return;
+      }
+
+      // Cambiar estado a requiere_revision_admin
+      transaccion.cambiarEstado("requiere_revision_admin");
+      
+      // Agregar nota de solicitud de revisión
+      if (!transaccion.motivoRechazo) {
+        transaccion.motivoRechazo = {};
+      }
+      transaccion.motivoRechazo.solicitudRevision = {
+        fecha: new Date(),
+        motivo: motivo || "El jugador solicita revisión del depósito rechazado",
+        solicitadoPor: "jugador",
+      };
+
+      await transaccion.save({ session });
+      await session.commitTransaction();
+
+      console.log(
+        `📞 [DEPOSITO] Transacción ${transaccionId} enviada a revisión administrativa por solicitud del jugador`
+      );
+
+      // Notificar al jugador
+      socket.emit("revision-solicitada", {
+        transaccionId: transaccion._id,
+        mensaje: "Tu solicitud de revisión ha sido enviada. Un administrador revisará tu caso pronto.",
+        timestamp: new Date().toISOString(),
+      });
+
+      // Notificar a la room de la transacción
+      this.io
+        .to(`transaccion-${transaccionId}`)
+        .emit("transaccion-en-revision", {
+          transaccionId: transaccion._id,
+          mensaje:
+            "Tu transacción está siendo revisada por un administrador. Te contactaremos pronto.",
+          timestamp: new Date().toISOString(),
+        });
+
+      // Crear notificación para administradores
+      try {
+        const Admin = require("../models/Admin");
+        const admins = await Admin.find({ estado: "activo" });
+
+        for (const admin of admins) {
+          await crearNotificacionInterna({
+            destinatarioId: admin._id,
+            destinatarioTipo: "admin",
+            tipo: "revision_solicitada",
+            titulo: "Revisión Solicitada 📞",
+            mensaje: `Un jugador solicitó revisión de depósito rechazado. Transacción: ${transaccion.referencia}`,
+            datos: {
+              transaccionId: transaccion._id.toString(),
+              jugadorId: transaccion.jugadorId.toString(),
+              motivo: motivo || "El jugador solicita revisión",
+            },
+            eventoId: `revision-solicitada-${transaccion._id}`,
+          });
+        }
+      } catch (error) {
+        console.error("❌ Error creando notificaciones para admins:", error);
+      }
             }
           } catch (error) {
             console.error(
@@ -1214,6 +1341,158 @@ class DepositoWebSocketController {
       await session.endSession();
       console.error("❌ [DEPOSITO] Error en referirAAdmin:", error);
       this.processingTransactions.delete(data.transaccionId);
+      socket.emit("error", {
+        message: "Error interno del servidor",
+        details: error.message,
+      });
+    }
+  }
+
+  /**
+   * Solicitar revisión administrativa de una transacción rechazada (desde jugador)
+   * Evento: 'solicitar-revision-admin'
+   */
+  async solicitarRevisionAdmin(socket, data) {
+    const session = await mongoose.startSession();
+
+    try {
+      console.log("📞 [DEPOSITO] Solicitar revisión admin:", data);
+
+      const { transaccionId, motivo } = data;
+
+      // Validar datos requeridos
+      if (!transaccionId) {
+        socket.emit("error", {
+          message: "ID de transacción requerido",
+        });
+        return;
+      }
+
+      // Validar que el socket esté autenticado como jugador
+      if (!socket.userType || socket.userType !== "jugador") {
+        socket.emit("error", {
+          message: "Solo los jugadores pueden solicitar revisión",
+        });
+        return;
+      }
+
+      await session.startTransaction();
+
+      // Buscar la transacción
+      const transaccion = await Transaccion.findById(transaccionId).session(
+        session
+      );
+
+      if (!transaccion) {
+        await session.abortTransaction();
+        socket.emit("error", {
+          message: "Transacción no encontrada",
+        });
+        return;
+      }
+
+      // Verificar que la transacción esté rechazada
+      if (transaccion.estado !== "rechazada") {
+        await session.abortTransaction();
+        socket.emit("error", {
+          message: `Solo se pueden solicitar revisiones de transacciones rechazadas. Estado actual: ${transaccion.estado}`,
+        });
+        return;
+      }
+
+      // Verificar que el jugador sea el dueño de la transacción
+      const jugadorId = socket.jugadorId || socket.userId;
+      if (transaccion.jugadorId.toString() !== jugadorId.toString()) {
+        await session.abortTransaction();
+        socket.emit("error", {
+          message: "No tienes permiso para solicitar revisión de esta transacción",
+        });
+        return;
+      }
+
+      // Cambiar estado a requiere_revision_admin
+      transaccion.cambiarEstado("requiere_revision_admin");
+      
+      // Agregar nota de solicitud de revisión
+      if (!transaccion.motivoRechazo) {
+        transaccion.motivoRechazo = {};
+      }
+      transaccion.motivoRechazo.solicitudRevision = {
+        fecha: new Date(),
+        motivo: motivo || "El jugador solicita revisión del depósito rechazado",
+        solicitadoPor: "jugador",
+      };
+
+      await transaccion.save({ session });
+      await session.commitTransaction();
+
+      console.log(
+        `📞 [DEPOSITO] Transacción ${transaccionId} enviada a revisión administrativa por solicitud del jugador`
+      );
+
+      // Notificar al jugador
+      socket.emit("revision-solicitada", {
+        transaccionId: transaccion._id,
+        mensaje: "Tu solicitud de revisión ha sido enviada. Un administrador revisará tu caso pronto.",
+        timestamp: new Date().toISOString(),
+      });
+
+      // Notificar a la room de la transacción
+      this.io
+        .to(`transaccion-${transaccionId}`)
+        .emit("transaccion-en-revision", {
+          transaccionId: transaccion._id,
+          mensaje:
+            "Tu transacción está siendo revisada por un administrador. Te contactaremos pronto.",
+          timestamp: new Date().toISOString(),
+        });
+
+      // Crear notificación para administradores
+      try {
+        const Admin = require("../models/Admin");
+        const admins = await Admin.find({ estado: "activo" });
+
+        for (const admin of admins) {
+          await crearNotificacionInterna({
+            destinatarioId: admin._id,
+            destinatarioTipo: "admin",
+            tipo: "revision_solicitada",
+            titulo: "Revisión Solicitada 📞",
+            mensaje: `Un jugador solicitó revisión de depósito rechazado. Transacción: ${transaccion.referencia}`,
+            datos: {
+              transaccionId: transaccion._id.toString(),
+              jugadorId: transaccion.jugadorId.toString(),
+              motivo: motivo || "El jugador solicita revisión",
+            },
+            eventoId: `revision-solicitada-${transaccion._id}`,
+          });
+        }
+      } catch (error) {
+        console.error("❌ Error creando notificaciones para admins:", error);
+      }
+
+      // Registrar log
+      await registrarLog({
+        accion: "Revisión administrativa solicitada por jugador",
+        usuario: jugadorId,
+        rol: "jugador",
+        detalle: {
+          transaccionId: transaccion._id,
+          motivo: motivo || "El jugador solicita revisión",
+          socketId: socket.id,
+        },
+      });
+
+      // Limpiar room de transacción cuando finaliza
+      const websocketHelper = require("../utils/websocketHelper");
+      websocketHelper.initialize(this.socketManager);
+      await websocketHelper.limpiarRoomTransaccionFinalizada(transaccion);
+
+      await session.endSession();
+    } catch (error) {
+      await session.abortTransaction();
+      await session.endSession();
+      console.error("❌ [DEPOSITO] Error en solicitarRevisionAdmin:", error);
       socket.emit("error", {
         message: "Error interno del servidor",
         details: error.message,

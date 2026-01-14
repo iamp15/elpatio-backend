@@ -263,7 +263,7 @@ class SocketManager {
         await this.depositoController.verificarPagoCajero(socket, data);
       });
 
-      // Referir transacción a administrador
+      // Referir transacción a administrador (desde cajero)
       socket.removeAllListeners("referir-a-admin");
       socket.on("referir-a-admin", async (data) => {
         console.log("⚠️ [SOCKET] Evento referir-a-admin recibido:", {
@@ -271,6 +271,16 @@ class SocketManager {
           socketId: socket.id,
         });
         await this.depositoController.referirAAdmin(socket, data);
+      });
+
+      // Solicitar revisión administrativa (desde jugador)
+      socket.removeAllListeners("solicitar-revision-admin");
+      socket.on("solicitar-revision-admin", async (data) => {
+        console.log("📞 [SOCKET] Evento solicitar-revision-admin recibido:", {
+          transaccionId: data.transaccionId,
+          socketId: socket.id,
+        });
+        await this.depositoController.solicitarRevisionAdmin(socket, data);
       });
 
       // Ajustar monto de depósito
