@@ -875,39 +875,37 @@ class DepositoWebSocketController {
             `🔍 [DEPOSITO] [DEBUG] Log registrado exitosamente, finalizando flujo de confirmación`
           );
         } else {
-          // Rechazar el pago - ahora con estructura mejorada
+          // Rechazar el pago - estructura simplificada
           const motivoRechazo = data.motivoRechazo || {};
+
+          // Validar que haya descripción detallada
+          const descripcionDetallada =
+            motivoRechazo.descripcionDetallada ||
+            motivo ||
+            "Pago no verificado";
 
           // Guardar información del rechazo
           transaccion.motivoRechazo = {
-            categoria: motivoRechazo.categoria || "otro",
-            descripcionDetallada:
-              motivoRechazo.descripcionDetallada ||
-              motivo ||
-              "Pago no verificado",
-            severidad: motivoRechazo.severidad || null,
+            descripcionDetallada: descripcionDetallada,
+            imagenRechazoUrl: motivoRechazo.imagenRechazoUrl || null,
             fechaRechazo: new Date(),
           };
 
-          transaccion.cambiarEstado(
-            "rechazada",
-            motivoRechazo.descripcionDetallada || motivo || "Pago no verificado"
-          );
+          transaccion.cambiarEstado("rechazada", descripcionDetallada);
           await transaccion.save({ session });
 
           await session.commitTransaction();
 
           console.log(`❌ [DEPOSITO] Depósito rechazado: ${transaccionId}`, {
-            categoria: transaccion.motivoRechazo.categoria,
-            severidad: transaccion.motivoRechazo.severidad,
+            descripcionDetallada: transaccion.motivoRechazo.descripcionDetallada,
+            tieneImagen: !!transaccion.motivoRechazo.imagenRechazoUrl,
           });
 
           // 2. USAR ROOMS PARA NOTIFICAR A TODOS LOS PARTICIPANTES
           const notificacion = {
             transaccionId: transaccion._id,
             motivo: transaccion.motivoRechazo.descripcionDetallada,
-            categoria: transaccion.motivoRechazo.categoria,
-            severidad: transaccion.motivoRechazo.severidad,
+            imagenRechazoUrl: transaccion.motivoRechazo.imagenRechazoUrl || null,
             timestamp: new Date().toISOString(),
           };
 
@@ -931,30 +929,17 @@ class DepositoWebSocketController {
           try {
             const jugador = await Jugador.findById(transaccion.jugadorId);
             if (jugador) {
-              // Personalizar mensaje según categoría
+              // Mensaje simplificado
               let mensajePersonalizado = `Tu depósito de ${(
                 transaccion.monto / 100
               ).toFixed(2)} Bs ha sido rechazado.\n\n`;
-
-              switch (transaccion.motivoRechazo.categoria) {
-                case "monto_insuficiente":
-                  mensajePersonalizado +=
-                    "El monto depositado es menor al mínimo permitido.\n\n";
-                  break;
-                case "datos_incorrectos":
-                  const severidadTexto =
-                    transaccion.motivoRechazo.severidad === "grave"
-                      ? "Los datos no coinciden"
-                      : "Hay un error en los datos";
-                  mensajePersonalizado += `${severidadTexto}.\n\n`;
-                  break;
-                case "pago_no_recibido":
-                  mensajePersonalizado +=
-                    "El pago no fue recibido por el cajero.\n\n";
-                  break;
+              
+              mensajePersonalizado += transaccion.motivoRechazo.descripcionDetallada;
+              
+              // Si hay imagen, mencionarla
+              if (transaccion.motivoRechazo.imagenRechazoUrl) {
+                mensajePersonalizado += "\n\n📷 El cajero adjuntó una imagen como evidencia.";
               }
-
-              mensajePersonalizado += `Motivo: ${transaccion.motivoRechazo.descripcionDetallada}`;
 
               await crearNotificacionInterna({
                 destinatarioId: jugador._id,
@@ -967,8 +952,7 @@ class DepositoWebSocketController {
                   transaccionId: transaccion._id.toString(),
                   monto: transaccion.monto,
                   motivo: transaccion.motivoRechazo.descripcionDetallada,
-                  categoria: transaccion.motivoRechazo.categoria,
-                  severidad: transaccion.motivoRechazo.severidad,
+                  imagenRechazoUrl: transaccion.motivoRechazo.imagenRechazoUrl || null,
                 },
                 eventoId: `deposito-rechazado-${transaccion._id}`,
               });

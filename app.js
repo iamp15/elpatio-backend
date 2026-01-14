@@ -122,6 +122,7 @@ app.use("/api/admin/stats", require("./routes/stats"));
 app.use("/api/admin", require("./routes/admin"));
 app.use("/api/payment-config", require("./routes/paymentConfig"));
 app.use("/api/transacciones", require("./routes/transacciones"));
+app.use("/api/upload", require("./routes/upload"));
 app.use("/api/webapp", require("./routes/webapp"));
 app.use("/api/websocket", require("./routes/websocket"));
 app.use("/api/notificaciones", require("./routes/notificaciones"));

@@ -131,20 +131,13 @@ const transaccionSchema = new mongoose.Schema(
 
     // === MOTIVO DE RECHAZO (solo para transacciones rechazadas) ===
     motivoRechazo: {
-      categoria: {
+      descripcionDetallada: {
         type: String,
-        enum: [
-          "monto_insuficiente",
-          "datos_incorrectos",
-          "pago_no_recibido",
-          "otro",
-        ],
-      },
-      descripcionDetallada: String, // Texto libre del cajero
-      severidad: {
-        type: String,
-        enum: ["leve", "grave"], // Para errores de datos
-      },
+        required: true,
+        trim: true,
+        maxlength: 1000,
+      }, // Texto libre del cajero (obligatorio)
+      imagenRechazoUrl: String, // URL de la imagen de evidencia (opcional)
       fechaRechazo: Date,
     },
 
