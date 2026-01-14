@@ -961,20 +961,62 @@ class DepositoWebSocketController {
                 eventoId: `deposito-rechazado-${transaccion._id}`,
               });
 
-      console.log(
-        `✅ Notificación de depósito rechazado creada para jugador ${jugador.telegramId}`
-      );
+              console.log(
+                `✅ Notificación de depósito rechazado creada para jugador ${jugador.telegramId}`
+              );
 
-      // Crear y emitir notificación al bot sobre depósito rechazado
-      await this.notificarBotDepositoRechazado(
-        transaccion,
-        jugador,
-        transaccion.motivoRechazo.descripcionDetallada
-      );
-    } catch (error) {
-      console.error("❌ [DEPOSITO] Error creando notificación de rechazo:", error);
+              // Crear y emitir notificación al bot sobre depósito rechazado
+              await this.notificarBotDepositoRechazado(
+                transaccion,
+                jugador,
+                transaccion.motivoRechazo.descripcionDetallada
+              );
+            }
+          } catch (error) {
+            console.error("❌ [DEPOSITO] Error creando notificación de rechazo:", error);
+          }
+
+          // Limpiar room de transacción cuando finaliza
+          const websocketHelper = require("../utils/websocketHelper");
+          websocketHelper.initialize(this.socketManager);
+          await websocketHelper.limpiarRoomTransaccionFinalizada(transaccion);
+        }
+      } catch (error) {
+        console.error(
+          "❌ [DEPOSITO] Error en verificarPagoCajero:",
+          error.message
+        );
+
+        await session.abortTransaction();
+        await session.endSession();
+
+        // Verificar si es un error de concurrencia que se puede reintentar
+        if (error.code === 112 && retryCount < maxRetries - 1) {
+          retryCount++;
+          console.log(
+            `🔄 [DEPOSITO] Reintentando verificación de pago (intento ${
+              retryCount + 1
+            }/${maxRetries})`
+          );
+          // Esperar un poco antes del siguiente intento
+          await new Promise((resolve) => setTimeout(resolve, 100 * retryCount));
+          continue;
+        }
+
+        console.error("❌ [DEPOSITO] Error en verificarPagoCajero:", error);
+        this.processingTransactions.delete(transaccionId);
+        socket.emit("error", {
+          message: "Error interno del servidor",
+          details: error.message,
+        });
+        return;
+      }
     }
-  }
+
+    // Si llegamos aquí, se agotaron los reintentos
+    console.error(
+      "❌ [DEPOSITO] Se agotaron los reintentos para verificarPagoCajero"
+    );
 
   /**
    * Solicitar revisión administrativa de una transacción rechazada (desde jugador)
