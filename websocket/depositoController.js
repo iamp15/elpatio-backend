@@ -1017,6 +1017,13 @@ class DepositoWebSocketController {
     console.error(
       "❌ [DEPOSITO] Se agotaron los reintentos para verificarPagoCajero"
     );
+    this.processingTransactions.delete(data.transaccionId);
+    socket.emit("error", {
+      message: "Error interno del servidor",
+      details:
+        "No se pudo procesar la verificación después de múltiples intentos",
+    });
+  }
 
   /**
    * Solicitar revisión administrativa de una transacción rechazada (desde jugador)
