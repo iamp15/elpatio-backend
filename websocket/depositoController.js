@@ -641,12 +641,16 @@ class DepositoWebSocketController {
           );
 
           // Completar transacción
-          console.log(`🔍 [DEPOSITO] [DEBUG] Cambiando estado a "completada"`);
-          transaccion.cambiarEstado("completada");
+          // Si hay ajuste de monto, usar estado "completada_con_ajuste", sino "completada"
+          const estadoFinal = transaccion.ajusteMonto && transaccion.ajusteMonto.montoOriginal
+            ? "completada_con_ajuste"
+            : "completada";
+          console.log(`🔍 [DEPOSITO] [DEBUG] Cambiando estado a "${estadoFinal}"`);
+          transaccion.cambiarEstado(estadoFinal);
           transaccion.saldoNuevo = saldoNuevo;
           transaccion.fechaProcesamiento = new Date();
           console.log(
-            `🔍 [DEPOSITO] [DEBUG] Guardando transacción en estado "completada"`
+            `🔍 [DEPOSITO] [DEBUG] Guardando transacción en estado "${estadoFinal}"`
           );
           await transaccion.save({ session });
           console.log(

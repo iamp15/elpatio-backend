@@ -169,7 +169,7 @@ exports.obtenerTransaccionesCajero = async (req, res) => {
     };
 
     // Para estados que requieren filtro por cajero
-    if (["en_proceso", "realizada", "completada"].includes(estado)) {
+    if (["en_proceso", "realizada", "completada", "completada_con_ajuste"].includes(estado)) {
       filtros.cajeroId = req.user.id;
     }
 

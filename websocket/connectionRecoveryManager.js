@@ -370,6 +370,7 @@ class ConnectionRecoveryManager {
       // Estados finales que no requieren recuperación
       const estadosFinales = [
         "completada",
+        "completada_con_ajuste",
         "rechazada",
         "cancelada",
         "fallida",

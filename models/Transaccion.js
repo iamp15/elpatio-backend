@@ -80,6 +80,7 @@ const transaccionSchema = new mongoose.Schema(
         "realizada", // Realizada por usuario (solo depositos/retiros)
         "confirmada", // Confirmada por cajero (solo depositos/retiros)
         "completada", // Procesada y saldo actualizado
+        "completada_con_ajuste", // Completada pero con ajuste de monto
         "rechazada", // Rechazada por cajero o sistema
         "fallida", // Error en el procesamiento
         "revertida", // Transacción revertida
@@ -103,7 +104,7 @@ const transaccionSchema = new mongoose.Schema(
       required: function () {
         return (
           ["deposito", "retiro"].includes(this.categoria) &&
-          ["en_proceso", "confirmada", "completada"].includes(this.estado)
+          ["en_proceso", "confirmada", "completada", "completada_con_ajuste"].includes(this.estado)
         );
       },
       index: true,
@@ -252,8 +253,9 @@ transaccionSchema.methods.cambiarEstado = function (
       "rechazada",
       "requiere_revision_admin",
     ],
-    confirmada: ["completada"],
+    confirmada: ["completada", "completada_con_ajuste"],
     completada: ["revertida"],
+    completada_con_ajuste: ["revertida"],
     requiere_revision_admin: ["rechazada", "confirmada"],
   };
 
@@ -285,7 +287,7 @@ transaccionSchema.methods.esAutomatica = function () {
 
 /**
  * Verifica si un estado es final (la transacción ha terminado)
- * Estados finales: completada, rechazada, fallida, cancelada, revertida, requiere_revision_admin
+ * Estados finales: completada, completada_con_ajuste, rechazada, fallida, cancelada, revertida, requiere_revision_admin
  * Estados no finales: pendiente, en_proceso, realizada, confirmada
  * 
  * Nota: requiere_revision_admin se considera final porque un admin resolverá el conflicto
@@ -294,6 +296,7 @@ transaccionSchema.methods.esAutomatica = function () {
 transaccionSchema.statics.esEstadoFinal = function (estado) {
   const estadosFinales = [
     "completada",
+    "completada_con_ajuste",
     "rechazada",
     "fallida",
     "cancelada",
@@ -316,7 +319,7 @@ transaccionSchema.methods.esEstadoFinal = function () {
  * Validar que los cálculos de saldo sean correctos antes de guardar
  */
 transaccionSchema.pre("save", function (next) {
-  if (this.estado === "completada" && this.saldoNuevo !== undefined) {
+  if (["completada", "completada_con_ajuste"].includes(this.estado) && this.saldoNuevo !== undefined) {
     if (this.tipo === "debito") {
       if (this.saldoNuevo !== this.saldoAnterior - this.monto) {
         return next(new Error("Cálculo de saldo incorrecto para débito"));
@@ -346,7 +349,7 @@ transaccionSchema.pre("save", function (next) {
  */
 transaccionSchema.pre("save", function (next) {
   if (this.isModified("estado")) {
-    if (this.estado === "completada" && !this.fechaProcesamiento) {
+    if (["completada", "completada_con_ajuste"].includes(this.estado) && !this.fechaProcesamiento) {
       this.fechaProcesamiento = new Date();
     }
   }

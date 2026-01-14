@@ -261,7 +261,7 @@ router.get(
               total: { $sum: 1 },
               montoTotal: { $sum: "$monto" },
               completadas: {
-                $sum: { $cond: [{ $eq: ["$estado", "completada"] }, 1, 0] },
+                $sum: { $cond: [{ $in: ["$estado", ["completada", "completada_con_ajuste"]] }, 1, 0] },
               },
             },
           },

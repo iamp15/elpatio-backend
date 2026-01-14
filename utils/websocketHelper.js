@@ -352,7 +352,7 @@ class WebSocketHelper {
   /**
    * Limpiar room de transacción cuando finaliza
    * Se llama automáticamente cuando una transacción cambia a un estado final
-   * Estados finales: completada, rechazada, fallida, cancelada, revertida
+   * Estados finales: completada, completada_con_ajuste, rechazada, fallida, cancelada, revertida
    */
   async limpiarRoomTransaccionFinalizada(transaccion) {
     if (!this.socketManager) {
