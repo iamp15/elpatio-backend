@@ -133,10 +133,10 @@ const transaccionSchema = new mongoose.Schema(
     motivoRechazo: {
       descripcionDetallada: {
         type: String,
-        required: true,
+        required: false, // No requerido en el schema, se valida manualmente al rechazar
         trim: true,
         maxlength: 1000,
-      }, // Texto libre del cajero (obligatorio)
+      }, // Texto libre del cajero (obligatorio solo cuando se rechaza)
       imagenRechazoUrl: String, // URL de la imagen de evidencia (opcional)
       fechaRechazo: Date,
     },

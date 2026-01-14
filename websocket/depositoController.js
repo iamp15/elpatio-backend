@@ -878,11 +878,15 @@ class DepositoWebSocketController {
           // Rechazar el pago - estructura simplificada
           const motivoRechazo = data.motivoRechazo || {};
 
-          // Validar que haya descripción detallada
+          // Validar que haya descripción detallada (obligatoria)
           const descripcionDetallada =
             motivoRechazo.descripcionDetallada ||
             motivo ||
-            "Pago no verificado";
+            null;
+
+          if (!descripcionDetallada || descripcionDetallada.trim() === "") {
+            throw new Error("La descripción del motivo de rechazo es obligatoria");
+          }
 
           // Guardar información del rechazo
           transaccion.motivoRechazo = {
