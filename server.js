@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 3000;
 let server;
 
 // Función para shutdown graceful
-const gracefulShutdown = (signal) => {
+const gracefulShutdown = async (signal) => {
   console.log(`\n🛑 Recibida señal ${signal}. Iniciando shutdown graceful...`);
 
   if (!server) {
@@ -19,13 +19,17 @@ const gracefulShutdown = (signal) => {
     return;
   }
 
-  server.close(() => {
+  server.close(async () => {
     console.log("✅ Servidor HTTP cerrado");
 
-    mongoose.connection.close(false, () => {
+    try {
+      await mongoose.connection.close();
       console.log("✅ Conexión MongoDB cerrada");
       process.exit(0);
-    });
+    } catch (error) {
+      console.error("❌ Error cerrando conexión MongoDB:", error);
+      process.exit(1);
+    }
   });
 
   // Forzar cierre después de 10 segundos
