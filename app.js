@@ -18,6 +18,11 @@ const app = express();
 const corsOptions = {
   origin: function (origin, callback) {
     // Lista de orígenes permitidos
+    // Leer orígenes adicionales desde variable de entorno (separados por comas)
+    const additionalOrigins = process.env.CORS_ADDITIONAL_ORIGINS
+      ? process.env.CORS_ADDITIONAL_ORIGINS.split(',').map(origin => origin.trim())
+      : [];
+
     const allowedOrigins =
       process.env.NODE_ENV === "production"
         ? [
@@ -25,11 +30,19 @@ const corsOptions = {
             "https://elpatio-backend.fly.dev",
             "https://telegram.org",
             "https://web.telegram.org",
+            // Agregar URL del dashboard cuando esté desplegado
+            // "https://tu-dashboard.vercel.app",
+            // Permitir localhost en producción solo para desarrollo local del dashboard
+            // TODO: Remover en producción cuando el dashboard esté desplegado
+            "http://localhost:5174",
+            ...additionalOrigins,
           ]
         : [
             "http://localhost:3000",
             "http://localhost:3002",
             "http://localhost:5173",
+            "http://localhost:5174", // Dashboard de administración
+            ...additionalOrigins,
             "*",
           ];
 
