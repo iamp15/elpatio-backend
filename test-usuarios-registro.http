@@ -77,7 +77,7 @@ Authorization: Bearer {{adminToken}}
       "prefijo": "V",
       "numero": "12345678"
     },
-    "telefono": "04161112223"
+    "telefono": "04241112223"
   },
   "foto": "https://example.com/foto.jpg"
 }

@@ -2,7 +2,7 @@
  * Módulo básico de gestión de WebSockets
  */
 
-const DepositoWebSocketController = require("./depositoController");
+const DepositoWebSocketController = require("./depositos/depositoController");
 const RoomsManager = require("./roomsManager");
 const ConnectionStateManager = require("./connectionStateManager");
 const ConnectionRecoveryManager = require("./connectionRecoveryManager");
