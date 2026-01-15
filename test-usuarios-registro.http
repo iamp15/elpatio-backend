@@ -1,0 +1,392 @@
+### ============================================
+### PRUEBAS - REGISTRO DE USUARIOS
+### Endpoints: /api/usuarios/registro/cajero y /api/usuarios/registro/admin
+### ============================================
+### 
+### INSTRUCCIONES:
+### 1. Configura la variable @baseUrl según tu entorno (local o producción)
+### 2. Primero obtén un token de admin o superadmin usando los endpoints de login
+### 3. Copia el token y reemplázalo en las variables @adminToken o @superadminToken
+### 4. Ejecuta las pruebas en orden
+###
+### Para ejecutar: Haz clic en "Send Request" arriba de cada petición
+### O usa el atajo: Ctrl+Alt+R (Windows/Linux) o Cmd+Alt+R (Mac)
+###
+
+### ============================================
+### CONFIGURACIÓN
+### ============================================
+
+### Cambia esto según tu entorno
+###@baseUrl = http://localhost:3000
+@baseUrl = https://elpatio-backend.fly.dev
+
+### Tokens (obtén estos tokens primero usando los endpoints de login)
+@adminToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5NjkyM2Q3M2U3YmYxOGI4YTJhNWM3NCIsImVtYWlsIjoiY2FybG9zLnJvZHJpZ3VlekBleGFtcGxlLmNvbSIsInJvbCI6ImFkbWluIiwiaWF0IjoxNzY4NDk4NDM0LCJleHAiOjE3NjkxMDMyMzR9.sACkseTZ7s8GRRIlyeBgklBK6BfirKZjX8iyXwGc2uQ
+@superadminToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4OGUwN2EzNTI5MmE3YmI5ZTQ3ZGY4YSIsImVtYWlsIjoiaWFtcDE4QGdtYWlsLmNvbSIsInJvbCI6InN1cGVyYWRtaW4iLCJpYXQiOjE3Njg0OTc5NzMsImV4cCI6MTc2OTEwMjc3M30.VhkX_6j-bq4M07fn4pT4v86SxAJtQy6RVYRvgefCHvQ
+
+### ============================================
+### PASO 1: OBTENER TOKENS PARA PRUEBAS
+### ============================================
+
+### Login como Admin (para obtener token de admin)
+### Reemplaza email y password con credenciales reales
+POST {{baseUrl}}/api/admin/login
+Content-Type: application/json
+
+{
+  "email": "carlos.rodriguez@example.com",
+  "password": "password123"
+}
+
+### Guarda el token de la respuesta y reemplázalo en @adminToken arriba
+###
+
+### Login como Superadmin (para obtener token de superadmin)
+### Reemplaza email y password con credenciales reales
+POST {{baseUrl}}/api/admin/login
+Content-Type: application/json
+
+{
+  "email": "iamp18@gmail.com",
+  "password": "Cl4ve#SuperAdm1n!2025"
+}
+
+### Guarda el token de la respuesta y reemplázalo en @superadminToken arriba
+###
+
+### ============================================
+### PRUEBAS: REGISTRO DE CAJERO
+### Endpoint: POST /api/usuarios/registro/cajero
+### Requiere: Token de admin o superior
+### ============================================
+
+### ✅ PRUEBA 1: Registrar cajero exitosamente (con todos los campos)
+POST {{baseUrl}}/api/usuarios/registro/cajero
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "nombreCompleto": "Juan Pérez",
+  "email": "juan.perez@example.com",
+  "password": "password123",
+  "telefonoContacto": "04161112223",
+  "datosPagoMovil": {
+    "banco": "Banco de Venezuela",
+    "cedula": {
+      "prefijo": "V",
+      "numero": "12345678"
+    },
+    "telefono": "04161112223"
+  },
+  "foto": "https://example.com/foto.jpg"
+}
+
+###
+
+### ✅ PRUEBA 2: Registrar cajero sin foto (campo opcional)
+POST {{baseUrl}}/api/usuarios/registro/cajero
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "nombreCompleto": "María González",
+  "email": "maria.gonzalez@example.com",
+  "password": "password123",
+  "telefonoContacto": "04241234567",
+  "datosPagoMovil": {
+    "banco": "Banco Mercantil",
+    "cedula": {
+      "prefijo": "E",
+      "numero": "87654321"
+    },
+    "telefono": "04241234567"
+  }
+}
+
+###
+
+### ❌ PRUEBA 3: Error - Sin token de autenticación
+POST {{baseUrl}}/api/usuarios/registro/cajero
+Content-Type: application/json
+
+{
+  "nombreCompleto": "Test Sin Token",
+  "email": "test@example.com",
+  "password": "password123",
+  "telefonoContacto": "04121234567",
+  "datosPagoMovil": {
+    "banco": "Banco",
+    "cedula": {
+      "prefijo": "V",
+      "numero": "12345678"
+    },
+    "telefono": "04121234567"
+  }
+}
+
+###
+
+### ❌ PRUEBA 4: Error - Token inválido
+POST {{baseUrl}}/api/usuarios/registro/cajero
+Content-Type: application/json
+Authorization: Bearer token_invalido_aqui
+
+{
+  "nombreCompleto": "Test Token Inválido",
+  "email": "test2@example.com",
+  "password": "password123",
+  "telefonoContacto": "04121234567",
+  "datosPagoMovil": {
+    "banco": "Banco",
+    "cedula": {
+      "prefijo": "V",
+      "numero": "12345678"
+    },
+    "telefono": "04121234567"
+  }
+}
+
+###
+
+### ❌ PRUEBA 5: Error - Faltan campos requeridos (sin nombreCompleto)
+POST {{baseUrl}}/api/usuarios/registro/cajero
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "email": "test3@example.com",
+  "password": "password123",
+  "telefonoContacto": "04121234567",
+  "datosPagoMovil": {
+    "banco": "Banco",
+    "cedula": {
+      "prefijo": "V",
+      "numero": "12345678"
+    },
+    "telefono": "04121234567"
+  }
+}
+
+###
+
+### ❌ PRUEBA 6: Error - Faltan campos específicos de cajero (sin telefonoContacto)
+POST {{baseUrl}}/api/usuarios/registro/cajero
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "nombreCompleto": "Test Sin Teléfono",
+  "email": "test4@example.com",
+  "password": "password123",
+  "datosPagoMovil": {
+    "banco": "Banco",
+    "cedula": {
+      "prefijo": "V",
+      "numero": "12345678"
+    },
+    "telefono": "04121234567"
+  }
+}
+
+###
+
+### ❌ PRUEBA 7: Error - Estructura de datosPagoMovil incompleta
+POST {{baseUrl}}/api/usuarios/registro/cajero
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "nombreCompleto": "Test Datos Incompletos",
+  "email": "test5@example.com",
+  "password": "password123",
+  "telefonoContacto": "04121234567",
+  "datosPagoMovil": {
+    "banco": "Banco"
+    // Faltan cedula y telefono
+  }
+}
+
+###
+
+### ❌ PRUEBA 8: Error - Email duplicado (si ya existe un cajero con ese email)
+POST {{baseUrl}}/api/usuarios/registro/cajero
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "nombreCompleto": "Test Duplicado Email",
+  "email": "juan.perez@example.com",
+  "password": "password123",
+  "telefonoContacto": "04129999999",
+  "datosPagoMovil": {
+    "banco": "Banco",
+    "cedula": {
+      "prefijo": "V",
+      "numero": "99999999"
+    },
+    "telefono": "04129999999"
+  }
+}
+
+###
+
+### ❌ PRUEBA 8B: Error - Teléfono duplicado (si ya existe un cajero con ese teléfono)
+POST {{baseUrl}}/api/usuarios/registro/cajero
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "nombreCompleto": "Test Duplicado Teléfono",
+  "email": "nuevo.email@example.com",
+  "password": "password123",
+  "telefonoContacto": "04161112223",
+  "datosPagoMovil": {
+    "banco": "Banco",
+    "cedula": {
+      "prefijo": "V",
+      "numero": "11111111"
+    },
+    "telefono": "04161112223"
+  }
+}
+
+###
+
+### ============================================
+### PRUEBAS: REGISTRO DE ADMIN
+### Endpoint: POST /api/usuarios/registro/admin
+### Requiere: Token de superadmin
+### ============================================
+
+### ✅ PRUEBA 9: Registrar admin exitosamente (rol por defecto: admin)
+POST {{baseUrl}}/api/usuarios/registro/admin
+Content-Type: application/json
+Authorization: Bearer {{superadminToken}}
+
+{
+  "nombreCompleto": "Carlos Rodríguez",
+  "email": "carlos.rodriguez@example.com",
+  "password": "password123"
+}
+
+###
+
+### ✅ PRUEBA 10: Registrar admin con rol explícito "admin"
+POST {{baseUrl}}/api/usuarios/registro/admin
+Content-Type: application/json
+Authorization: Bearer {{superadminToken}}
+
+{
+  "nombreCompleto": "Ana Martínez",
+  "email": "ana.martinez@example.com",
+  "password": "password123",
+  "rolAdmin": "admin"
+}
+
+###
+
+### ✅ PRUEBA 11: Registrar admin con rol "moderador"
+POST {{baseUrl}}/api/usuarios/registro/admin
+Content-Type: application/json
+Authorization: Bearer {{superadminToken}}
+
+{
+  "nombreCompleto": "Luis Fernández",
+  "email": "luis.fernandez@example.com",
+  "password": "password123",
+  "rolAdmin": "moderador"
+}
+
+###
+
+### ❌ PRUEBA 12: Error - Sin token de autenticación
+POST {{baseUrl}}/api/usuarios/registro/admin
+Content-Type: application/json
+
+{
+  "nombreCompleto": "Test Sin Token",
+  "email": "test6@example.com",
+  "password": "password123"
+}
+
+###
+
+### ❌ PRUEBA 13: Error - Token de admin (no superadmin)
+### Esta prueba debe fallar porque solo superadmin puede crear admins
+POST {{baseUrl}}/api/usuarios/registro/admin
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "nombreCompleto": "Test Permisos",
+  "email": "test7@example.com",
+  "password": "password123"
+}
+
+###
+
+### ❌ PRUEBA 14: Error - Faltan campos requeridos (sin email)
+POST {{baseUrl}}/api/usuarios/registro/admin
+Content-Type: application/json
+Authorization: Bearer {{superadminToken}}
+
+{
+  "nombreCompleto": "Test Sin Email",
+  "password": "password123"
+}
+
+###
+
+### ❌ PRUEBA 15: Error - Rol de admin no permitido (intentar crear superadmin)
+POST {{baseUrl}}/api/usuarios/registro/admin
+Content-Type: application/json
+Authorization: Bearer {{superadminToken}}
+
+{
+  "nombreCompleto": "Test Rol Inválido",
+  "email": "test8@example.com",
+  "password": "password123",
+  "rolAdmin": "superadmin"
+}
+
+###
+
+### ❌ PRUEBA 16: Error - Email duplicado (si ya existe un admin con ese email)
+POST {{baseUrl}}/api/usuarios/registro/admin
+Content-Type: application/json
+Authorization: Bearer {{superadminToken}}
+
+{
+  "nombreCompleto": "Test Duplicado Admin",
+  "email": "carlos.rodriguez@example.com",
+  "password": "password123"
+}
+
+###
+
+### ============================================
+### PRUEBAS ADICIONALES: VERIFICAR REGISTROS
+### ============================================
+
+### Verificar que el cajero fue creado - Login del cajero registrado
+POST {{baseUrl}}/api/cajeros/login
+Content-Type: application/json
+
+{
+  "email": "juan.perez@example.com",
+  "password": "password123"
+}
+
+###
+
+### Verificar que el admin fue creado - Login del admin registrado
+POST {{baseUrl}}/api/admin/login
+Content-Type: application/json
+
+{
+  "email": "carlos.rodriguez@example.com",
+  "password": "password123"
+}
+
+###

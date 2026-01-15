@@ -1,6 +1,6 @@
 {
   "name": "elpatio-backend",
-  "version": "0.18.0",
+  "version": "0.18.1",
   "description": "Backend API para El Patio - Alpha con Sistema de Notificaciones",
   "main": "server.js",
   "scripts": {

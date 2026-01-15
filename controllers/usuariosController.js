@@ -10,8 +10,17 @@ const Cajero = require("../models/Cajero");
 const manejarError = (error, res, tipoUsuario) => {
   if (error.code === 11000) {
     const campo = Object.keys(error.keyPattern)[0];
+    let mensajeCampo = campo;
+
+    // Traducir nombres de campos a mensajes más amigables
+    if (campo === "email") {
+      mensajeCampo = "email";
+    } else if (campo === "telefonoContacto") {
+      mensajeCampo = "número de teléfono";
+    }
+
     return res.status(409).json({
-      mensaje: `Ya existe un ${tipoUsuario} con este ${campo}`,
+      mensaje: `Ya existe un ${tipoUsuario} con este ${mensajeCampo}`,
       campo: campo,
     });
   }
@@ -76,10 +85,22 @@ exports.registrarCajero = async (req, res) => {
     }
 
     // Verificar si el email ya existe en cajeros
-    const cajeroExistente = await Cajero.findOne({ email });
-    if (cajeroExistente) {
+    const cajeroPorEmail = await Cajero.findOne({ email });
+    if (cajeroPorEmail) {
       return res.status(409).json({
         mensaje: "Ya existe un cajero con este email",
+        campo: "email",
+      });
+    }
+
+    // Verificar si el teléfono ya existe en cajeros
+    const cajeroPorTelefono = await Cajero.findOne({
+      telefonoContacto: telefonoContacto,
+    });
+    if (cajeroPorTelefono) {
+      return res.status(409).json({
+        mensaje: "Ya existe un cajero con este número de teléfono",
+        campo: "telefonoContacto",
       });
     }
 
