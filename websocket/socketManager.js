@@ -610,15 +610,8 @@ class SocketManager {
           userType: decoded.rol,
         };
       }
-        recovery: recovery.recovered
-          ? {
-              transactionsRecovered: recovery.transactionsRecovered,
-              disconnectionDuration: recovery.disconnectionDuration,
-            }
-          : null,
-      };
     } catch (error) {
-      console.error("Error autenticando cajero:", error);
+      console.error("Error autenticando cajero/admin:", error);
       return {
         success: false,
         message: "Token JWT inválido",
