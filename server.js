@@ -40,18 +40,37 @@ const gracefulShutdown = async (signal) => {
 };
 
 // Manejar señales de terminación
-process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
-process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+process.on("SIGTERM", () => {
+  gracefulShutdown("SIGTERM").catch((err) => {
+    console.error("❌ Error en graceful shutdown:", err);
+    process.exit(1);
+  });
+});
+
+process.on("SIGINT", () => {
+  gracefulShutdown("SIGINT").catch((err) => {
+    console.error("❌ Error en graceful shutdown:", err);
+    process.exit(1);
+  });
+});
 
 // Manejar errores no capturados
 process.on("uncaughtException", (err) => {
   console.error("❌ Uncaught Exception:", err);
-  gracefulShutdown("UNCAUGHT_EXCEPTION");
+  gracefulShutdown("UNCAUGHT_EXCEPTION").catch((err) => {
+    console.error("❌ Error en graceful shutdown:", err);
+    process.exit(1);
+  });
 });
 
 process.on("unhandledRejection", (reason, promise) => {
   console.error("❌ Unhandled Rejection at:", promise, "reason:", reason);
-  gracefulShutdown("UNHANDLED_REJECTION");
+  // Evitar llamadas recursivas a gracefulShutdown si el error viene del mismo gracefulShutdown
+  gracefulShutdown("UNHANDLED_REJECTION").catch((err) => {
+    console.error("❌ Error en graceful shutdown:", err);
+    // Si ya estamos en un error, salir directamente
+    process.exit(1);
+  });
 });
 
 // Iniciar servidor
