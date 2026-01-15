@@ -107,22 +107,6 @@ exports.registrarCajero = async (req, res) => {
       ? String(telefonoContacto).trim()
       : null;
 
-    // Verificar si el teléfono ya existe en cajeros
-    // Buscar con el valor exacto normalizado
-    const cajeroPorTelefono = await Cajero.findOne({
-      telefonoContacto: telefonoNormalizado,
-    });
-
-    if (cajeroPorTelefono) {
-      console.log(
-        `⚠️ [REGISTRO-CAJERO] Teléfono duplicado detectado: ${telefonoNormalizado} (ID existente: ${cajeroPorTelefono._id})`
-      );
-      return res.status(409).json({
-        mensaje: "Ya existe un cajero con este número de teléfono",
-        campo: "telefonoContacto",
-      });
-    }
-
     // Crear el cajero (usar teléfono normalizado)
     const nuevoCajero = new Cajero({
       nombreCompleto,
