@@ -6,7 +6,7 @@ const notificacionBotSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Transaccion",
       required: true,
-      index: true,
+      // El índice se define explícitamente más abajo (línea 74)
     },
     jugadorTelegramId: {
       type: String,

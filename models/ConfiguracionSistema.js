@@ -10,8 +10,7 @@ const configuracionSistemaSchema = new mongoose.Schema(
     clave: {
       type: String,
       required: true,
-      unique: true,
-      index: true,
+      unique: true, // unique: true crea automáticamente un índice
       trim: true,
     },
 

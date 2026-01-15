@@ -19,7 +19,7 @@ const notificacionSchema = new mongoose.Schema(
     // TelegramId para jugadores (facilita envío de mensajes)
     telegramId: {
       type: String,
-      index: true,
+      // El índice se define explícitamente más abajo (línea 86)
     },
 
     // Tipo de notificación
@@ -65,7 +65,7 @@ const notificacionSchema = new mongoose.Schema(
     // ID del evento para prevenir duplicados
     eventoId: {
       type: String,
-      index: true,
+      // El índice se define explícitamente más abajo (línea 83)
     },
   },
   {
