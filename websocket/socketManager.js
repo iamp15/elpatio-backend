@@ -514,62 +514,102 @@ class SocketManager {
       const jwt = require("jsonwebtoken");
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      if (decoded.rol !== "cajero") {
+      // Permitir cajeros, admins y superadmins
+      const rolesPermitidos = ["cajero", "admin", "superadmin"];
+      if (!rolesPermitidos.includes(decoded.rol)) {
         return {
           success: false,
-          message: "Token no válido para cajero",
+          message: "Token no válido para cajero o administrador",
         };
       }
 
-      // Buscar cajero en la base de datos
-      const Cajero = require("../models/Cajero");
-      const cajero = await Cajero.findById(decoded.id);
+      // Para admins, buscar en modelo Admin, para cajeros en modelo Cajero
+      let usuario;
+      if (decoded.rol === "cajero") {
+        const Cajero = require("../models/Cajero");
+        usuario = await Cajero.findById(decoded.id);
+      } else if (["admin", "superadmin"].includes(decoded.rol)) {
+        const Admin = require("../models/Admin");
+        usuario = await Admin.findById(decoded.id);
+      }
 
-      if (!cajero) {
+      if (!usuario) {
         return {
           success: false,
-          message: "Cajero no encontrado",
+          message: "Usuario no encontrado",
         };
       }
 
       // Registrar conexión
-      this.connectedCajeros.set(decoded.id, socket.id);
-      socket.cajeroId = decoded.id;
-      socket.userType = "cajero";
+      if (decoded.rol === "cajero") {
+        this.connectedCajeros.set(decoded.id, socket.id);
+        socket.cajeroId = decoded.id;
+        socket.userType = "cajero";
 
-      // Agregar cajero a room de disponibles por defecto
-      this.roomsManager.agregarCajeroDisponible(decoded.id, socket.id);
+        // Agregar cajero a room de disponibles por defecto
+        this.roomsManager.agregarCajeroDisponible(decoded.id, socket.id);
 
-      // Agregar cajero al estado de conexión
-      this.connectionStateManager.agregarCajero(decoded.id, socket.id, {
-        nombre: cajero.nombreCompleto,
-        email: cajero.email,
-      });
-
-      console.log(
-        `🏦 Cajero autenticado: ${cajero.nombreCompleto} (${decoded.id})`
-      );
-
-      // Verificar si hay sesión para recuperar
-      const recovery = await this.connectionRecoveryManager.handleReconnection(
-        socket,
-        decoded.id
-      );
-
-      if (recovery.recovered) {
-        console.log(
-          `🔄 [RECOVERY] Cajero ${decoded.id} recuperó ${recovery.transactionsRecovered.length} transacciones`
-        );
+        // Agregar cajero al estado de conexión
+        this.connectionStateManager.agregarCajero(decoded.id, socket.id, {
+          nombre: usuario.nombreCompleto,
+          email: usuario.email,
+        });
+      } else {
+        // Para admins, solo marcar el tipo de usuario
+        socket.userId = decoded.id;
+        socket.userType = decoded.rol; // "admin" o "superadmin"
       }
 
-      return {
-        success: true,
-        message: "Autenticación exitosa",
-        user: {
-          id: cajero._id,
-          nombre: cajero.nombreCompleto,
-          email: cajero.email,
-        },
+      if (decoded.rol === "cajero") {
+        console.log(
+          `🏦 Cajero autenticado: ${usuario.nombreCompleto} (${decoded.id})`
+        );
+
+        // Verificar si hay sesión para recuperar (solo para cajeros)
+        const recovery = await this.connectionRecoveryManager.handleReconnection(
+          socket,
+          decoded.id
+        );
+
+        if (recovery.recovered) {
+          console.log(
+            `🔄 [RECOVERY] Cajero ${decoded.id} recuperó ${recovery.transactionsRecovered.length} transacciones`
+          );
+        }
+
+        return {
+          success: true,
+          message: "Autenticación exitosa",
+          user: {
+            id: usuario._id,
+            nombre: usuario.nombreCompleto,
+            email: usuario.email,
+            rol: decoded.rol,
+          },
+          recovery: recovery.recovered
+            ? {
+                transactionsRecovered: recovery.transactionsRecovered,
+                disconnectionDuration: recovery.disconnectionDuration,
+              }
+            : null,
+        };
+      } else {
+        // Para admins
+        console.log(
+          `👑 Admin autenticado: ${usuario.email || decoded.id} (${decoded.rol})`
+        );
+
+        return {
+          success: true,
+          message: "Autenticación exitosa",
+          user: {
+            id: usuario._id,
+            email: usuario.email,
+            rol: decoded.rol,
+          },
+          userType: decoded.rol,
+        };
+      }
         recovery: recovery.recovered
           ? {
               transactionsRecovered: recovery.transactionsRecovered,
@@ -1084,7 +1124,7 @@ class SocketManager {
    */
   handleUnirseDashboard(socket) {
     // Verificar si el usuario tiene permisos de administración
-    if (socket.userType !== "cajero" && socket.userType !== "admin") {
+    if (socket.userType !== "cajero" && socket.userType !== "admin" && socket.userType !== "superadmin") {
       socket.emit("error", {
         message: "Solo cajeros y administradores pueden acceder al dashboard",
       });
