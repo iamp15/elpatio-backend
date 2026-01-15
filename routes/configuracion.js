@@ -1,36 +1,34 @@
 const express = require("express");
 const router = express.Router();
 const configuracionController = require("../controllers/configuracionController");
-
-// Middleware de autenticación (si existe)
-// const { verificarToken } = require("../middlewares/auth");
+const auth = require("../middlewares/auth");
+const verificarMinimo = require("../middlewares/verificarMinimo");
 
 /**
  * Rutas públicas (accesibles para cajeros autenticados)
  */
 
-// Obtener configuraciones de depósitos
+// Obtener configuraciones de depósitos (público para app de cajeros)
 router.get("/depositos", configuracionController.obtenerConfiguracionesDepositos);
 
-// Obtener una configuración específica
+// Obtener una configuración específica (público para lectura)
 router.get("/:clave", configuracionController.obtenerConfiguracion);
 
 /**
  * Rutas protegidas (solo administradores)
- * TODO: Agregar middleware de verificación de rol admin cuando esté disponible
  */
 
-// Obtener todas las configuraciones
-router.get("/", configuracionController.obtenerConfiguraciones);
+// Obtener todas las configuraciones (requiere autenticación admin)
+router.get("/", auth, verificarMinimo("admin"), configuracionController.obtenerConfiguraciones);
 
-// Crear nueva configuración
-router.post("/", configuracionController.crearConfiguracion);
+// Crear nueva configuración (requiere autenticación admin)
+router.post("/", auth, verificarMinimo("admin"), configuracionController.crearConfiguracion);
 
-// Actualizar configuración
-router.put("/:clave", configuracionController.actualizarConfiguracion);
+// Actualizar configuración (requiere autenticación admin)
+router.put("/:clave", auth, verificarMinimo("admin"), configuracionController.actualizarConfiguracion);
 
-// Inicializar configuraciones por defecto
-router.post("/inicializar", configuracionController.inicializarDefaults);
+// Inicializar configuraciones por defecto (requiere autenticación admin)
+router.post("/inicializar", auth, verificarMinimo("admin"), configuracionController.inicializarDefaults);
 
 module.exports = router;
 

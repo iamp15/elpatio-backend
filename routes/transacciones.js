@@ -198,6 +198,64 @@ router.get("/admin/todas", auth, verificarMinimo("admin"), async (req, res) => {
 });
 
 /**
+ * Obtener transacciones en curso (pendiente + en_proceso)
+ * GET /api/transacciones/admin/en-curso
+ */
+router.get(
+  "/admin/en-curso",
+  auth,
+  verificarMinimo("admin"),
+  async (req, res) => {
+    try {
+      const { limite = 50, categoria } = req.query;
+
+      const filtros = {
+        estado: { $in: ["pendiente", "en_proceso"] },
+      };
+
+      // Filtrar por categoría si se proporciona
+      if (categoria && ["deposito", "retiro"].includes(categoria)) {
+        filtros.categoria = categoria;
+      }
+
+      const transacciones = await require("../models/Transaccion")
+        .find(filtros)
+        .populate("jugadorId", "username nickname telegramId")
+        .populate("cajeroId", "nombreCompleto email telefonoContacto")
+        .populate("creadoPor", "username")
+        .sort({ createdAt: -1 })
+        .limit(parseInt(limite))
+        .lean();
+
+      // Contar por estado
+      const [pendientes, enProceso] = await Promise.all([
+        require("../models/Transaccion").countDocuments({
+          ...filtros,
+          estado: "pendiente",
+        }),
+        require("../models/Transaccion").countDocuments({
+          ...filtros,
+          estado: "en_proceso",
+        }),
+      ]);
+
+      res.json({
+        transacciones,
+        total: transacciones.length,
+        pendientes,
+        enProceso,
+        categoria: categoria || "todas",
+      });
+    } catch (error) {
+      res.status(500).json({
+        mensaje: "Error obteniendo transacciones en curso",
+        error: error.message,
+      });
+    }
+  }
+);
+
+/**
  * Obtener estadísticas generales del sistema
  * GET /api/transacciones/admin/estadisticas-sistema
  */

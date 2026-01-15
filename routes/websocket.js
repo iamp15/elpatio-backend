@@ -5,8 +5,10 @@ const verificarMinimo = require("../middlewares/verificarMinimo");
 
 /**
  * Endpoint para obtener estadísticas de WebSocket
+ * GET /api/websocket/stats
+ * Requiere autenticación de admin
  */
-router.get("/stats", (req, res) => {
+router.get("/stats", auth, verificarMinimo("admin"), (req, res) => {
   const socketManager = req.app.get("socketManager");
 
   if (!socketManager) {
