@@ -11,17 +11,26 @@ const manejarError = (error, res, tipoUsuario) => {
   if (error.code === 11000) {
     const campo = Object.keys(error.keyPattern)[0];
     let mensajeCampo = campo;
+    let nombreCampo = campo;
 
     // Traducir nombres de campos a mensajes más amigables
     if (campo === "email") {
       mensajeCampo = "email";
-    } else if (campo === "telefonoContacto") {
+      nombreCampo = "email";
+    } else if (campo === "telefonoContacto" || campo === "telefono") {
       mensajeCampo = "número de teléfono";
+      nombreCampo = "telefonoContacto"; // Normalizar el nombre del campo
+    }
+
+    // Si el mensaje no se tradujo, usar el campo original
+    if (mensajeCampo === campo && campo.includes("telefono")) {
+      mensajeCampo = "número de teléfono";
+      nombreCampo = "telefonoContacto";
     }
 
     return res.status(409).json({
       mensaje: `Ya existe un ${tipoUsuario} con este ${mensajeCampo}`,
-      campo: campo,
+      campo: nombreCampo,
     });
   }
 
@@ -93,22 +102,32 @@ exports.registrarCajero = async (req, res) => {
       });
     }
 
+    // Normalizar el teléfono (trim para eliminar espacios y convertir a string)
+    const telefonoNormalizado = telefonoContacto
+      ? String(telefonoContacto).trim()
+      : null;
+
     // Verificar si el teléfono ya existe en cajeros
+    // Buscar con el valor exacto normalizado
     const cajeroPorTelefono = await Cajero.findOne({
-      telefonoContacto: telefonoContacto,
+      telefonoContacto: telefonoNormalizado,
     });
+
     if (cajeroPorTelefono) {
+      console.log(
+        `⚠️ [REGISTRO-CAJERO] Teléfono duplicado detectado: ${telefonoNormalizado} (ID existente: ${cajeroPorTelefono._id})`
+      );
       return res.status(409).json({
         mensaje: "Ya existe un cajero con este número de teléfono",
         campo: "telefonoContacto",
       });
     }
 
-    // Crear el cajero
+    // Crear el cajero (usar teléfono normalizado)
     const nuevoCajero = new Cajero({
       nombreCompleto,
       email,
-      telefonoContacto,
+      telefonoContacto: telefonoNormalizado,
       password, // Se hashea automáticamente en el modelo
       datosPagoMovil,
       foto,
