@@ -129,6 +129,7 @@ app.get("/test-dashboard-websocket", (req, res) => {
 // API Routes
 app.use("/api/jugadores", require("./routes/jugadores"));
 app.use("/api/cajeros", require("./routes/cajeros"));
+app.use("/api/usuarios", require("./routes/usuarios"));
 app.use("/api/salas", require("./routes/salas"));
 app.use("/api/pagos", require("./routes/pagos"));
 app.use("/api/admin/stats", require("./routes/stats"));
