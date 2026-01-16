@@ -29,13 +29,14 @@ class ConnectionRecoveryManager {
   /**
    * Registrar desconexión con tiempo de gracia
    */
-  registerDisconnection(socket) {
+  async registerDisconnection(socket) {
     const userType = socket.userType; // 'jugador' o 'cajero'
     const userId = userType === "jugador" ? socket.telegramId : socket.cajeroId;
 
     // MEJORA: Obtener transacciones activas ANTES de verificar tipo/ID
     // Esto permite proteger rooms incluso si el socket no tiene tipo/ID
-    const activeTransactions = this.getActiveTransactions(socket.id);
+    // Ahora verifica estados en BD para filtrar transacciones en estados finales
+    const activeTransactions = await this.getActiveTransactions(socket.id);
 
     // Si el socket no tiene tipo/ID pero tiene transacciones activas,
     // verificar si otros sockets en esas transacciones necesitan protección
@@ -616,9 +617,11 @@ class ConnectionRecoveryManager {
 
   /**
    * Obtener transacciones activas de un socket
+   * Ahora verifica estados en BD para filtrar transacciones en estados finales
    */
-  getActiveTransactions(socketId) {
+  async getActiveTransactions(socketId) {
     const activeTransactions = [];
+    const Transaccion = require("../models/Transaccion");
 
     // Buscar en rooms de transacciones
     for (const [
@@ -626,7 +629,38 @@ class ConnectionRecoveryManager {
       sockets,
     ] of this.socketManager.roomsManager.rooms.transacciones.entries()) {
       if (sockets.has(socketId)) {
-        activeTransactions.push(transaccionId);
+        try {
+          // Verificar estado de la transacción en la BD
+          const transaccion = await Transaccion.findById(transaccionId).select(
+            "estado"
+          );
+
+          if (!transaccion) {
+            console.log(
+              `⚠️ [RECOVERY] Transacción ${transaccionId} no encontrada en BD, omitiendo`
+            );
+            continue;
+          }
+
+          // Filtrar transacciones en estados finales
+          if (Transaccion.esEstadoFinal(transaccion.estado)) {
+            console.log(
+              `ℹ️ [RECOVERY] Transacción ${transaccionId} está en estado final (${transaccion.estado}), omitiendo de recovery`
+            );
+            continue;
+          }
+
+          // Solo agregar transacciones realmente activas
+          activeTransactions.push(transaccionId);
+        } catch (error) {
+          console.error(
+            `❌ [RECOVERY] Error verificando estado de transacción ${transaccionId}:`,
+            error.message
+          );
+          // En caso de error, incluir la transacción por seguridad
+          // (mejor proteger de más que de menos)
+          activeTransactions.push(transaccionId);
+        }
       }
     }
 

@@ -407,10 +407,10 @@ class SocketManager {
   /**
    * Manejar desconexión con sistema de recuperación
    */
-  handleDisconnect(socket) {
+  async handleDisconnect(socket) {
     // Usar el sistema de recuperación en lugar de limpiar inmediatamente
     // El recovery manager decidirá si limpia inmediatamente o espera reconexión
-    this.connectionRecoveryManager.registerDisconnection(socket);
+    await this.connectionRecoveryManager.registerDisconnection(socket);
 
     // Limpiar referencias básicas del usuario desconectado
     // (pero NO rooms si hay transacciones activas - el recovery manager lo maneja)

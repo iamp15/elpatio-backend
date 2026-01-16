@@ -26,7 +26,6 @@ async function verificarPagoCajero(context, socket, data) {
     accion: data.accion,
     socketId: socket.id,
     timestamp: new Date().toISOString(),
-    stackTrace: new Error().stack,
   });
 
   const maxRetries = 3;
