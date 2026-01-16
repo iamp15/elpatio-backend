@@ -20,13 +20,37 @@ const { notificarBotDepositoRechazado } = require("../notificaciones/notificacio
  * @param {Object} socket - Socket del cajero
  * @param {Object} data - Datos de la verificación
  */
+// Set para rastrear requestIds ya procesados (evitar duplicados por reenvío)
+const processedRequestIds = new Set();
+
+// Limpiar requestIds antiguos cada 5 minutos
+setInterval(() => {
+  processedRequestIds.clear();
+}, 5 * 60 * 1000);
+
 async function verificarPagoCajero(context, socket, data) {
+  const { transaccionId, accion, requestId } = data;
+
   console.log("🔍 [DEPOSITO] verificarPagoCajero INICIADO:", {
-    transaccionId: data.transaccionId,
-    accion: data.accion,
+    transaccionId,
+    accion,
+    requestId,
     socketId: socket.id,
     timestamp: new Date().toISOString(),
   });
+
+  // PROTECCIÓN 1: Verificar si este requestId ya fue procesado
+  if (requestId && processedRequestIds.has(requestId)) {
+    console.log(
+      `⚠️ [DEPOSITO] DUPLICADO: requestId ${requestId} ya fue procesado, ignorando`
+    );
+    return;
+  }
+
+  // Marcar requestId como procesado
+  if (requestId) {
+    processedRequestIds.add(requestId);
+  }
 
   const maxRetries = 3;
   let retryCount = 0;
@@ -42,15 +66,16 @@ async function verificarPagoCajero(context, socket, data) {
       );
 
       // Validar datos requeridos
-      const { transaccionId, accion, notas, motivo } = data;
+      const { notas, motivo } = data;
 
-      // Verificar si ya se está procesando esta transacción
+      // PROTECCIÓN 2: Verificar si ya se está procesando esta transacción
       if (context.processingTransactions.has(transaccionId)) {
         console.log(
           `⚠️ [DEPOSITO] Transacción ${transaccionId} ya está siendo procesada`
         );
         socket.emit("error", {
           message: "La transacción ya está siendo procesada",
+          transaccionId,
         });
         return;
       }
