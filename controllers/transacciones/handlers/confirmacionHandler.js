@@ -1,8 +1,8 @@
-const Transaccion = require("../../models/Transaccion");
-const Jugador = require("../../models/Jugador");
+const Transaccion = require("../../../models/Transaccion");
+const Jugador = require("../../../models/Jugador");
 const mongoose = require("mongoose");
-const websocketHelper = require("../../utils/websocketHelper");
-const { registrarLog } = require("../../utils/logHelper");
+const websocketHelper = require("../../../utils/websocketHelper");
+const { registrarLog } = require("../../../utils/logHelper");
 
 /**
  * Confirmar pago por el usuario (solo para depósitos/retiros)

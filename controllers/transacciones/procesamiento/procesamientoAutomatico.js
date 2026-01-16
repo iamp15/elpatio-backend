@@ -1,7 +1,7 @@
-const Transaccion = require("../../models/Transaccion");
-const Jugador = require("../../models/Jugador");
+const Transaccion = require("../../../models/Transaccion");
+const Jugador = require("../../../models/Jugador");
 const mongoose = require("mongoose");
-const { registrarLog } = require("../../utils/logHelper");
+const { registrarLog } = require("../../../utils/logHelper");
 
 /**
  * Función interna para procesar transacciones automáticas

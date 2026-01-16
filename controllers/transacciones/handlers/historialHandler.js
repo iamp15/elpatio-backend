@@ -1,4 +1,4 @@
-const Transaccion = require("../../models/Transaccion");
+const Transaccion = require("../../../models/Transaccion");
 
 /**
  * Obtener historial de transacciones de un jugador

@@ -1,6 +1,6 @@
-const Transaccion = require("../../models/Transaccion");
-const websocketHelper = require("../../utils/websocketHelper");
-const { registrarLog } = require("../../utils/logHelper");
+const Transaccion = require("../../../models/Transaccion");
+const websocketHelper = require("../../../utils/websocketHelper");
+const { registrarLog } = require("../../../utils/logHelper");
 
 /**
  * Cancelar transacción por jugador

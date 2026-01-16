@@ -1,6 +1,6 @@
-const Transaccion = require("../../models/Transaccion");
-const Jugador = require("../../models/Jugador");
-const Cajero = require("../../models/Cajero");
+const Transaccion = require("../../../models/Transaccion");
+const Jugador = require("../../../models/Jugador");
+const Cajero = require("../../../models/Cajero");
 
 /**
  * Obtener transacciones por estado para cajeros (endpoint genérico)

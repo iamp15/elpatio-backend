@@ -1,8 +1,8 @@
-const Cajero = require("../../models/Cajero");
-const Transaccion = require("../../models/Transaccion");
-const Jugador = require("../../models/Jugador");
-const websocketHelper = require("../../utils/websocketHelper");
-const { registrarLog } = require("../../utils/logHelper");
+const Cajero = require("../../../models/Cajero");
+const Transaccion = require("../../../models/Transaccion");
+const Jugador = require("../../../models/Jugador");
+const websocketHelper = require("../../../utils/websocketHelper");
+const { registrarLog } = require("../../../utils/logHelper");
 
 /**
  * Obtener cajeros disponibles para asignar

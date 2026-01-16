@@ -1,7 +1,7 @@
-const Transaccion = require("../../models/Transaccion");
-const Jugador = require("../../models/Jugador");
-const websocketHelper = require("../../utils/websocketHelper");
-const { registrarLog } = require("../../utils/logHelper");
+const Transaccion = require("../../../models/Transaccion");
+const Jugador = require("../../../models/Jugador");
+const websocketHelper = require("../../../utils/websocketHelper");
+const { registrarLog } = require("../../../utils/logHelper");
 
 /**
  * Rechazar transacción

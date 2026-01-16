@@ -1,6 +1,6 @@
-const Transaccion = require("../../models/Transaccion");
-const Jugador = require("../../models/Jugador");
-const websocketHelper = require("../../utils/websocketHelper");
+const Transaccion = require("../../../models/Transaccion");
+const Jugador = require("../../../models/Jugador");
+const websocketHelper = require("../../../utils/websocketHelper");
 
 /**
  * Crear solicitud de depósito/retiro (para cajero)
