@@ -176,6 +176,21 @@ class ConnectionStateManager {
   }
 
   /**
+   * Remover cajero por ID (útil cuando el cajero cierra sesión)
+   */
+  removerCajeroPorId(cajeroId) {
+    const cajero = this.connectionStates.cajeros.get(cajeroId);
+    if (cajero) {
+      this.connectionStates.cajeros.delete(cajeroId);
+      console.log(`🏦 [ESTADO] Cajero ${cajero.nombre} (ID: ${cajeroId}) removido del estado`);
+      this.actualizarEstadisticas();
+      this.notificarCambioEstado();
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Actualizar estadísticas generales
    */
   actualizarEstadisticas() {
@@ -185,11 +200,14 @@ class ConnectionStateManager {
       this.connectionStates.transacciones.values()
     );
 
+    const cajerosDisponibles = cajeros.filter((c) => c.estado === "disponible").length;
+    const cajerosOcupados = cajeros.filter((c) => c.estado === "ocupado").length;
+
     this.connectionStates.estadisticas = {
       totalConexiones: cajeros.length + jugadores.length,
-      cajerosDisponibles: cajeros.filter((c) => c.estado === "disponible")
-        .length,
-      cajerosOcupados: cajeros.filter((c) => c.estado === "ocupado").length,
+      cajerosDisponibles: cajerosDisponibles,
+      cajerosOcupados: cajerosOcupados,
+      cajerosConectados: cajerosDisponibles + cajerosOcupados, // Incluir para compatibilidad
       jugadoresConectados: jugadores.length,
       transaccionesActivas: transacciones.filter((t) => t.estado === "activa")
         .length,

@@ -374,6 +374,19 @@ class SocketManager {
         handleUnirseDashboard(this.getContext(), socket);
       });
 
+      // Manejar logout de cajero (cuando el cajero cierra sesión sin cerrar la ventana)
+      socket.on("logout-cajero", () => {
+        if (socket.userType === "cajero" && socket.cajeroId) {
+          console.log(`🚪 [LOGOUT] Cajero ${socket.cajeroId} cerrando sesión`);
+          this.removerCajeroPorId(socket.cajeroId);
+          // Limpiar el socket de rooms
+          this.roomsManager.limpiarSocket(socket.id);
+          socket.emit("logout-confirmado", { message: "Sesión cerrada correctamente" });
+        } else {
+          socket.emit("error", { message: "Solo cajeros pueden cerrar sesión" });
+        }
+      });
+
       // Manejar desconexión
       socket.on("disconnect", (reason) => {
         console.log(`🔌 Cliente desconectado: ${socket.id}, razón: ${reason}`);
@@ -445,14 +458,42 @@ class SocketManager {
 
   /**
    * Obtener estadísticas básicas
+   * Usa connectionStateManager para tener datos sincronizados
    */
   getStats() {
+    // Usar connectionStateManager si está disponible para datos más precisos
+    if (this.connectionStateManager) {
+      const estadisticas = this.connectionStateManager.getEstadisticas();
+      return {
+        jugadoresConectados: estadisticas.jugadoresConectados || 0,
+        cajerosConectados: estadisticas.cajerosDisponibles + estadisticas.cajerosOcupados || 0,
+        botsConectados: this.connectedBots.size,
+        totalConexiones: estadisticas.totalConexiones || 0,
+      };
+    }
+    
+    // Fallback a los maps si connectionStateManager no está disponible
     return {
       jugadoresConectados: this.connectedUsers.size,
       cajerosConectados: this.connectedCajeros.size,
       botsConectados: this.connectedBots.size,
       totalConexiones: this.io.engine.clientsCount,
     };
+  }
+
+  /**
+   * Remover cajero por ID (útil cuando el cajero cierra sesión)
+   */
+  removerCajeroPorId(cajeroId) {
+    // Remover de connectedCajeros
+    this.connectedCajeros.delete(cajeroId);
+    
+    // Remover del connectionStateManager
+    if (this.connectionStateManager) {
+      this.connectionStateManager.removerCajeroPorId(cajeroId);
+    }
+    
+    console.log(`🏦 [SOCKET] Cajero ${cajeroId} removido del sistema`);
   }
 
 }
