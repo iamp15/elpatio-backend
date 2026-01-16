@@ -32,6 +32,33 @@ async function authenticateJugador(context, socket, data) {
       };
     }
 
+    // ======= VERIFICAR Y CERRAR CONEXIONES DUPLICADAS DE JUGADOR =======
+    const socketIdAnterior = socketManager.connectedUsers.get(telegramId);
+    
+    // Si hay una conexión anterior diferente a la actual, cerrarla
+    if (socketIdAnterior && socketIdAnterior !== socket.id) {
+      const socketAnterior = socketManager.io.sockets.sockets.get(socketIdAnterior);
+      if (socketAnterior) {
+        console.log(`⚠️ [AUTH] Cerrando conexión anterior del jugador ${telegramId} (socket: ${socketIdAnterior})`);
+        
+        // Notificar al socket anterior que su sesión fue reemplazada
+        socketAnterior.emit("session-replaced", {
+          message: "Tu sesión fue reemplazada por una nueva conexión",
+          reason: "new_connection",
+        });
+        
+        // Limpiar el socket anterior de rooms
+        roomsManager.limpiarSocket(socketIdAnterior);
+        
+        // Desconectar el socket anterior
+        socketAnterior.disconnect(true);
+      }
+      
+      // Limpiar del estado de conexión
+      connectionStateManager.removerUsuario(socketIdAnterior);
+    }
+    // ======= FIN VERIFICACIÓN DE DUPLICADOS =======
+
     // Registrar conexión
     socketManager.connectedUsers.set(telegramId, socket.id);
     socketManager.connectedPlayers.set(telegramId, socket.id); // Registrar como jugador en app de depósitos
@@ -137,6 +164,51 @@ async function authenticateCajero(context, socket, data) {
         message: "Usuario no encontrado",
       };
     }
+
+    // ======= VERIFICAR Y CERRAR CONEXIONES DUPLICADAS =======
+    if (decoded.rol === "cajero") {
+      const socketIdAnterior = socketManager.connectedCajeros.get(decoded.id);
+      
+      // Si hay una conexión anterior diferente a la actual, cerrarla
+      if (socketIdAnterior && socketIdAnterior !== socket.id) {
+        const socketAnterior = socketManager.io.sockets.sockets.get(socketIdAnterior);
+        if (socketAnterior) {
+          console.log(`⚠️ [AUTH] Cerrando conexión anterior del cajero ${decoded.id} (socket: ${socketIdAnterior})`);
+          
+          // Notificar al socket anterior que su sesión fue reemplazada
+          socketAnterior.emit("session-replaced", {
+            message: "Tu sesión fue reemplazada por una nueva conexión",
+            reason: "new_connection",
+          });
+          
+          // Limpiar el socket anterior de rooms
+          roomsManager.limpiarSocket(socketIdAnterior);
+          
+          // Desconectar el socket anterior
+          socketAnterior.disconnect(true);
+        }
+        
+        // Limpiar del estado de conexión
+        connectionStateManager.removerUsuario(socketIdAnterior);
+      }
+    } else if (["admin", "superadmin"].includes(decoded.rol)) {
+      // Para admins, verificar si ya tienen conexión y cerrarla
+      // Buscar socket anterior por userId
+      for (const [socketId, s] of socketManager.io.sockets.sockets.entries()) {
+        if (s.userId === decoded.id && socketId !== socket.id) {
+          console.log(`⚠️ [AUTH] Cerrando conexión anterior del admin ${decoded.id} (socket: ${socketId})`);
+          
+          s.emit("session-replaced", {
+            message: "Tu sesión fue reemplazada por una nueva conexión",
+            reason: "new_connection",
+          });
+          
+          roomsManager.limpiarSocket(socketId);
+          s.disconnect(true);
+        }
+      }
+    }
+    // ======= FIN VERIFICACIÓN DE DUPLICADOS =======
 
     // Registrar conexión
     if (decoded.rol === "cajero") {
