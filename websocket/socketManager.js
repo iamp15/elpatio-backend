@@ -1,5 +1,6 @@
 /**
  * Módulo básico de gestión de WebSockets
+ * Refactorizado: Handlers extraídos a módulos separados
  */
 
 const DepositoWebSocketController = require("./depositos/depositoController");
@@ -7,6 +8,41 @@ const RoomsManager = require("./roomsManager");
 const ConnectionStateManager = require("./connectionStateManager");
 const ConnectionRecoveryManager = require("./connectionRecoveryManager");
 const TransactionTimeoutManager = require("./transactionTimeoutManager");
+
+// Importar handlers
+const {
+  authenticateJugador,
+  authenticateCajero,
+  authenticateBot,
+} = require("./handlers/authHandlers");
+const {
+  handleCambiarEstadoCajero,
+  handleUnirseTransaccion,
+  handleSalirTransaccion,
+  handleObtenerStatsRooms,
+  handleDiagnosticarRoomsTransacciones,
+  handleLimpiarRoomsHuerfanos,
+  handleUnirseRoomTransaccion,
+} = require("./handlers/roomHandlers");
+const {
+  handleObtenerEstadoCompleto,
+  handleObtenerEstadisticas,
+  handleObtenerEstadoCajeros,
+  handleObtenerEstadoJugadores,
+  handleObtenerEstadoTransacciones,
+  handleUnirseDashboard,
+} = require("./handlers/dashboardHandlers");
+const {
+  handleTestNotificationCajeros,
+  handleTestNotificationJugador,
+  handleTestNotificationTransaccion,
+} = require("./handlers/testHandlers");
+const {
+  handleSolicitarDeposito,
+  handleAtenderDeposito,
+  handleConfirmarDeposito,
+  handleRechazarDeposito,
+} = require("./handlers/legacyHandlers");
 
 class SocketManager {
   constructor() {
@@ -72,6 +108,20 @@ class SocketManager {
   }
 
   /**
+   * Obtener contexto para pasar a handlers
+   */
+  getContext() {
+    return {
+      socketManager: this,
+      io: this.io,
+      roomsManager: this.roomsManager,
+      connectionStateManager: this.connectionStateManager,
+      connectionRecoveryManager: this.connectionRecoveryManager,
+      depositoController: this.depositoController,
+    };
+  }
+
+  /**
    * Configurar manejadores de eventos básicos
    */
   setupEventHandlers() {
@@ -84,7 +134,7 @@ class SocketManager {
       socket.on("auth-jugador", async (data) => {
         console.log("🔐 [AUTH] Evento auth-jugador recibido:", data);
         try {
-          const result = await this.authenticateJugador(socket, data);
+          const result = await authenticateJugador(this.getContext(), socket, data);
           console.log("🔐 [AUTH] Resultado autenticación jugador:", result);
           socket.emit("auth-result", result);
         } catch (error) {
@@ -100,7 +150,7 @@ class SocketManager {
       socket.on("auth-cajero", async (data) => {
         console.log("🔐 [AUTH] Evento auth-cajero recibido:", data);
         try {
-          const result = await this.authenticateCajero(socket, data);
+          const result = await authenticateCajero(this.getContext(), socket, data);
           console.log("🔐 [AUTH] Resultado autenticación cajero:", result);
           socket.emit("auth-result", result);
         } catch (error) {
@@ -116,7 +166,7 @@ class SocketManager {
       socket.on("auth-bot", async (data) => {
         console.log("🔐 [AUTH] Evento auth-bot recibido:", data);
         try {
-          const result = await this.authenticateBot(socket, data);
+          const result = await authenticateBot(this.getContext(), socket, data);
           console.log("🔐 [AUTH] Resultado autenticación bot:", result);
           socket.emit("auth-result", result);
         } catch (error) {
@@ -128,26 +178,22 @@ class SocketManager {
         }
       });
 
-      // Eventos de depósitos
-      socket.on("solicitar-deposito", (data) => {
-        this.handleSolicitarDeposito(socket, data);
-      });
-
+      // Eventos de depósitos (legacy - compatibilidad)
       socket.on("atender-deposito", (data) => {
-        this.handleAtenderDeposito(socket, data);
+        handleAtenderDeposito(this.getContext(), socket, data);
       });
 
       socket.on("confirmar-deposito", (data) => {
-        this.handleConfirmarDeposito(socket, data);
+        handleConfirmarDeposito(this.getContext(), socket, data);
       });
 
       socket.on("rechazar-deposito", (data) => {
-        this.handleRechazarDeposito(socket, data);
+        handleRechazarDeposito(this.getContext(), socket, data);
       });
 
       // ===== EVENTOS DE DEPÓSITOS =====
 
-      // Solicitar depósito (jugador)
+      // Solicitar depósito (jugador) - Evento oficial (sobrescribe legacy si existe)
       socket.on("solicitar-deposito", async (data) => {
         try {
           await this.depositoController.solicitarDeposito(socket, data);
@@ -191,49 +237,49 @@ class SocketManager {
 
       // Cambiar estado de cajero (disponible/ocupado)
       socket.on("cambiar-estado-cajero", (data) => {
-        this.handleCambiarEstadoCajero(socket, data);
+        handleCambiarEstadoCajero(this.getContext(), socket, data);
       });
 
       // Unirse a room de transacción
       socket.on("unirse-transaccion", (data) => {
-        this.handleUnirseTransaccion(socket, data);
+        handleUnirseTransaccion(this.getContext(), socket, data);
       });
 
       // Salir de room de transacción
       socket.on("salir-transaccion", (data) => {
-        this.handleSalirTransaccion(socket, data);
+        handleSalirTransaccion(this.getContext(), socket, data);
       });
 
       // Obtener estadísticas de rooms
       socket.on("obtener-stats-rooms", () => {
-        this.handleObtenerStatsRooms(socket);
+        handleObtenerStatsRooms(this.getContext(), socket);
       });
 
       // Diagnosticar rooms de transacciones
       socket.on("diagnosticar-rooms-transacciones", () => {
-        this.handleDiagnosticarRoomsTransacciones(socket);
+        handleDiagnosticarRoomsTransacciones(this.getContext(), socket);
       });
 
       // Limpiar rooms huérfanos
       socket.on("limpiar-rooms-huerfanos", () => {
-        this.handleLimpiarRoomsHuerfanos(socket);
+        handleLimpiarRoomsHuerfanos(this.getContext(), socket);
       });
 
       // ===== EVENTOS DE PRUEBA DE NOTIFICACIONES =====
 
       // Prueba de notificación a cajeros disponibles
       socket.on("test-notification-cajeros", (data) => {
-        this.handleTestNotificationCajeros(socket, data);
+        handleTestNotificationCajeros(this.getContext(), socket, data);
       });
 
       // Prueba de notificación a jugador específico
       socket.on("test-notification-jugador", (data) => {
-        this.handleTestNotificationJugador(socket, data);
+        handleTestNotificationJugador(this.getContext(), socket, data);
       });
 
       // Prueba de notificación a transacción
       socket.on("test-notification-transaccion", (data) => {
-        this.handleTestNotificationTransaccion(socket, data);
+        handleTestNotificationTransaccion(this.getContext(), socket, data);
       });
 
       // ===== EVENTOS DE ACEPTACIÓN DE SOLICITUDES =====
@@ -247,7 +293,7 @@ class SocketManager {
 
       // Unirse a room de transacción (para reconexión)
       socket.on("unirse-room-transaccion", (data) => {
-        this.handleUnirseRoomTransaccion(socket, data);
+        handleUnirseRoomTransaccion(this.getContext(), socket, data);
       });
 
       // Remover listener existente si existe para evitar duplicación
@@ -298,32 +344,32 @@ class SocketManager {
 
       // Obtener estado completo del sistema
       socket.on("obtener-estado-completo", () => {
-        this.handleObtenerEstadoCompleto(socket);
+        handleObtenerEstadoCompleto(this.getContext(), socket);
       });
 
       // Obtener solo estadísticas
       socket.on("obtener-estadisticas", () => {
-        this.handleObtenerEstadisticas(socket);
+        handleObtenerEstadisticas(this.getContext(), socket);
       });
 
       // Obtener estado de cajeros
       socket.on("obtener-estado-cajeros", () => {
-        this.handleObtenerEstadoCajeros(socket);
+        handleObtenerEstadoCajeros(this.getContext(), socket);
       });
 
       // Obtener estado de jugadores
       socket.on("obtener-estado-jugadores", () => {
-        this.handleObtenerEstadoJugadores(socket);
+        handleObtenerEstadoJugadores(this.getContext(), socket);
       });
 
       // Obtener estado de transacciones
       socket.on("obtener-estado-transacciones", () => {
-        this.handleObtenerEstadoTransacciones(socket);
+        handleObtenerEstadoTransacciones(this.getContext(), socket);
       });
 
       // Unirse al dashboard de administración
       socket.on("unirse-dashboard", () => {
-        this.handleUnirseDashboard(socket);
+        handleUnirseDashboard(this.getContext(), socket);
       });
 
       // Manejar desconexión
@@ -407,776 +453,6 @@ class SocketManager {
     };
   }
 
-  /**
-   * Autenticar jugador usando datos de Telegram
-   */
-  async authenticateJugador(socket, data) {
-    const { telegramId, initData } = data;
-
-    if (!telegramId || !initData) {
-      return {
-        success: false,
-        message: "Datos de autenticación incompletos",
-      };
-    }
-
-    try {
-      // Validar datos de Telegram (simplificado por ahora)
-      // En producción, deberías validar la firma de initData
-
-      // Buscar jugador en la base de datos
-      const Jugador = require("../models/Jugador");
-      const jugador = await Jugador.findOne({ telegramId });
-
-      if (!jugador) {
-        return {
-          success: false,
-          message: "Jugador no encontrado",
-        };
-      }
-
-      // Registrar conexión
-      this.connectedUsers.set(telegramId, socket.id);
-      this.connectedPlayers.set(telegramId, socket.id); // Registrar como jugador en app de depósitos
-      socket.telegramId = telegramId;
-      socket.jugadorId = jugador._id; // Agregar jugadorId al socket
-      socket.userType = "jugador";
-
-      // Agregar jugador a su room personal
-      this.roomsManager.agregarJugador(telegramId, socket.id);
-
-      // Agregar jugador al estado de conexión
-      this.connectionStateManager.agregarJugador(telegramId, socket.id, {
-        nombre: jugador.nickname || jugador.firstName || "Usuario",
-        nickname: jugador.nickname,
-      });
-
-      console.log(
-        `👤 Jugador autenticado: ${
-          jugador.nickname || jugador.firstName
-        } (${telegramId})`
-      );
-
-      // Verificar si hay sesión para recuperar
-      const recovery = await this.connectionRecoveryManager.handleReconnection(
-        socket,
-        telegramId
-      );
-
-      if (recovery.recovered) {
-        console.log(
-          `🔄 [RECOVERY] Jugador ${telegramId} recuperó ${recovery.transactionsRecovered.length} transacciones`
-        );
-      }
-
-      return {
-        success: true,
-        message: "Autenticación exitosa",
-        user: {
-          id: jugador._id,
-          telegramId: jugador.telegramId,
-          nombre: jugador.nickname || jugador.firstName || "Usuario",
-          nickname: jugador.nickname,
-          firstName: jugador.firstName,
-          username: jugador.username,
-        },
-        recovery: recovery.recovered
-          ? {
-              transactionsRecovered: recovery.transactionsRecovered,
-              disconnectionDuration: recovery.disconnectionDuration,
-            }
-          : null,
-      };
-    } catch (error) {
-      console.error("Error autenticando jugador:", error);
-      return {
-        success: false,
-        message: "Error validando datos de Telegram",
-      };
-    }
-  }
-
-  /**
-   * Autenticar cajero usando JWT
-   */
-  async authenticateCajero(socket, data) {
-    const { token } = data;
-
-    if (!token) {
-      return {
-        success: false,
-        message: "Token JWT requerido",
-      };
-    }
-
-    try {
-      // Verificar JWT
-      const jwt = require("jsonwebtoken");
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-      // Permitir cajeros, admins y superadmins
-      const rolesPermitidos = ["cajero", "admin", "superadmin"];
-      if (!rolesPermitidos.includes(decoded.rol)) {
-        return {
-          success: false,
-          message: "Token no válido para cajero o administrador",
-        };
-      }
-
-      // Para admins, buscar en modelo Admin, para cajeros en modelo Cajero
-      let usuario;
-      if (decoded.rol === "cajero") {
-        const Cajero = require("../models/Cajero");
-        usuario = await Cajero.findById(decoded.id);
-      } else if (["admin", "superadmin"].includes(decoded.rol)) {
-        const Admin = require("../models/Admin");
-        usuario = await Admin.findById(decoded.id);
-      }
-
-      if (!usuario) {
-        return {
-          success: false,
-          message: "Usuario no encontrado",
-        };
-      }
-
-      // Registrar conexión
-      if (decoded.rol === "cajero") {
-        this.connectedCajeros.set(decoded.id, socket.id);
-        socket.cajeroId = decoded.id;
-        socket.userType = "cajero";
-
-        // Agregar cajero a room de disponibles por defecto
-        this.roomsManager.agregarCajeroDisponible(decoded.id, socket.id);
-
-        // Agregar cajero al estado de conexión
-        this.connectionStateManager.agregarCajero(decoded.id, socket.id, {
-          nombre: usuario.nombreCompleto,
-          email: usuario.email,
-        });
-      } else {
-        // Para admins, solo marcar el tipo de usuario
-        socket.userId = decoded.id;
-        socket.userType = decoded.rol; // "admin" o "superadmin"
-      }
-
-      if (decoded.rol === "cajero") {
-        console.log(
-          `🏦 Cajero autenticado: ${usuario.nombreCompleto} (${decoded.id})`
-        );
-
-        // Verificar si hay sesión para recuperar (solo para cajeros)
-        const recovery = await this.connectionRecoveryManager.handleReconnection(
-          socket,
-          decoded.id
-        );
-
-        if (recovery.recovered) {
-          console.log(
-            `🔄 [RECOVERY] Cajero ${decoded.id} recuperó ${recovery.transactionsRecovered.length} transacciones`
-          );
-        }
-
-        return {
-          success: true,
-          message: "Autenticación exitosa",
-          user: {
-            id: usuario._id,
-            nombre: usuario.nombreCompleto,
-            email: usuario.email,
-            rol: decoded.rol,
-          },
-          recovery: recovery.recovered
-            ? {
-                transactionsRecovered: recovery.transactionsRecovered,
-                disconnectionDuration: recovery.disconnectionDuration,
-              }
-            : null,
-        };
-      } else {
-        // Para admins
-        console.log(
-          `👑 Admin autenticado: ${usuario.email || decoded.id} (${decoded.rol})`
-        );
-
-        return {
-          success: true,
-          message: "Autenticación exitosa",
-          user: {
-            id: usuario._id,
-            email: usuario.email,
-            rol: decoded.rol,
-          },
-          userType: decoded.rol,
-        };
-      }
-    } catch (error) {
-      console.error("Error autenticando cajero/admin:", error);
-      return {
-        success: false,
-        message: "Token JWT inválido",
-      };
-    }
-  }
-
-  /**
-   * Autenticar bot vía WebSocket
-   */
-  async authenticateBot(socket, data) {
-    const { token } = data;
-
-    if (!token) {
-      return {
-        success: false,
-        message: "Token JWT requerido",
-      };
-    }
-
-    try {
-      // Verificar JWT
-      const jwt = require("jsonwebtoken");
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-      if (decoded.rol !== "bot") {
-        return {
-          success: false,
-          message: "Token no válido para bot",
-        };
-      }
-
-      // Registrar conexión
-      this.connectedBots.set(decoded.id, socket.id);
-      socket.botId = decoded.id;
-      socket.userType = "bot";
-
-      console.log(`🤖 Bot autenticado: ${decoded.id}`);
-
-      return {
-        success: true,
-        message: "Autenticación exitosa",
-        user: {
-          id: decoded.id,
-          rol: "bot",
-        },
-      };
-    } catch (error) {
-      console.error("Error autenticando bot:", error);
-      return {
-        success: false,
-        message: "Token JWT inválido",
-      };
-    }
-  }
-
-  /**
-   * Manejar solicitud de depósito
-   */
-  handleSolicitarDeposito(socket, data) {
-    if (socket.userType !== "jugador") {
-      socket.emit("error", {
-        message: "Solo jugadores pueden solicitar depósitos",
-      });
-      return;
-    }
-
-    console.log(
-      `💰 Solicitud de depósito de jugador ${socket.telegramId}:`,
-      data
-    );
-
-    // Notificar a todos los cajeros conectados
-    this.connectedCajeros.forEach((cajeroSocketId, cajeroId) => {
-      const cajeroSocket = this.io.sockets.sockets.get(cajeroSocketId);
-      if (cajeroSocket) {
-        cajeroSocket.emit("nueva-solicitud-deposito", {
-          jugadorId: socket.telegramId,
-          socketId: socket.id,
-          ...data,
-        });
-      }
-    });
-
-    socket.emit("solicitud-enviada", {
-      message: "Solicitud enviada a cajeros",
-    });
-  }
-
-  /**
-   * Manejar atención de depósito por cajero
-   */
-  handleAtenderDeposito(socket, data) {
-    if (socket.userType !== "cajero") {
-      socket.emit("error", {
-        message: "Solo cajeros pueden atender depósitos",
-      });
-      return;
-    }
-
-    const { jugadorSocketId } = data;
-    const jugadorSocket = this.io.sockets.sockets.get(jugadorSocketId);
-
-    if (jugadorSocket) {
-      jugadorSocket.emit("deposito-atendido", {
-        cajeroId: socket.cajeroId,
-        message: "Tu solicitud está siendo atendida",
-      });
-    }
-
-    console.log(`🏦 Cajero ${socket.cajeroId} atendiendo depósito de jugador`);
-  }
-
-  /**
-   * Manejar confirmación de depósito
-   */
-  handleConfirmarDeposito(socket, data) {
-    if (socket.userType !== "cajero") {
-      socket.emit("error", {
-        message: "Solo cajeros pueden confirmar depósitos",
-      });
-      return;
-    }
-
-    const { jugadorSocketId, transaccionId, notas } = data || {};
-
-    // Compatibilidad hacia atrás: antes solo notificábamos al jugador.
-    // Ahora delegamos al flujo oficial que CONFIRMA y COMPLETA la transacción,
-    // acredita saldo y emite los eventos correspondientes.
-    try {
-      console.log(
-        "🔄 [BACKCOMPAT] Delegando confirmar-deposito -> verificar-pago-cajero (confirmar)",
-        { transaccionId, socketId: socket.id }
-      );
-      this.depositoController.verificarPagoCajero(socket, {
-        transaccionId,
-        accion: "confirmar",
-        notas: notas || "Confirmado vía confirmar-deposito (compatibilidad)",
-      });
-    } catch (error) {
-      console.error("❌ Error delegando confirmar-deposito:", error);
-      socket.emit("error", { message: "Error confirmando depósito" });
-    }
-
-    // Además, mantener la notificación directa al jugador por compatibilidad
-    if (jugadorSocketId) {
-      const jugadorSocket = this.io.sockets.sockets.get(jugadorSocketId);
-      if (jugadorSocket) {
-        jugadorSocket.emit("deposito-confirmado", {
-          transaccionId,
-          message: "Depósito confirmado exitosamente",
-        });
-      }
-    }
-
-    console.log(`✅ Depósito confirmado por cajero ${socket.cajeroId}`);
-  }
-
-  /**
-   * Manejar rechazo de depósito
-   */
-  handleRechazarDeposito(socket, data) {
-    if (socket.userType !== "cajero") {
-      socket.emit("error", {
-        message: "Solo cajeros pueden rechazar depósitos",
-      });
-      return;
-    }
-
-    const { jugadorSocketId, motivo } = data;
-    const jugadorSocket = this.io.sockets.sockets.get(jugadorSocketId);
-
-    if (jugadorSocket) {
-      jugadorSocket.emit("deposito-rechazado", {
-        motivo,
-        message: "Depósito rechazado",
-      });
-    }
-
-    console.log(
-      `❌ Depósito rechazado por cajero ${socket.cajeroId}: ${motivo}`
-    );
-  }
-
-  /**
-   * Manejar cambio de estado de cajero
-   */
-  handleCambiarEstadoCajero(socket, data) {
-    if (socket.userType !== "cajero") {
-      socket.emit("error", {
-        message: "Solo cajeros pueden cambiar su estado",
-      });
-      return;
-    }
-
-    const { estado } = data; // "disponible" o "ocupado"
-
-    if (estado === "disponible") {
-      this.roomsManager.agregarCajeroDisponible(socket.cajeroId, socket.id);
-      socket.emit("estado-cambiado", {
-        estado: "disponible",
-        message: "Estado cambiado a disponible",
-      });
-    } else if (estado === "ocupado") {
-      this.roomsManager.moverCajeroAOcupado(socket.cajeroId, socket.id);
-      socket.emit("estado-cambiado", {
-        estado: "ocupado",
-        message: "Estado cambiado a ocupado",
-      });
-    } else {
-      socket.emit("error", {
-        message: "Estado inválido. Use 'disponible' o 'ocupado'",
-      });
-    }
-  }
-
-  /**
-   * Manejar unirse a room de transacción
-   */
-  handleUnirseTransaccion(socket, data) {
-    const { transaccionId } = data;
-
-    if (!transaccionId) {
-      socket.emit("error", {
-        message: "ID de transacción requerido",
-      });
-      return;
-    }
-
-    this.roomsManager.agregarParticipanteTransaccion(transaccionId, socket.id);
-    socket.emit("unido-transaccion", {
-      transaccionId,
-      message: `Unido a transacción ${transaccionId}`,
-    });
-  }
-
-  /**
-   * Manejar salir de room de transacción
-   */
-  handleSalirTransaccion(socket, data) {
-    const { transaccionId } = data;
-
-    if (!transaccionId) {
-      socket.emit("error", {
-        message: "ID de transacción requerido",
-      });
-      return;
-    }
-
-    const socketObj = this.io.sockets.sockets.get(socket.id);
-    if (socketObj) {
-      socketObj.leave(`transaccion-${transaccionId}`);
-    }
-
-    socket.emit("salido-transaccion", {
-      transaccionId,
-      message: `Salido de transacción ${transaccionId}`,
-    });
-  }
-
-  /**
-   * Manejar obtener estadísticas de rooms
-   */
-  handleObtenerStatsRooms(socket) {
-    const stats = this.roomsManager.getStats();
-    socket.emit("stats-rooms", stats);
-  }
-
-  /**
-   * Manejar diagnóstico de rooms de transacciones
-   */
-  handleDiagnosticarRoomsTransacciones(socket) {
-    // Verificar permisos (solo admins/cajeros)
-    if (socket.userType !== "cajero" && socket.userType !== "admin") {
-      socket.emit("error", {
-        message: "Solo cajeros y administradores pueden diagnosticar rooms",
-      });
-      return;
-    }
-
-    const diagnostico = this.roomsManager.diagnosticarRoomsTransacciones();
-    socket.emit("diagnostico-rooms-transacciones", diagnostico);
-
-    console.log(
-      `🔍 [DIAGNOSTICO] Diagnóstico de rooms enviado a ${socket.id}:`,
-      {
-        total: diagnostico.totalRooms,
-        conParticipantes: diagnostico.roomsConParticipantes,
-        vacios: diagnostico.roomsVacios,
-        protegidos: diagnostico.roomsProtegidos,
-        huerfanos: diagnostico.roomsHuerfanos,
-      }
-    );
-  }
-
-  /**
-   * Manejar limpieza de rooms huérfanos
-   */
-  handleLimpiarRoomsHuerfanos(socket) {
-    // Verificar permisos (solo admins/cajeros)
-    if (socket.userType !== "cajero" && socket.userType !== "admin") {
-      socket.emit("error", {
-        message: "Solo cajeros y administradores pueden limpiar rooms",
-      });
-      return;
-    }
-
-    const resultado = this.roomsManager.limpiarRoomsVacios();
-    socket.emit("limpieza-rooms-completada", resultado);
-
-    console.log(
-      `🧹 [LIMPIEZA] Limpieza de rooms completada por ${socket.id}:`,
-      {
-        limpiados: resultado.limpiados,
-        protegidos: resultado.protegidos,
-        conParticipantes: resultado.conParticipantes,
-      }
-    );
-  }
-
-  /**
-   * Manejar prueba de notificación a cajeros disponibles
-   */
-  handleTestNotificationCajeros(socket, data) {
-    if (!socket.userType) {
-      socket.emit("error", {
-        message: "Debe estar autenticado para enviar notificaciones de prueba",
-      });
-      return;
-    }
-
-    const notificacion = {
-      tipo: "prueba",
-      mensaje: data.message || "Notificación de prueba a cajeros disponibles",
-      timestamp: data.timestamp || new Date().toISOString(),
-      enviadoPor:
-        socket.userType === "cajero" ? socket.cajeroId : socket.telegramId,
-    };
-
-    // Enviar a todos los cajeros disponibles
-    this.roomsManager.notificarCajerosDisponibles(
-      "notificacion-prueba",
-      notificacion
-    );
-
-    // Confirmar al emisor
-    socket.emit("notificacion-enviada", {
-      tipo: "cajeros-disponibles",
-      destinatarios: this.roomsManager.rooms.cajerosDisponibles.size,
-      mensaje: "Notificación enviada a cajeros disponibles",
-    });
-
-    console.log(
-      `🧪 [TEST] Notificación de prueba enviada a ${this.roomsManager.rooms.cajerosDisponibles.size} cajeros disponibles`
-    );
-  }
-
-  /**
-   * Manejar prueba de notificación a jugador específico
-   */
-  handleTestNotificationJugador(socket, data) {
-    if (!socket.userType) {
-      socket.emit("error", {
-        message: "Debe estar autenticado para enviar notificaciones de prueba",
-      });
-      return;
-    }
-
-    const { telegramId } = data;
-    if (!telegramId) {
-      socket.emit("error", {
-        message: "telegramId requerido para notificar jugador específico",
-      });
-      return;
-    }
-
-    const notificacion = {
-      tipo: "prueba",
-      mensaje: data.message || "Notificación de prueba a jugador específico",
-      timestamp: data.timestamp || new Date().toISOString(),
-      enviadoPor:
-        socket.userType === "cajero" ? socket.cajeroId : socket.telegramId,
-    };
-
-    // Enviar al jugador específico
-    this.roomsManager.notificarJugador(
-      telegramId,
-      "notificacion-prueba",
-      notificacion
-    );
-
-    // Confirmar al emisor
-    socket.emit("notificacion-enviada", {
-      tipo: "jugador-especifico",
-      destinatario: telegramId,
-      mensaje: `Notificación enviada a jugador ${telegramId}`,
-    });
-
-    console.log(
-      `🧪 [TEST] Notificación de prueba enviada a jugador ${telegramId}`
-    );
-  }
-
-  /**
-   * Manejar prueba de notificación a transacción
-   */
-  handleTestNotificationTransaccion(socket, data) {
-    if (!socket.userType) {
-      socket.emit("error", {
-        message: "Debe estar autenticado para enviar notificaciones de prueba",
-      });
-      return;
-    }
-
-    const { transaccionId } = data;
-    if (!transaccionId) {
-      socket.emit("error", {
-        message: "transaccionId requerido para notificar transacción",
-      });
-      return;
-    }
-
-    const notificacion = {
-      tipo: "prueba",
-      mensaje: data.message || "Notificación de prueba a transacción",
-      timestamp: data.timestamp || new Date().toISOString(),
-      transaccionId: transaccionId,
-      enviadoPor:
-        socket.userType === "cajero" ? socket.cajeroId : socket.telegramId,
-    };
-
-    // Enviar a participantes de la transacción
-    this.roomsManager.notificarTransaccion(
-      transaccionId,
-      "notificacion-prueba",
-      notificacion
-    );
-
-    // Confirmar al emisor
-    const participantes =
-      this.roomsManager.rooms.transacciones.get(transaccionId);
-    socket.emit("notificacion-enviada", {
-      tipo: "transaccion",
-      transaccionId: transaccionId,
-      destinatarios: participantes ? participantes.size : 0,
-      mensaje: `Notificación enviada a transacción ${transaccionId}`,
-    });
-
-    console.log(
-      `🧪 [TEST] Notificación de prueba enviada a transacción ${transaccionId}`
-    );
-  }
-
-  /**
-   * Manejar obtener estado completo del sistema
-   */
-  handleObtenerEstadoCompleto(socket) {
-    const estado = this.connectionStateManager.getEstadoCompleto();
-    socket.emit("estado-completo", estado);
-    console.log(`📊 [DASHBOARD] Estado completo enviado a ${socket.id}`);
-  }
-
-  /**
-   * Manejar obtener solo estadísticas
-   */
-  handleObtenerEstadisticas(socket) {
-    const estadisticas = this.connectionStateManager.getEstadisticas();
-    socket.emit("estadisticas", estadisticas);
-    console.log(`📊 [DASHBOARD] Estadísticas enviadas a ${socket.id}`);
-  }
-
-  /**
-   * Manejar obtener estado de cajeros
-   */
-  handleObtenerEstadoCajeros(socket) {
-    const cajeros = this.connectionStateManager.getEstadoCajeros();
-    socket.emit("estado-cajeros", cajeros);
-    console.log(`🏦 [DASHBOARD] Estado de cajeros enviado a ${socket.id}`);
-  }
-
-  /**
-   * Manejar obtener estado de jugadores
-   */
-  handleObtenerEstadoJugadores(socket) {
-    const jugadores = this.connectionStateManager.getEstadoJugadores();
-    socket.emit("estado-jugadores", jugadores);
-    console.log(`👤 [DASHBOARD] Estado de jugadores enviado a ${socket.id}`);
-  }
-
-  /**
-   * Manejar obtener estado de transacciones
-   */
-  handleObtenerEstadoTransacciones(socket) {
-    const transacciones = this.connectionStateManager.getEstadoTransacciones();
-    socket.emit("estado-transacciones", transacciones);
-    console.log(
-      `💰 [DASHBOARD] Estado de transacciones enviado a ${socket.id}`
-    );
-  }
-
-  /**
-   * Manejar unirse al dashboard de administración
-   */
-  handleUnirseDashboard(socket) {
-    // Verificar si el usuario tiene permisos de administración
-    if (socket.userType !== "cajero" && socket.userType !== "admin" && socket.userType !== "superadmin") {
-      socket.emit("error", {
-        message: "Solo cajeros y administradores pueden acceder al dashboard",
-      });
-      return;
-    }
-
-    // Unirse al room de administración
-    this.roomsManager.agregarAdmin(socket.id);
-
-    // Enviar estado actual
-    const estado = this.connectionStateManager.getEstadoCompleto();
-    socket.emit("dashboard-conectado", {
-      message: "Conectado al dashboard de administración",
-      estado: estado,
-    });
-
-    console.log(
-      `👑 [DASHBOARD] Usuario ${socket.userType} se unió al dashboard`
-    );
-  }
-
-  /**
-   * Manejar unirse a room de transacción (para reconexión)
-   */
-  handleUnirseRoomTransaccion(socket, data) {
-    try {
-      const { transaccionId } = data;
-
-      // Verificar que el socket esté autenticado
-      if (!socket.userType) {
-        socket.emit("error", {
-          message: "Debe estar autenticado para unirse a rooms",
-        });
-        return;
-      }
-
-      console.log(
-        `🔄 [ROOM] ${socket.userType} ${socket.id} se une a room de transacción ${transaccionId}`
-      );
-
-      // Agregar al room de transacción
-      this.roomsManager.agregarParticipanteTransaccion(
-        transaccionId,
-        socket.id,
-        socket.userType
-      );
-
-      // Confirmar unión al room
-      socket.emit("room-transaccion-unido", {
-        transaccionId,
-        message: `Unido a room de transacción ${transaccionId}`,
-      });
-    } catch (error) {
-      console.error("❌ Error uniéndose a room de transacción:", error);
-      socket.emit("error", {
-        message: "Error uniéndose a room de transacción",
-      });
-    }
-  }
 }
 
 // Crear instancia única
