@@ -375,15 +375,27 @@ class SocketManager {
       });
 
       // Manejar logout de cajero (cuando el cajero cierra sesión sin cerrar la ventana)
-      socket.on("logout-cajero", () => {
+      socket.on("logout-cajero", (data, callback) => {
         if (socket.userType === "cajero" && socket.cajeroId) {
           console.log(`🚪 [LOGOUT] Cajero ${socket.cajeroId} cerrando sesión`);
           this.removerCajeroPorId(socket.cajeroId);
           // Limpiar el socket de rooms
           this.roomsManager.limpiarSocket(socket.id);
-          socket.emit("logout-confirmado", { message: "Sesión cerrada correctamente" });
+          
+          // Confirmar recepción del evento si hay callback
+          if (typeof callback === "function") {
+            callback({ success: true, message: "Sesión cerrada correctamente" });
+          } else {
+            // Fallback: emitir evento de confirmación
+            socket.emit("logout-confirmado", { message: "Sesión cerrada correctamente" });
+          }
         } else {
-          socket.emit("error", { message: "Solo cajeros pueden cerrar sesión" });
+          const errorMessage = "Solo cajeros pueden cerrar sesión";
+          if (typeof callback === "function") {
+            callback({ success: false, message: errorMessage });
+          } else {
+            socket.emit("error", { message: errorMessage });
+          }
         }
       });
 
