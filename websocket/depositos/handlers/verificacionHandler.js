@@ -407,6 +407,12 @@ async function verificarPagoCajero(context, socket, data) {
         console.log(
           `🔍 [DEPOSITO] [DEBUG] Log registrado exitosamente, finalizando flujo de confirmación`
         );
+
+        // Limpiar estado de procesamiento después de completar exitosamente
+        context.processingTransactions.delete(transaccionId);
+        console.log(
+          `✅ [DEPOSITO] Transacción ${transaccionId} removida de processingTransactions después de completar`
+        );
       } else {
         // Rechazar el pago - estructura simplificada
         const motivoRechazo = data.motivoRechazo || {};
@@ -518,6 +524,12 @@ async function verificarPagoCajero(context, socket, data) {
         const websocketHelper = require("../../../utils/websocketHelper");
         websocketHelper.initialize(context.socketManager);
         await websocketHelper.limpiarRoomTransaccionFinalizada(transaccion);
+
+        // Limpiar estado de procesamiento después de rechazar
+        context.processingTransactions.delete(transaccionId);
+        console.log(
+          `✅ [DEPOSITO] Transacción ${transaccionId} removida de processingTransactions después de rechazar`
+        );
       }
     } catch (error) {
       console.error(
