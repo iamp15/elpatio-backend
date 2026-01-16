@@ -203,15 +203,8 @@ class SocketManager {
         }
       });
 
-      // Aceptar solicitud (cajero)
-      socket.on("aceptar-solicitud", async (data) => {
-        try {
-          await this.depositoController.aceptarSolicitud(socket, data);
-        } catch (error) {
-          console.error("❌ Error en aceptar-solicitud:", error);
-          socket.emit("error", { message: "Error interno del servidor" });
-        }
-      });
+      // NOTA: El handler de 'aceptar-solicitud' está registrado más abajo
+      // con removeAllListeners para evitar duplicación (ver línea ~280)
 
       // Confirmar pago (jugador)
       socket.on("confirmar-pago-jugador", async (data) => {
@@ -223,15 +216,8 @@ class SocketManager {
         }
       });
 
-      // Verificar pago (cajero)
-      socket.on("verificar-pago-cajero", async (data) => {
-        try {
-          await this.depositoController.verificarPagoCajero(socket, data);
-        } catch (error) {
-          console.error("❌ Error en verificar-pago-cajero:", error);
-          socket.emit("error", { message: "Error interno del servidor" });
-        }
-      });
+      // NOTA: El handler de 'verificar-pago-cajero' está registrado más abajo
+      // con removeAllListeners para evitar duplicación (ver línea ~300)
 
       // ===== EVENTOS DE ROOMS =====
 
@@ -288,7 +274,15 @@ class SocketManager {
       socket.removeAllListeners("aceptar-solicitud");
 
       socket.on("aceptar-solicitud", async (data) => {
-        await this.depositoController.aceptarSolicitud(socket, data);
+        try {
+          await this.depositoController.aceptarSolicitud(socket, data);
+        } catch (error) {
+          console.error("❌ Error en aceptar-solicitud:", error);
+          socket.emit("error", { 
+            message: "Error interno del servidor",
+            transaccionId: data.transaccionId 
+          });
+        }
       });
 
       // Unirse a room de transacción (para reconexión)
@@ -300,13 +294,21 @@ class SocketManager {
       socket.removeAllListeners("verificar-pago-cajero");
 
       socket.on("verificar-pago-cajero", async (data) => {
-        console.log("🔍 [SOCKET] Evento verificar-pago-cajero recibido:", {
-          transaccionId: data.transaccionId,
-          accion: data.accion,
-          socketId: socket.id,
-          timestamp: new Date().toISOString(),
-        });
-        await this.depositoController.verificarPagoCajero(socket, data);
+        try {
+          console.log("🔍 [SOCKET] Evento verificar-pago-cajero recibido:", {
+            transaccionId: data.transaccionId,
+            accion: data.accion,
+            socketId: socket.id,
+            timestamp: new Date().toISOString(),
+          });
+          await this.depositoController.verificarPagoCajero(socket, data);
+        } catch (error) {
+          console.error("❌ Error en verificar-pago-cajero:", error);
+          socket.emit("error", { 
+            message: "Error interno del servidor",
+            transaccionId: data.transaccionId 
+          });
+        }
       });
 
       // Referir transacción a administrador (desde cajero)
