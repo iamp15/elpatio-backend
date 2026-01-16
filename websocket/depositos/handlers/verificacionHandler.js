@@ -438,6 +438,9 @@ async function verificarPagoCajero(context, socket, data) {
         console.log(
           `✅ [DEPOSITO] Transacción ${transaccionId} removida de processingTransactions después de completar`
         );
+
+        // ¡IMPORTANTE! Salir del loop después de completar exitosamente
+        return;
       } else {
         // Rechazar el pago - estructura simplificada
         const motivoRechazo = data.motivoRechazo || {};
@@ -555,6 +558,9 @@ async function verificarPagoCajero(context, socket, data) {
         console.log(
           `✅ [DEPOSITO] Transacción ${transaccionId} removida de processingTransactions después de rechazar`
         );
+
+        // ¡IMPORTANTE! Salir del loop después de rechazar exitosamente
+        return;
       }
     } catch (error) {
       console.error(
