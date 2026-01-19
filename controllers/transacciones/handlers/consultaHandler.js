@@ -9,11 +9,6 @@ async function obtenerTransaccionesCajero(req, res) {
   try {
     const { estado, tipo, limite = 50 } = req.query;
 
-    console.log(
-      "🔍 [Backend] req.user en obtenerTransaccionesCajero:",
-      req.user
-    );
-
     // Validar que se proporcione un estado
     if (!estado) {
       return res.status(400).json({
