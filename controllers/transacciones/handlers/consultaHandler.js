@@ -16,12 +16,20 @@ async function obtenerTransaccionesCajero(req, res) {
       });
     }
 
-    // Estados válidos
+    // Estados válidos - incluye estados activos y finalizados
     const estadosValidos = [
+      // Estados activos
       "pendiente",
       "en_proceso",
       "realizada",
+      // Estados finalizados
       "completada",
+      "completada_con_ajuste",
+      "rechazada",
+      "cancelada",
+      "fallida",
+      "revertida",
+      "requiere_revision_admin",
     ];
     if (!estadosValidos.includes(estado)) {
       return res.status(400).json({
@@ -36,8 +44,17 @@ async function obtenerTransaccionesCajero(req, res) {
       estado: estado,
     };
 
-    // Para estados que requieren filtro por cajero
-    if (["en_proceso", "realizada", "completada", "completada_con_ajuste"].includes(estado)) {
+    // Estados que requieren filtro por cajero (excluyendo pendiente que es global)
+    const estadosConCajero = [
+      "en_proceso",
+      "realizada",
+      "completada",
+      "completada_con_ajuste",
+      "rechazada",
+      "revertida",
+      "requiere_revision_admin",
+    ];
+    if (estadosConCajero.includes(estado)) {
       filtros.cajeroId = req.user.id;
     }
 
