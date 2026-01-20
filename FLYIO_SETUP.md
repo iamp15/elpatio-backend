@@ -13,7 +13,9 @@ fly secrets set JWT_SECRET="tu_jwt_secret_seguro"
 fly secrets set JWT_EXPIRES_IN="24h"
 
 # CORS - Permitir miniapps de Vercel
-fly secrets set CORS_ORIGIN="https://elpatio-miniapps.vercel.app,https://tu-dominio.vercel.app"
+# Nota: La URL de la app de cajeros ya está incluida en el código (app.js)
+# Si necesitas agregar URLs adicionales, usa CORS_ADDITIONAL_ORIGINS:
+fly secrets set CORS_ADDITIONAL_ORIGINS="https://elpatio-app-cajeros-*.vercel.app"
 
 # Opcionales (si las usas)
 # fly secrets set BOT_TOKEN="tu_bot_token"

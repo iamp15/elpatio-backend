@@ -27,6 +27,7 @@ const corsOptions = {
       process.env.NODE_ENV === "production"
         ? [
             "https://elpatio-miniapps.vercel.app",
+            "https://elpatio-app-cajeros.vercel.app", // App de cajeros en Vercel
             "https://elpatio-backend.fly.dev",
             "https://telegram.org",
             "https://web.telegram.org",
@@ -40,6 +41,7 @@ const corsOptions = {
         : [
             "http://localhost:3000",
             "http://localhost:3002",
+            "http://localhost:3003", // App de cajeros
             "http://localhost:5173",
             "http://localhost:5174", // Dashboard de administración
             ...additionalOrigins,

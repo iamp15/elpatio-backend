@@ -70,6 +70,7 @@ class SocketManager {
           process.env.NODE_ENV === "production"
             ? [
                 "https://elpatio-miniapps.vercel.app",
+                "https://elpatio-app-cajeros.vercel.app", // App de cajeros en Vercel
                 "https://elpatio-backend.fly.dev",
                 "https://telegram.org", // Para Telegram Web Apps
                 "https://web.telegram.org", // Para Telegram Web Apps
