@@ -4,6 +4,7 @@ const {
   crearAdmin,
   loginAdmin,
   obtenerAdmins,
+  obtenerMiPerfil,
 } = require("../controllers/adminController");
 const {
   obtenerStatsGlobales,
@@ -18,6 +19,9 @@ router.post("/", auth, verificarMinimo("superadmin"), crearAdmin);
 
 //Login publico
 router.post("/login", loginAdmin);
+
+// Obtener perfil del admin autenticado
+router.get("/mi-perfil", auth, obtenerMiPerfil);
 
 //Obtener todos los admins (solo superadmin)
 router.get("/", auth, verificarMinimo("superadmin"), obtenerAdmins);

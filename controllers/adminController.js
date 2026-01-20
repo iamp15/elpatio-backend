@@ -80,6 +80,36 @@ exports.loginAdmin = async (req, res) => {
   }
 };
 
+// Obtener perfil del admin autenticado
+exports.obtenerMiPerfil = async (req, res) => {
+  try {
+    const adminId = req.user.id;
+
+    const admin = await Admin.findById(adminId).select(
+      "_id nombreCompleto email rol estado fechaCreacion"
+    );
+
+    if (!admin) {
+      return res.status(404).json({ mensaje: "Admin no encontrado" });
+    }
+
+    res.json({
+      mensaje: "Perfil obtenido correctamente",
+      admin: admin,
+      tokenInfo: {
+        id: req.user.id,
+        email: req.user.email,
+        rol: req.user.rol,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      mensaje: "Error al obtener el perfil",
+      error: error.message,
+    });
+  }
+};
+
 // Obtener todos los admins (visible para admin y superadmin)
 exports.obtenerAdmins = async (req, res) => {
   try {
