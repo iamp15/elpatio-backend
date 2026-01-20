@@ -83,17 +83,21 @@ exports.loginAdmin = async (req, res) => {
 // Obtener perfil del admin autenticado
 exports.obtenerMiPerfil = async (req, res) => {
   try {
+    console.log("👤 [MI-PERFIL] Solicitando perfil para usuario:", req.user);
     const adminId = req.user.id;
 
     const admin = await Admin.findById(adminId).select(
       "_id nombreCompleto email rol estado fechaCreacion"
     );
 
+    console.log("👤 [MI-PERFIL] Admin encontrado:", admin);
+
     if (!admin) {
+      console.log("❌ [MI-PERFIL] Admin no encontrado con ID:", adminId);
       return res.status(404).json({ mensaje: "Admin no encontrado" });
     }
 
-    res.json({
+    const response = {
       mensaje: "Perfil obtenido correctamente",
       admin: admin,
       tokenInfo: {
@@ -101,8 +105,12 @@ exports.obtenerMiPerfil = async (req, res) => {
         email: req.user.email,
         rol: req.user.rol,
       },
-    });
+    };
+
+    console.log("✅ [MI-PERFIL] Enviando respuesta:", JSON.stringify(response, null, 2));
+    res.json(response);
   } catch (error) {
+    console.error("❌ [MI-PERFIL] Error:", error);
     res.status(500).json({
       mensaje: "Error al obtener el perfil",
       error: error.message,
