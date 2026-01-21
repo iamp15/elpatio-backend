@@ -114,7 +114,7 @@ exports.obtenerMiPerfil = async (req, res) => {
 exports.obtenerAdmins = async (req, res) => {
   try {
     const admins = await Admin.find().select(
-      "_id nombreCompleto email rol estado"
+      "_id nombreCompleto email rol estado fechaCreacion"
     ); // no se incluye password
     res.json(admins);
   } catch (error) {
