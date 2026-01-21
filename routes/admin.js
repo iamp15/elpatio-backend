@@ -5,6 +5,8 @@ const {
   loginAdmin,
   obtenerAdmins,
   obtenerMiPerfil,
+  modificarAdmin,
+  eliminarAdmin,
 } = require("../controllers/adminController");
 const {
   obtenerStatsGlobales,
@@ -25,6 +27,12 @@ router.get("/mi-perfil", auth, obtenerMiPerfil);
 
 //Obtener todos los admins (solo superadmin)
 router.get("/", auth, verificarMinimo("superadmin"), obtenerAdmins);
+
+// Modificar admin (solo superadmin)
+router.put("/:id", auth, verificarMinimo("superadmin"), modificarAdmin);
+
+// Eliminar admin (solo superadmin)
+router.delete("/:id", auth, verificarMinimo("superadmin"), eliminarAdmin);
 
 //Obtener stats globales
 router.get("/stats", auth, verificarMinimo("admin"), obtenerStatsGlobales);

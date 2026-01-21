@@ -83,21 +83,17 @@ exports.loginAdmin = async (req, res) => {
 // Obtener perfil del admin autenticado
 exports.obtenerMiPerfil = async (req, res) => {
   try {
-    console.log("👤 [MI-PERFIL] Solicitando perfil para usuario:", req.user);
     const adminId = req.user.id;
 
     const admin = await Admin.findById(adminId).select(
       "_id nombreCompleto email rol estado fechaCreacion"
     );
 
-    console.log("👤 [MI-PERFIL] Admin encontrado:", admin);
-
     if (!admin) {
-      console.log("❌ [MI-PERFIL] Admin no encontrado con ID:", adminId);
       return res.status(404).json({ mensaje: "Admin no encontrado" });
     }
 
-    const response = {
+    res.json({
       mensaje: "Perfil obtenido correctamente",
       admin: admin,
       tokenInfo: {
@@ -105,12 +101,8 @@ exports.obtenerMiPerfil = async (req, res) => {
         email: req.user.email,
         rol: req.user.rol,
       },
-    };
-
-    console.log("✅ [MI-PERFIL] Enviando respuesta:", JSON.stringify(response, null, 2));
-    res.json(response);
+    });
   } catch (error) {
-    console.error("❌ [MI-PERFIL] Error:", error);
     res.status(500).json({
       mensaje: "Error al obtener el perfil",
       error: error.message,
@@ -128,6 +120,128 @@ exports.obtenerAdmins = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       mensaje: "Error al obtener los admins",
+      error: error.message,
+    });
+  }
+};
+
+// Modificar un admin (solo superadmin)
+exports.modificarAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nombreCompleto, email, password, rol, estado } = req.body;
+
+    // Buscar el admin
+    const admin = await Admin.findById(id);
+    if (!admin) {
+      return res.status(404).json({ mensaje: "Admin no encontrado" });
+    }
+
+    // No permitir modificar superadmins
+    if (admin.rol === "superadmin") {
+      return res.status(403).json({ 
+        mensaje: "No se puede modificar a un superadmin" 
+      });
+    }
+
+    // Actualizar solo los campos proporcionados
+    if (nombreCompleto !== undefined) admin.nombreCompleto = nombreCompleto;
+    if (email !== undefined) admin.email = email;
+    
+    // Validar rol si se proporciona (no se puede asignar rol superadmin)
+    if (rol !== undefined) {
+      const rolesPermitidos = ["admin", "moderador"];
+      if (!rolesPermitidos.includes(rol)) {
+        return res.status(400).json({ 
+          mensaje: "Rol no permitido. Solo se permite: admin, moderador" 
+        });
+      }
+      admin.rol = rol;
+    }
+
+    // Validar estado si se proporciona
+    if (estado !== undefined) {
+      const estadosPermitidos = ["activo", "inactivo"];
+      if (!estadosPermitidos.includes(estado)) {
+        return res.status(400).json({ mensaje: "Estado no válido" });
+      }
+      admin.estado = estado;
+    }
+
+    // Si se proporciona password, se actualizará y el hook pre-save lo hasheará
+    if (password !== undefined && password.length >= 6) {
+      admin.password = password;
+    } else if (password !== undefined && password.length < 6) {
+      return res.status(400).json({ 
+        mensaje: "La contraseña debe tener al menos 6 caracteres" 
+      });
+    }
+
+    await admin.save();
+
+    res.json({
+      mensaje: "Admin modificado correctamente",
+      admin: {
+        _id: admin._id,
+        nombreCompleto: admin.nombreCompleto,
+        email: admin.email,
+        rol: admin.rol,
+        estado: admin.estado,
+      },
+    });
+  } catch (error) {
+    // Manejar error de duplicado de email
+    if (error.code === 11000) {
+      return res.status(400).json({
+        mensaje: "El email ya está registrado",
+        error: error.message,
+      });
+    }
+    res.status(500).json({
+      mensaje: "Error al modificar el admin",
+      error: error.message,
+    });
+  }
+};
+
+// Eliminar un admin (solo superadmin)
+exports.eliminarAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const admin = await Admin.findById(id);
+    if (!admin) {
+      return res.status(404).json({ mensaje: "Admin no encontrado" });
+    }
+
+    // No permitir eliminar superadmins
+    if (admin.rol === "superadmin") {
+      return res.status(403).json({ 
+        mensaje: "No se puede eliminar a un superadmin" 
+      });
+    }
+
+    // No permitir que un admin se elimine a sí mismo
+    if (admin._id.toString() === req.user.id) {
+      return res.status(403).json({ 
+        mensaje: "No puedes eliminarte a ti mismo" 
+      });
+    }
+
+    await Admin.findByIdAndDelete(id);
+
+    res.json({
+      mensaje: "Admin eliminado correctamente",
+      admin: {
+        _id: admin._id,
+        nombreCompleto: admin.nombreCompleto,
+        email: admin.email,
+        rol: admin.rol,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      mensaje: "Error al eliminar el admin",
       error: error.message,
     });
   }

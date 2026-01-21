@@ -122,3 +122,104 @@ exports.obtenerMiPerfil = async (req, res) => {
     });
   }
 };
+
+// Modificar un cajero (solo accesible por admin o superadmin)
+exports.modificarCajero = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      nombreCompleto,
+      email,
+      password,
+      telefonoContacto,
+      datosPagoMovil,
+      foto,
+      estado,
+    } = req.body;
+
+    // Buscar el cajero
+    const cajero = await Cajero.findById(id);
+    if (!cajero) {
+      return res.status(404).json({ mensaje: "Cajero no encontrado" });
+    }
+
+    // Actualizar solo los campos proporcionados
+    if (nombreCompleto !== undefined) cajero.nombreCompleto = nombreCompleto;
+    if (email !== undefined) cajero.email = email;
+    if (telefonoContacto !== undefined) cajero.telefonoContacto = telefonoContacto;
+    if (datosPagoMovil !== undefined) cajero.datosPagoMovil = datosPagoMovil;
+    if (foto !== undefined) cajero.foto = foto;
+    if (estado !== undefined) {
+      const estadosPermitidos = ["activo", "inactivo", "bloqueado"];
+      if (!estadosPermitidos.includes(estado)) {
+        return res.status(400).json({ mensaje: "Estado no válido" });
+      }
+      cajero.estado = estado;
+    }
+
+    // Si se proporciona password, se actualizará y el hook pre-save lo hasheará
+    if (password !== undefined && password.length >= 6) {
+      cajero.password = password;
+    } else if (password !== undefined && password.length < 6) {
+      return res.status(400).json({ 
+        mensaje: "La contraseña debe tener al menos 6 caracteres" 
+      });
+    }
+
+    await cajero.save();
+
+    res.json({
+      mensaje: "Cajero modificado correctamente",
+      cajero: {
+        _id: cajero._id,
+        nombreCompleto: cajero.nombreCompleto,
+        email: cajero.email,
+        telefonoContacto: cajero.telefonoContacto,
+        datosPagoMovil: cajero.datosPagoMovil,
+        foto: cajero.foto,
+        estado: cajero.estado,
+      },
+    });
+  } catch (error) {
+    // Manejar error de duplicado de email o teléfono
+    if (error.code === 11000) {
+      const campo = Object.keys(error.keyPattern)[0];
+      return res.status(400).json({
+        mensaje: `El ${campo} ya está registrado`,
+        error: error.message,
+      });
+    }
+    res.status(500).json({
+      mensaje: "Error al modificar el cajero",
+      error: error.message,
+    });
+  }
+};
+
+// Eliminar un cajero (solo accesible por admin o superadmin)
+exports.eliminarCajero = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const cajero = await Cajero.findById(id);
+    if (!cajero) {
+      return res.status(404).json({ mensaje: "Cajero no encontrado" });
+    }
+
+    await Cajero.findByIdAndDelete(id);
+
+    res.json({
+      mensaje: "Cajero eliminado correctamente",
+      cajero: {
+        _id: cajero._id,
+        nombreCompleto: cajero.nombreCompleto,
+        email: cajero.email,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      mensaje: "Error al eliminar el cajero",
+      error: error.message,
+    });
+  }
+};
