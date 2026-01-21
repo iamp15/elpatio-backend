@@ -82,7 +82,7 @@ exports.loginCajero = async (req, res) => {
 exports.obtenerCajeros = async (req, res) => {
   try {
     const cajeros = await Cajero.find().select(
-      "_id nombreCompleto email telefonoContacto datosPagoMovil foto"
+      "_id nombreCompleto email telefonoContacto datosPagoMovil foto estado"
     ); // Evitamos exponer la contraseña
     res.json(cajeros);
   } catch (error) {
