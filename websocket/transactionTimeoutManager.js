@@ -406,52 +406,53 @@ class TransactionTimeoutManager {
               console.log(
                 `ℹ️ [TIMEOUT] Jugador ${jugador.telegramId} tiene la app de depósitos abierta, no enviar notificación a Telegram`
               );
-              return; // No enviar notificación a Telegram si tiene la app abierta
-            }
-
-            const notificacion = await crearNotificacionBot({
-              transaccionId: transaccion._id,
-              jugadorTelegramId: jugador.telegramId,
-              tipo: "deposito_cancelado",
-              titulo: "Depósito cancelado",
-              mensaje: mensaje,
-              datos: {
-                monto: transaccion.monto,
-                tiempoTranscurrido: minutos,
-                motivo: "timeout",
-              },
-              eventoId: `deposito-cancelado-timeout-${transaccion._id}`,
-            });
-
-            console.log(
-              `🔍 [TIMEOUT] Verificando bot conectado: ${this.socketManager.connectedBots.size} bot(es)`
-            );
-
-            if (notificacion && this.socketManager.connectedBots.size > 0) {
-              console.log(
-                `📤 [TIMEOUT] Emitiendo evento bot-notificacion para jugador ${jugador.telegramId}`
-              );
-
-              this.socketManager.io.emit("bot-notificacion", {
-                notificacionId: notificacion._id.toString(),
-                tipo: notificacion.tipo,
-                titulo: notificacion.titulo,
-                mensaje: notificacion.mensaje,
-                jugadorTelegramId: notificacion.jugadorTelegramId,
-                datos: notificacion.datos,
+              // No enviar notificación a Telegram si tiene la app abierta
+              // Continuar con el resto de la función (no hacer return aquí)
+            } else {
+              const notificacion = await crearNotificacionBot({
+                transaccionId: transaccion._id,
+                jugadorTelegramId: jugador.telegramId,
+                tipo: "deposito_cancelado",
+                titulo: "Depósito cancelado",
+                mensaje: mensaje,
+                datos: {
+                  monto: transaccion.monto,
+                  tiempoTranscurrido: minutos,
+                  motivo: "timeout",
+                },
+                eventoId: `deposito-cancelado-timeout-${transaccion._id}`,
               });
 
               console.log(
-                `✅ [TIMEOUT] Notificación bot creada y emitida para jugador ${jugador.telegramId}`
+                `🔍 [TIMEOUT] Verificando bot conectado: ${this.socketManager.connectedBots.size} bot(es)`
               );
-            } else if (!notificacion) {
-              console.log(
-                `⚠️ [TIMEOUT] No se pudo crear notificación bot (duplicado?)`
-              );
-            } else {
-              console.log(
-                `⚠️ [TIMEOUT] Bot no está conectado, notificación quedará pendiente para polling`
-              );
+
+              if (notificacion && this.socketManager.connectedBots.size > 0) {
+                console.log(
+                  `📤 [TIMEOUT] Emitiendo evento bot-notificacion para jugador ${jugador.telegramId}`
+                );
+
+                this.socketManager.io.emit("bot-notificacion", {
+                  notificacionId: notificacion._id.toString(),
+                  tipo: notificacion.tipo,
+                  titulo: notificacion.titulo,
+                  mensaje: notificacion.mensaje,
+                  jugadorTelegramId: notificacion.jugadorTelegramId,
+                  datos: notificacion.datos,
+                });
+
+                console.log(
+                  `✅ [TIMEOUT] Notificación bot creada y emitida para jugador ${jugador.telegramId}`
+                );
+              } else if (!notificacion) {
+                console.log(
+                  `⚠️ [TIMEOUT] No se pudo crear notificación bot (duplicado?)`
+                );
+              } else {
+                console.log(
+                  `⚠️ [TIMEOUT] Bot no está conectado, notificación quedará pendiente para polling`
+                );
+              }
             }
           }
         } catch (error) {
@@ -461,6 +462,10 @@ class TransactionTimeoutManager {
           );
         }
       }
+      
+      console.log(
+        `🔍 [TIMEOUT] Después de notificar jugador - continuando con notificación a cajero`
+      );
 
       // Si es transacción pendiente (sin cajero), solo actualizar listas de cajeros
       // No enviar mensaje intrusivo, solo que desaparezca la transacción
