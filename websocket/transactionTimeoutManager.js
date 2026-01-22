@@ -14,6 +14,9 @@ const { registrarLog } = require("../utils/logHelper");
 const {
   crearNotificacionBot,
 } = require("../controllers/notificacionesBotController");
+const {
+  crearNotificacionInterna,
+} = require("../controllers/notificacionesController");
 
 class TransactionTimeoutManager {
   constructor(socketManager) {
@@ -462,10 +465,67 @@ class TransactionTimeoutManager {
 
       // Si había un cajero asignado, notificar también
       if (transaccion.cajeroId && estadoOriginal === "en_proceso") {
-        // Obtener estado del cajero
+        const cajeroId = transaccion.cajeroId._id || transaccion.cajeroId;
+        const jugadorNombre =
+          transaccion.jugadorId?.nickname ||
+          transaccion.jugadorId?.firstName ||
+          "Usuario";
+
+        // Crear notificación persistente para el cajero
+        try {
+          await crearNotificacionInterna({
+            destinatarioId: cajeroId,
+            destinatarioTipo: "cajero",
+            tipo: "transaccion_cancelada",
+            titulo: "Depósito cancelado por timeout",
+            mensaje: `El depósito de ${jugadorNombre} por ${(
+              transaccion.monto / 100
+            ).toFixed(2)} Bs fue cancelado por inactividad (${minutos} minutos sin pago).`,
+            datos: {
+              transaccionId: transaccion._id.toString(),
+              jugadorNombre: jugadorNombre,
+              monto: transaccion.monto,
+              motivo: "timeout",
+              tiempoTranscurrido: minutos,
+            },
+            eventoId: `cancelacion-timeout-${transaccion._id}`,
+          });
+
+          console.log(
+            `✅ [TIMEOUT] Notificación persistente creada para cajero ${cajeroId}`
+          );
+
+          // Emitir evento de nueva notificación al cajero específico
+          const socketId = this.socketManager.connectedCajeros.get(
+            cajeroId.toString()
+          );
+          if (socketId) {
+            const socket = this.socketManager.io.sockets.sockets.get(socketId);
+            if (socket) {
+              socket.emit("nuevaNotificacion", {
+                tipo: "transaccion_cancelada",
+                titulo: "Depósito cancelado por timeout",
+                mensaje: `El depósito de ${jugadorNombre} por ${(
+                  transaccion.monto / 100
+                ).toFixed(2)} Bs fue cancelado por inactividad (${minutos} minutos sin pago).`,
+                transaccionId: transaccion._id.toString(),
+              });
+              console.log(
+                `📨 [TIMEOUT] Evento nuevaNotificacion emitido al cajero`
+              );
+            }
+          }
+        } catch (notifError) {
+          console.error(
+            `❌ [TIMEOUT] Error creando notificación persistente:`,
+            notifError
+          );
+        }
+
+        // Obtener estado del cajero para emitir evento directo
         const cajeroState =
           this.socketManager.connectionStateManager.connectionStates.cajeros.get(
-            transaccion.cajeroId._id.toString()
+            cajeroId.toString()
           );
 
         if (cajeroState && cajeroState.socketId) {
