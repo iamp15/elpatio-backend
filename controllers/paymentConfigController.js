@@ -101,6 +101,32 @@ exports.updateConfig = async (req, res) => {
       userAgent: req.get("User-Agent"),
     });
 
+    // Si se actualizó un timeout de depósito, actualizar el TransactionTimeoutManager
+    if (
+      configType === "limites" &&
+      (configKey === "deposito.timeout.pendiente" ||
+        configKey === "deposito.timeout.en_proceso")
+    ) {
+      try {
+        const socketManager = req.app.get("socketManager");
+        if (
+          socketManager &&
+          socketManager.transactionTimeoutManager
+        ) {
+          await socketManager.transactionTimeoutManager.updateTimeouts();
+          console.log(
+            `✅ [PAYMENT-CONFIG] Timeouts actualizados después de cambiar ${configKey}`
+          );
+        }
+      } catch (error) {
+        console.error(
+          "⚠️ [PAYMENT-CONFIG] Error actualizando timeouts después de cambiar configuración:",
+          error
+        );
+        // No fallar la respuesta si hay error actualizando timeouts
+      }
+    }
+
     res.json({
       success: true,
       message: `Configuración ${

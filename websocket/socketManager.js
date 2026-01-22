@@ -97,7 +97,10 @@ class SocketManager {
 
     // Inicializar manager de timeouts de transacciones
     this.transactionTimeoutManager = new TransactionTimeoutManager(this);
-    this.transactionTimeoutManager.start(); // Iniciar verificación periódica
+    // Iniciar verificación periódica (async, no esperamos)
+    this.transactionTimeoutManager.start().catch((error) => {
+      console.error("❌ [SOCKET] Error iniciando TransactionTimeoutManager:", error);
+    });
 
     // Inicializar controlador de depósitos DESPUÉS (necesita roomsManager)
     this.depositoController = new DepositoWebSocketController(this);

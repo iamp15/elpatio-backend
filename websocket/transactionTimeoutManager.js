@@ -3,12 +3,13 @@
  * Usa polling adaptativo (no timeouts individuales)
  * - Sin transacciones activas: verifica cada 5 minutos
  * - Con transacciones activas: verifica cada 30 segundos
- * - Transacciones "pendiente": 2 minutos de timeout
- * - Transacciones "en_proceso": 4 minutos de timeout
+ * - Transacciones "pendiente": 10 minutos de timeout
+ * - Transacciones "en_proceso": 20 minutos de timeout
  */
 
 const Transaccion = require("../models/Transaccion");
 const Jugador = require("../models/Jugador");
+const PaymentConfig = require("../models/PaymentConfig");
 const { registrarLog } = require("../utils/logHelper");
 const {
   crearNotificacionBot,
@@ -17,10 +18,15 @@ const {
 class TransactionTimeoutManager {
   constructor(socketManager) {
     this.socketManager = socketManager;
-    // Timeouts para pruebas (2 y 4 minutos)
+    // Valores por defecto (10 y 20 minutos)
+    this.defaultTimeouts = {
+      pendiente: 10 * 60 * 1000, // 10 minutos en milisegundos
+      en_proceso: 20 * 60 * 1000, // 20 minutos en milisegundos
+    };
+    // Timeouts cargados desde PaymentConfig (se inicializarán en loadTimeouts)
     this.timeouts = {
-      pendiente: 2 * 60 * 1000, // 2 minutos en milisegundos
-      en_proceso: 4 * 60 * 1000, // 4 minutos en milisegundos
+      pendiente: this.defaultTimeouts.pendiente,
+      en_proceso: this.defaultTimeouts.en_proceso,
     };
     // Intervalos de verificación
     this.checkIntervals = {
@@ -32,13 +38,109 @@ class TransactionTimeoutManager {
   }
 
   /**
+   * Cargar timeouts desde PaymentConfig
+   */
+  async loadTimeouts() {
+    try {
+      const configs = await PaymentConfig.find({
+        configType: "limites",
+        configKey: { $in: ["deposito.timeout.pendiente", "deposito.timeout.en_proceso"] },
+        isActive: true,
+      });
+
+      // Convertir configuraciones a objeto
+      const configMap = {};
+      configs.forEach((config) => {
+        configMap[config.configKey] = config.configValue;
+      });
+
+      // Actualizar timeouts (los valores están en minutos, convertir a milisegundos)
+      if (configMap["deposito.timeout.pendiente"] !== undefined) {
+        const minutos = parseInt(configMap["deposito.timeout.pendiente"]);
+        if (!isNaN(minutos) && minutos > 0) {
+          this.timeouts.pendiente = minutos * 60 * 1000;
+          console.log(
+            `✅ [TIMEOUT] Timeout pendiente cargado: ${minutos} minutos`
+          );
+        } else {
+          console.warn(
+            `⚠️ [TIMEOUT] Valor inválido para deposito.timeout.pendiente, usando valor por defecto`
+          );
+        }
+      } else {
+        console.log(
+          `ℹ️ [TIMEOUT] Configuración deposito.timeout.pendiente no encontrada, usando valor por defecto (10 minutos)`
+        );
+      }
+
+      if (configMap["deposito.timeout.en_proceso"] !== undefined) {
+        const minutos = parseInt(configMap["deposito.timeout.en_proceso"]);
+        if (!isNaN(minutos) && minutos > 0) {
+          this.timeouts.en_proceso = minutos * 60 * 1000;
+          console.log(
+            `✅ [TIMEOUT] Timeout en_proceso cargado: ${minutos} minutos`
+          );
+        } else {
+          console.warn(
+            `⚠️ [TIMEOUT] Valor inválido para deposito.timeout.en_proceso, usando valor por defecto`
+          );
+        }
+      } else {
+        console.log(
+          `ℹ️ [TIMEOUT] Configuración deposito.timeout.en_proceso no encontrada, usando valor por defecto (20 minutos)`
+        );
+      }
+    } catch (error) {
+      console.error(
+        "❌ [TIMEOUT] Error cargando timeouts desde PaymentConfig:",
+        error
+      );
+      console.log(
+        "⚠️ [TIMEOUT] Usando valores por defecto debido a error"
+      );
+      // Mantener valores por defecto en caso de error
+      this.timeouts = {
+        pendiente: this.defaultTimeouts.pendiente,
+        en_proceso: this.defaultTimeouts.en_proceso,
+      };
+    }
+  }
+
+  /**
+   * Actualizar timeouts dinámicamente
+   * Útil cuando se cambian las configuraciones desde el dashboard
+   */
+  async updateTimeouts() {
+    const timeoutsAnteriores = { ...this.timeouts };
+    await this.loadTimeouts();
+
+    // Si los timeouts cambiaron y el sistema está corriendo, loggear el cambio
+    if (this.isRunning) {
+      const cambiaron =
+        timeoutsAnteriores.pendiente !== this.timeouts.pendiente ||
+        timeoutsAnteriores.en_proceso !== this.timeouts.en_proceso;
+
+      if (cambiaron) {
+        console.log(
+          `🔄 [TIMEOUT] Timeouts actualizados: Pendiente=${
+            this.timeouts.pendiente / 60000
+          }min, En proceso=${this.timeouts.en_proceso / 60000}min`
+        );
+      }
+    }
+  }
+
+  /**
    * Iniciar sistema de polling adaptativo
    */
-  start() {
+  async start() {
     if (this.isRunning) {
       console.log("⏰ [TIMEOUT] Sistema ya está corriendo");
       return;
     }
+
+    // Cargar timeouts desde PaymentConfig antes de iniciar
+    await this.loadTimeouts();
 
     this.isRunning = true;
     console.log("⏰ [TIMEOUT] Sistema de auto-cancelación iniciado");
@@ -220,7 +322,9 @@ class TransactionTimeoutManager {
           estadoOriginal: estadoOriginal,
           tiempoTranscurrido: minutos + " minutos",
           motivo: `Timeout automático (>${
-            estadoOriginal === "pendiente" ? "2" : "4"
+            estadoOriginal === "pendiente" 
+              ? Math.round(this.timeouts.pendiente / 60000)
+              : Math.round(this.timeouts.en_proceso / 60000)
           } minutos)`,
         },
       });
