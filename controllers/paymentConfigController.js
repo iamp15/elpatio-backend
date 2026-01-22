@@ -280,6 +280,33 @@ exports.getConfigByType = async (req, res) => {
   }
 };
 
+// Inicializar configuraciones por defecto
+exports.inicializarDefaults = async (req, res) => {
+  try {
+    const Admin = require("../models/Admin");
+    
+    // Usar el usuario autenticado o buscar un admin del sistema
+    const systemAdmin = req.user?.id 
+      ? await Admin.findById(req.user.id)
+      : await Admin.findOne({ rol: { $in: ["admin", "superadmin"] } });
+    
+    const adminId = systemAdmin ? systemAdmin._id : null;
+    
+    await PaymentConfig.inicializarDefaults(adminId);
+    
+    res.json({
+      success: true,
+      message: "Configuraciones por defecto inicializadas exitosamente"
+    });
+  } catch (error) {
+    console.error("Error inicializando configuraciones por defecto:", error);
+    res.status(500).json({
+      success: false,
+      error: "Error interno del servidor"
+    });
+  }
+};
+
 // Restaurar configuración eliminada
 exports.restoreConfig = async (req, res) => {
   try {

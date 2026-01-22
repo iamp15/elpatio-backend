@@ -133,6 +133,31 @@ connectDB()
         error.message
       );
     }
+
+    // Inicializar configuraciones de PaymentConfig
+    try {
+      const PaymentConfig = require("./models/PaymentConfig");
+      const Admin = require("./models/Admin");
+      
+      // Buscar un admin o superadmin para usar como creador del sistema
+      const systemAdmin = await Admin.findOne({
+        rol: { $in: ["admin", "superadmin"] }
+      });
+      
+      if (systemAdmin) {
+        await PaymentConfig.inicializarDefaults(systemAdmin._id);
+        console.log("✅ Configuraciones de PaymentConfig inicializadas");
+      } else {
+        // Si no hay admin, inicializar sin createdBy (solo para timeouts)
+        await PaymentConfig.inicializarDefaults(null);
+        console.log("✅ Configuraciones de PaymentConfig inicializadas (sin usuario del sistema)");
+      }
+    } catch (error) {
+      console.error(
+        "⚠️ Error inicializando configuraciones de PaymentConfig:",
+        error.message
+      );
+    }
   })
   .catch((error) => {
     console.error("❌ Error al iniciar servidor:", error);

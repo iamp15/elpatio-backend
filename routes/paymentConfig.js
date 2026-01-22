@@ -42,4 +42,12 @@ router.patch(
   paymentConfigController.restoreConfig
 );
 
+// Inicializar configuraciones por defecto
+router.post(
+  "/initialize",
+  auth,
+  verificarMinimo("admin"),
+  paymentConfigController.inicializarDefaults
+);
+
 module.exports = router;
