@@ -198,8 +198,9 @@ router.get("/admin/todas", auth, verificarMinimo("admin"), async (req, res) => {
 });
 
 /**
- * Obtener transacciones en curso (pendiente + en_proceso)
+ * Obtener transacciones en curso (pendiente + en_proceso + realizada)
  * GET /api/transacciones/admin/en-curso
+ * Nota: No incluye "confirmada" porque es un estado temporal que se procesa automáticamente
  */
 router.get(
   "/admin/en-curso",
@@ -210,7 +211,7 @@ router.get(
       const { limite = 50, categoria } = req.query;
 
       const filtros = {
-        estado: { $in: ["pendiente", "en_proceso"] },
+        estado: { $in: ["pendiente", "en_proceso", "realizada"] },
       };
 
       // Filtrar por categoría si se proporciona
@@ -228,7 +229,7 @@ router.get(
         .lean();
 
       // Contar por estado
-      const [pendientes, enProceso] = await Promise.all([
+      const [pendientes, enProceso, realizadas] = await Promise.all([
         require("../models/Transaccion").countDocuments({
           ...filtros,
           estado: "pendiente",
@@ -237,6 +238,10 @@ router.get(
           ...filtros,
           estado: "en_proceso",
         }),
+        require("../models/Transaccion").countDocuments({
+          ...filtros,
+          estado: "realizada",
+        }),
       ]);
 
       res.json({
@@ -244,6 +249,7 @@ router.get(
         total: transacciones.length,
         pendientes,
         enProceso,
+        realizadas,
         categoria: categoria || "todas",
       });
     } catch (error) {
