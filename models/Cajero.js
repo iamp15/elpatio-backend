@@ -41,6 +41,11 @@ const cajeroSchema = new mongoose.Schema(
       enum: ["activo", "inactivo", "bloqueado"],
       default: "activo",
     },
+    saldo: {
+      type: Number,
+      default: 0,
+      min: [0, "El saldo no puede ser negativo"],
+    },
     fechaCreacion: {
       type: Date,
       default: Date.now,

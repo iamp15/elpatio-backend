@@ -12,6 +12,7 @@ const {
 } = require("../../../controllers/notificacionesController");
 const { notificarBotDepositoCompletado } = require("../notificaciones/notificacionesBot");
 const { notificarBotDepositoRechazado } = require("../notificaciones/notificacionesBot");
+const { actualizarSaldoCajero } = require("../../../utils/saldoCajeroHelper");
 
 /**
  * Manejar verificación de pago por cajero
@@ -195,6 +196,33 @@ async function verificarPagoCajero(context, socket, data) {
         console.log(
           `🔍 [DEPOSITO] [DEBUG] Saldo del jugador actualizado exitosamente`
         );
+
+        // Actualizar saldo del cajero
+        if (transaccion.cajeroId) {
+          console.log(
+            `🔍 [DEPOSITO] [DEBUG] Actualizando saldo del cajero: ${transaccion.cajeroId}`
+          );
+          try {
+            const resultadoSaldo = await actualizarSaldoCajero(
+              transaccion.cajeroId,
+              transaccion.monto, // Monto en centavos (positivo para depósito)
+              "deposito",
+              transaccion._id,
+              `Depósito de ${(transaccion.monto / 100).toFixed(2)} Bs procesado exitosamente`,
+              session
+            );
+            console.log(
+              `✅ [DEPOSITO] [DEBUG] Saldo del cajero actualizado: ${resultadoSaldo.saldoAnterior} -> ${resultadoSaldo.saldoNuevo}`
+            );
+          } catch (error) {
+            console.error(
+              `❌ [DEPOSITO] [DEBUG] Error actualizando saldo del cajero:`,
+              error
+            );
+            // No lanzar error para no interrumpir el flujo del depósito
+            // El saldo del jugador ya se actualizó, así que continuamos
+          }
+        }
 
         // Completar transacción
         // Si hay ajuste de monto, usar estado "completada_con_ajuste", sino "completada"

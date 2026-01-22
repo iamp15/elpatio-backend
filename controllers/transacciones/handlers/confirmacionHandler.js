@@ -3,6 +3,7 @@ const Jugador = require("../../../models/Jugador");
 const mongoose = require("mongoose");
 const websocketHelper = require("../../../utils/websocketHelper");
 const { registrarLog } = require("../../../utils/logHelper");
+const { actualizarSaldoCajero } = require("../../../utils/saldoCajeroHelper");
 
 /**
  * Confirmar pago por el usuario (solo para depósitos/retiros)
@@ -132,8 +133,37 @@ async function confirmarPorCajero(req, res) {
       { session }
     );
 
+    // Actualizar saldo del cajero si es un depósito
+    if (transaccion.categoria === "deposito" && transaccion.cajeroId) {
+      try {
+        const montoParaCajero = transaccion.monto; // Monto en centavos (positivo para depósito)
+        const descripcion = `Depósito de ${(transaccion.monto / 100).toFixed(2)} Bs procesado exitosamente`;
+        
+        await actualizarSaldoCajero(
+          transaccion.cajeroId,
+          montoParaCajero,
+          "deposito",
+          transaccion._id,
+          descripcion,
+          session
+        );
+      } catch (error) {
+        console.error(
+          `❌ [CONFIRMACION] Error actualizando saldo del cajero:`,
+          error
+        );
+        // No lanzar error para no interrumpir el flujo del depósito
+        // El saldo del jugador ya se actualizó, así que continuamos
+      }
+    }
+
     // Completar transacción
-    transaccion.cambiarEstado("completada");
+    // Si hay ajuste de monto, usar estado "completada_con_ajuste", sino "completada"
+    const estadoFinal =
+      transaccion.ajusteMonto && transaccion.ajusteMonto.montoOriginal
+        ? "completada_con_ajuste"
+        : "completada";
+    transaccion.cambiarEstado(estadoFinal);
     transaccion.saldoNuevo = saldoNuevo;
     transaccion.fechaProcesamiento = new Date();
     await transaccion.save({ session });
