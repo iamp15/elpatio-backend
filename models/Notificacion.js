@@ -11,7 +11,7 @@ const notificacionSchema = new mongoose.Schema(
 
     destinatarioTipo: {
       type: String,
-      enum: ["cajero", "jugador"],
+      enum: ["cajero", "jugador", "admin"],
       required: true,
       index: true,
     },
@@ -33,15 +33,20 @@ const notificacionSchema = new mongoose.Schema(
         "solicitud_asignada",
         "pago_realizado",
         "transaccion_completada",
+        "transaccion_cancelada", // Transacciones canceladas por jugador o timeout
+        "revision_solicitada", // Revisión solicitada por jugador
+        "ajuste_manual", // Ajustes manuales de saldo
         "sesion_cerrada",
         // Tipos para jugadores
         "deposito_aprobado",
         "deposito_rechazado",
+        "deposito_cancelado", // Depósitos cancelados
         "retiro_aprobado",
         "retiro_rechazado",
         "sala_completa",
         "juego_iniciado",
         "transaccion_en_revision",
+        "cancelacion_sala", // Cancelación de sala
       ],
     },
 
