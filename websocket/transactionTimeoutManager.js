@@ -309,8 +309,28 @@ class TransactionTimeoutManager {
 
       await transaccion.save();
 
-      // Notificar a los participantes
-      await this.notifyTransactionTimeout(transaccion, estadoOriginal, minutos);
+      // Recargar la transacción para mantener el populate después de save()
+      // Esto asegura que cajeroId y jugadorId estén disponibles
+      const transaccionRecargada = await Transaccion.findById(transaccion._id)
+        .populate("jugadorId", "telegramId nickname firstName")
+        .populate("cajeroId", "nombreCompleto email");
+
+      // Log para depuración: verificar si cajeroId está presente
+      console.log(
+        `🔍 [TIMEOUT] Transacción guardada - ID: ${transaccionRecargada._id}, cajeroId: ${transaccionRecargada.cajeroId}, tipo: ${typeof transaccionRecargada.cajeroId}`
+      );
+      if (transaccionRecargada.cajeroId) {
+        console.log(
+          `🔍 [TIMEOUT] CajeroId detalle: ${JSON.stringify({
+            _id: transaccionRecargada.cajeroId._id,
+            nombreCompleto: transaccionRecargada.cajeroId.nombreCompleto,
+            esObjeto: typeof transaccionRecargada.cajeroId === "object",
+          })}`
+        );
+      }
+
+      // Notificar a los participantes usando la transacción recargada
+      await this.notifyTransactionTimeout(transaccionRecargada, estadoOriginal, minutos);
 
       // Limpiar room de la transacción
       this.socketManager.roomsManager.limpiarRoomTransaccion(transaccion._id);
@@ -464,12 +484,32 @@ class TransactionTimeoutManager {
       }
 
       // Si había un cajero asignado, notificar también
-      if (transaccion.cajeroId && estadoOriginal === "en_proceso") {
-        const cajeroId = transaccion.cajeroId._id || transaccion.cajeroId;
+      console.log(
+        `🔍 [TIMEOUT] Verificando cajero asignado - cajeroId presente: ${!!transaccion.cajeroId}, estadoOriginal: ${estadoOriginal}, tipo cajeroId: ${typeof transaccion.cajeroId}`
+      );
+      
+      // Verificar si hay cajero asignado (puede ser ObjectId o objeto poblado)
+      const tieneCajeroAsignado = 
+        transaccion.cajeroId && 
+        (transaccion.cajeroId._id || typeof transaccion.cajeroId.toString === "function" || transaccion.cajeroId);
+      
+      if (tieneCajeroAsignado && estadoOriginal === "en_proceso") {
+        // Obtener ID del cajero (puede ser objeto poblado o ObjectId)
+        const cajeroId = transaccion.cajeroId._id 
+          ? transaccion.cajeroId._id.toString() 
+          : transaccion.cajeroId.toString();
+        
+        // Obtener nombre del cajero si está poblado
+        const cajeroNombre = transaccion.cajeroId.nombreCompleto || "Cajero";
+        
         const jugadorNombre =
           transaccion.jugadorId?.nickname ||
           transaccion.jugadorId?.firstName ||
           "Usuario";
+
+        console.log(
+          `🔍 [TIMEOUT] Cajero asignado encontrado: ${cajeroId} (${cajeroNombre}), jugador: ${jugadorNombre}`
+        );
 
         // Crear notificación persistente para el cajero
         try {
@@ -544,7 +584,7 @@ class TransactionTimeoutManager {
             });
 
             console.log(
-              `📢 [TIMEOUT] Cajero ${transaccion.cajeroId.nombreCompleto} notificado de cancelación`
+              `📢 [TIMEOUT] Cajero ${cajeroNombre} notificado de cancelación`
             );
           }
         }
