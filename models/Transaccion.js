@@ -240,7 +240,7 @@ transaccionSchema.methods.cambiarEstado = function (
 ) {
   const estadosValidos = {
     pendiente: ["en_proceso", "cancelada"],
-    en_proceso: ["realizada", "rechazada", "cancelada"],
+    en_proceso: ["realizada", "confirmada", "rechazada", "cancelada"],
     realizada: [
       "confirmada",
       "rechazada",
