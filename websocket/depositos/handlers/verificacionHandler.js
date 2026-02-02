@@ -10,8 +10,11 @@ const { registrarLog } = require("../../../utils/logHelper");
 const {
   crearNotificacionInterna,
 } = require("../../../controllers/notificacionesController");
-const { notificarBotDepositoCompletado } = require("../notificaciones/notificacionesBot");
-const { notificarBotDepositoRechazado } = require("../notificaciones/notificacionesBot");
+const {
+  notificarBotDepositoCompletado,
+  notificarBotDepositoRechazado,
+  notificarBotRetiroCompletado,
+} = require("../notificaciones/notificacionesBot");
 const { actualizarSaldoCajero } = require("../../../utils/saldoCajeroHelper");
 
 /**
@@ -119,11 +122,13 @@ async function verificarPagoCajero(context, socket, data) {
         return;
       }
 
-      // Verificar estado de la transacción
-      // Regla original: debe estar "realizada" (usuario reportó pago).
-      // Ajuste: permitir también "en_proceso" para casos donde el cajero valida y confirma
-      // (p.ej., después de un ajuste de monto), para no bloquear la acreditación.
-      const estadosPermitidos = ["realizada", "en_proceso"];
+      // Verificar estado de la transacción según categoría
+      // Para retiros: solo "en_proceso" (cajero aceptó y reporta que envió)
+      // Para depósitos: "realizada" (usuario reportó pago) o "en_proceso" (ajuste de monto)
+      const estadosPermitidos =
+        transaccion.categoria === "retiro"
+          ? ["en_proceso"]
+          : ["realizada", "en_proceso"];
       if (!estadosPermitidos.includes(transaccion.estado)) {
         await session.abortTransaction();
         socket.emit("error", {
@@ -138,6 +143,132 @@ async function verificarPagoCajero(context, socket, data) {
       }
 
       if (accion === "confirmar") {
+        // === RETIRO: lógica distinta (cajero envía dinero al jugador) ===
+        if (transaccion.categoria === "retiro") {
+          const { comprobanteUrl, numeroReferencia, bancoOrigen, notas } = data;
+
+          transaccion.fechaConfirmacionCajero = new Date();
+          transaccion.infoPago = {
+            ...transaccion.infoPago,
+            comprobanteUrl: comprobanteUrl || transaccion.infoPago?.comprobanteUrl,
+            numeroReferencia: numeroReferencia || transaccion.infoPago?.numeroReferencia,
+            bancoOrigen: bancoOrigen || transaccion.infoPago?.bancoOrigen,
+            notasCajero: notas || "Transferencia enviada correctamente",
+          };
+          transaccion.cambiarEstado("confirmada");
+          await transaccion.save({ session });
+
+          const jugadorConSesion = await Jugador.findById(
+            transaccion.jugadorId
+          ).session(session);
+          if (!jugadorConSesion) {
+            throw new Error(`Jugador ${transaccion.jugadorId} no encontrado`);
+          }
+          const saldoNuevo = jugadorConSesion.saldo - transaccion.monto;
+
+          await Jugador.findByIdAndUpdate(
+            transaccion.jugadorId,
+            { saldo: saldoNuevo },
+            { session }
+          );
+
+          if (transaccion.cajeroId) {
+            await actualizarSaldoCajero(
+              transaccion.cajeroId,
+              -transaccion.monto,
+              "retiro",
+              transaccion._id,
+              `Retiro de ${(transaccion.monto / 100).toFixed(2)} Bs procesado exitosamente`,
+              session
+            );
+          }
+
+          transaccion.cambiarEstado("completada");
+          transaccion.saldoNuevo = saldoNuevo;
+          transaccion.fechaProcesamiento = new Date();
+          await transaccion.save({ session });
+
+          await session.commitTransaction();
+
+          const notificacion = {
+            transaccionId: transaccion._id,
+            monto: transaccion.monto,
+            saldoNuevo: saldoNuevo,
+            saldoAnterior: transaccion.saldoAnterior,
+            estado: transaccion.estado,
+            comprobanteUrl: transaccion.infoPago?.comprobanteUrl,
+            timestamp: new Date().toISOString(),
+          };
+
+          context.io
+            .to(`transaccion-${transaccionId}`)
+            .emit("retiro-completado", { ...notificacion, target: "cajero" });
+
+          const jugadorSocketSet =
+            context.socketManager.roomsManager.rooms.jugadores.get(
+              transaccion.telegramId
+            );
+          const jugadorSocketId = jugadorSocketSet
+            ? Array.from(jugadorSocketSet)[0]
+            : null;
+
+          if (jugadorSocketId) {
+            context.io.to(jugadorSocketId).emit("retiro-completado", {
+              ...notificacion,
+              target: "jugador",
+              mensaje: "¡Retiro completado exitosamente!",
+              saldoAnterior: transaccion.saldoAnterior,
+            });
+          }
+
+          const jugador = await Jugador.findById(transaccion.jugadorId);
+          if (jugador) {
+            await crearNotificacionInterna({
+              destinatarioId: jugador._id,
+              destinatarioTipo: "jugador",
+              telegramId: jugador.telegramId,
+              tipo: "retiro_aprobado",
+              titulo: "Retiro Completado ✅",
+              mensaje: `Tu retiro de ${(transaccion.monto / 100).toFixed(2)} Bs se completó correctamente.\n\nNuevo saldo: ${(saldoNuevo / 100).toFixed(2)} Bs`,
+              datos: {
+                transaccionId: transaccion._id.toString(),
+                monto: transaccion.monto,
+                saldoNuevo,
+                comprobanteUrl: transaccion.infoPago?.comprobanteUrl,
+              },
+              eventoId: `retiro-completado-${transaccion._id}`,
+            });
+
+            await notificarBotRetiroCompletado(
+              context,
+              transaccion,
+              jugador,
+              saldoNuevo,
+              transaccion.infoPago?.comprobanteUrl
+            );
+          }
+
+          const websocketHelper = require("../../../utils/websocketHelper");
+          websocketHelper.initialize(context.socketManager);
+          await websocketHelper.limpiarRoomTransaccionFinalizada(transaccion);
+
+          context.processingTransactions.delete(transaccionId);
+          await registrarLog({
+            accion: "Retiro completado via WebSocket",
+            usuario: socket.cajeroId,
+            rol: "cajero",
+            detalle: {
+              transaccionId: transaccion._id,
+              jugadorId: transaccion.jugadorId,
+              monto: transaccion.monto,
+              saldoNuevo: saldoNuevo,
+              socketId: socket.id,
+            },
+          });
+          return;
+        }
+
+        // === DEPÓSITO: lógica original ===
         console.log(
           `🔍 [DEPOSITO] [DEBUG] Entrando en acción confirmar para ${transaccionId}`
         );

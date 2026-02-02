@@ -11,6 +11,9 @@ const verificarMinimo = require("../middlewares/verificarMinimo");
 // Obtener configuraciones de depósitos (público para app de cajeros)
 router.get("/depositos", configuracionController.obtenerConfiguracionesDepositos);
 
+// Obtener configuraciones de retiros (público para miniapp de retiros)
+router.get("/retiros", configuracionController.obtenerConfiguracionesRetiros);
+
 // Obtener una configuración específica (público para lectura)
 router.get("/:clave", configuracionController.obtenerConfiguracion);
 

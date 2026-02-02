@@ -21,4 +21,17 @@ router.post(
   uploadController.subirImagenRechazo
 );
 
+/**
+ * Subir imagen de comprobante (para retiros)
+ * POST /api/upload/imagen-comprobante
+ * Requiere autenticación y rol mínimo de cajero
+ */
+router.post(
+  "/imagen-comprobante",
+  auth,
+  verificarMinimo("cajero"),
+  uploadController.uploadMiddleware,
+  uploadController.subirImagenComprobante
+);
+
 module.exports = router;

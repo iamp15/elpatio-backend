@@ -141,6 +141,24 @@ configuracionSistemaSchema.statics.inicializarDefaults = async function () {
       esModificable: true,
       rangoValido: { minimo: 1, maximo: 72 },
     },
+    {
+      clave: "retiro_monto_minimo",
+      valor: 10,
+      descripcion: "Monto mínimo permitido para retiros en Bs",
+      tipoDato: "number",
+      categoria: "retiros",
+      esModificable: true,
+      rangoValido: { minimo: 1, maximo: 1000 },
+    },
+    {
+      clave: "retiro_monto_maximo",
+      valor: 10000,
+      descripcion: "Monto máximo permitido para retiros en Bs",
+      tipoDato: "number",
+      categoria: "retiros",
+      esModificable: true,
+      rangoValido: { minimo: 100, maximo: 100000 },
+    },
   ];
 
   for (const config of defaults) {

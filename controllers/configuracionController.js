@@ -21,6 +21,35 @@ exports.obtenerConfiguraciones = async (req, res) => {
 };
 
 /**
+ * Obtener configuraciones de retiros (público para miniapp de retiros)
+ */
+exports.obtenerConfiguracionesRetiros = async (req, res) => {
+  try {
+    const configuraciones = await ConfiguracionSistema.obtenerPorCategoria(
+      "retiros"
+    );
+
+    // Convertir a objeto simple para facilitar su uso en frontend
+    const config = {};
+    configuraciones.forEach((c) => {
+      config[c.clave] = c.valor;
+    });
+
+    res.status(200).json({
+      ok: true,
+      configuracion: config,
+    });
+  } catch (error) {
+    console.error("Error obteniendo configuraciones de retiros:", error);
+    res.status(500).json({
+      ok: false,
+      message: "Error obteniendo configuraciones de retiros",
+      error: error.message,
+    });
+  }
+};
+
+/**
  * Obtener configuraciones de depósitos (público para app de cajeros)
  */
 exports.obtenerConfiguracionesDepositos = async (req, res) => {

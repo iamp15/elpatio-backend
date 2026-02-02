@@ -277,6 +277,77 @@ async function notificarBotDepositoRechazado(
 }
 
 /**
+ * Notificar al bot sobre retiro completado
+ * @param {Object} context - Contexto con socketManager e io
+ * @param {Object} transaccion - Transacción de retiro
+ * @param {Object} jugador - Jugador
+ * @param {number} saldoNuevo - Nuevo saldo del jugador
+ * @param {string} comprobanteUrl - URL de la imagen del comprobante (opcional)
+ */
+async function notificarBotRetiroCompletado(
+  context,
+  transaccion,
+  jugador,
+  saldoNuevo,
+  comprobanteUrl
+) {
+  try {
+    const tieneAppAbierta = context.socketManager.connectedPlayers.has(
+      jugador.telegramId
+    );
+
+    if (tieneAppAbierta) {
+      console.log(
+        `ℹ️ [BOT] Jugador ${jugador.telegramId} tiene la app abierta, no enviar notificación de retiro a Telegram`
+      );
+      return;
+    }
+
+    let mensaje = `Tu retiro por ${(transaccion.monto / 100).toFixed(
+      2
+    )} Bs se completó correctamente.\n\n💰 Nuevo saldo: ${(saldoNuevo / 100).toFixed(
+      2
+    )} Bs`;
+
+    if (comprobanteUrl) {
+      mensaje += `\n\n📷 Ver comprobante: ${comprobanteUrl}`;
+    }
+
+    const notificacion = await crearNotificacionBot({
+      transaccionId: transaccion._id,
+      jugadorTelegramId: jugador.telegramId,
+      tipo: "retiro_completado",
+      titulo: "Retiro completado ✅",
+      mensaje: mensaje,
+      datos: {
+        monto: transaccion.monto,
+        saldoNuevo,
+        comprobanteUrl: comprobanteUrl || null,
+      },
+      eventoId: `retiro-completado-${transaccion._id}`,
+    });
+
+    if (!notificacion) return;
+
+    if (context.socketManager.connectedBots.size > 0) {
+      context.io.emit("bot-notificacion", {
+        notificacionId: notificacion._id.toString(),
+        tipo: notificacion.tipo,
+        titulo: notificacion.titulo,
+        mensaje: notificacion.mensaje,
+        jugadorTelegramId: notificacion.jugadorTelegramId,
+        datos: notificacion.datos,
+      });
+    }
+  } catch (error) {
+    console.error(
+      "❌ [BOT] Error notificando retiro completado:",
+      error.message
+    );
+  }
+}
+
+/**
  * Notificar al bot sobre nuevo depósito
  * @param {Object} context - Contexto con socketManager e io
  * @param {Object} transaccion - Transacción
@@ -348,5 +419,6 @@ module.exports = {
   notificarBotPagoConfirmado,
   notificarBotDepositoCompletado,
   notificarBotDepositoRechazado,
+  notificarBotRetiroCompletado,
   notificarBotNuevoDeposito,
 };

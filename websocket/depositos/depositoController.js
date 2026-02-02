@@ -10,6 +10,7 @@
 
 // Importar handlers
 const { solicitarDeposito } = require("./handlers/solicitudHandler");
+const { solicitarRetiro: solicitarRetiroHandler } = require("./handlers/solicitudRetiroHandler");
 const { aceptarSolicitud } = require("./handlers/aceptacionHandler");
 const { confirmarPagoJugador } = require("./handlers/confirmacionHandler");
 const { verificarPagoCajero } = require("./handlers/verificacionHandler");
@@ -71,6 +72,14 @@ class DepositoWebSocketController {
    */
   async solicitarDeposito(socket, data) {
     return await solicitarDeposito(this.getContext(), socket, data);
+  }
+
+  /**
+   * Manejar solicitud de retiro desde jugador
+   * Evento: 'solicitar-retiro'
+   */
+  async solicitarRetiro(socket, data) {
+    return await solicitarRetiroHandler(this.getContext(), socket, data);
   }
 
   /**

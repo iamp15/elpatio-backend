@@ -207,6 +207,16 @@ class SocketManager {
         }
       });
 
+      // Solicitar retiro (jugador)
+      socket.on("solicitar-retiro", async (data) => {
+        try {
+          await this.depositoController.solicitarRetiro(socket, data);
+        } catch (error) {
+          console.error("❌ Error en solicitar-retiro:", error);
+          socket.emit("error", { message: "Error interno del servidor" });
+        }
+      });
+
       // NOTA: El handler de 'aceptar-solicitud' está registrado más abajo
       // con removeAllListeners para evitar duplicación (ver línea ~280)
 

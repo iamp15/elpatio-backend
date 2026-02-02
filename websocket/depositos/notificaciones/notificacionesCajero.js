@@ -161,7 +161,78 @@ async function notificarCajeroVerificarPago(context, transaccion) {
   );
 }
 
+/**
+ * Notificar solo a cajeros con saldo suficiente sobre nueva solicitud de retiro
+ * @param {Object} context - Contexto con socketManager e io
+ * @param {Object} transaccion - Transacción de retiro
+ * @param {Object} jugador - Jugador
+ * @param {Array} cajerosConSaldo - Array de cajeros con saldo >= monto [{ _id, saldo }]
+ */
+async function notificarCajerosNuevaSolicitudRetiro(
+  context,
+  transaccion,
+  jugador,
+  cajerosConSaldo
+) {
+  const notificacion = {
+    transaccionId: transaccion._id,
+    categoria: "retiro",
+    jugador: {
+      id: jugador._id,
+      telegramId: jugador.telegramId,
+      nombre: jugador.nickname || jugador.firstName || "Usuario",
+    },
+    monto: transaccion.monto,
+    metodoPago: transaccion.infoPago?.metodoPago || "pago_movil",
+    descripcion: transaccion.descripcion,
+    datosPago: transaccion.infoPago,
+    timestamp: new Date().toISOString(),
+  };
+
+  const cajeroIds = cajerosConSaldo.map((c) => c._id);
+  const tituloNotif = "Nueva solicitud de retiro";
+  const mensajeNotif = `${notificacion.jugador.nombre} solicita retirar ${(transaccion.monto / 100).toFixed(2)} Bs`;
+
+  for (const cajeroId of cajeroIds) {
+    const socketId = buscarCajeroConectado(context.socketManager, cajeroId);
+    if (socketId) {
+      context.io.to(socketId).emit("nueva-solicitud-retiro", notificacion);
+      const socket = context.io.sockets.sockets.get(socketId);
+      if (socket) {
+        socket.emit("nuevaNotificacion", {
+          tipo: "nueva_solicitud_retiro",
+          titulo: tituloNotif,
+          mensaje: mensajeNotif,
+          transaccionId: transaccion._id.toString(),
+          categoria: "retiro",
+        });
+      }
+    }
+
+    await crearNotificacionInterna({
+      destinatarioId: cajeroId,
+      destinatarioTipo: "cajero",
+      tipo: "nueva_solicitud_retiro",
+      titulo: tituloNotif,
+      mensaje: mensajeNotif,
+      datos: {
+        transaccionId: transaccion._id.toString(),
+        monto: transaccion.monto,
+        jugadorNombre: notificacion.jugador.nombre,
+        metodoPago: notificacion.metodoPago,
+        categoria: "retiro",
+      },
+      eventoId: `solicitud-retiro-${transaccion._id}`,
+    });
+  }
+
+  console.log(
+    `📢 [RETIRO] Nueva solicitud notificada a ${cajeroIds.length} cajeros con saldo suficiente`
+  );
+}
+
 module.exports = {
   notificarCajerosNuevaSolicitud,
+  notificarCajerosNuevaSolicitudRetiro,
   notificarCajeroVerificarPago,
 };
