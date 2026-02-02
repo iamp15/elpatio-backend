@@ -35,6 +35,7 @@ const notificacionSchema = new mongoose.Schema(
         "transaccion_completada",
         "transaccion_cancelada", // Transacciones canceladas por jugador o timeout
         "revision_solicitada", // Revisión solicitada por jugador
+        "retiro_requiere_revision", // Retiro pendiente por falta de saldo en cajeros
         "ajuste_manual", // Ajustes manuales de saldo
         "sesion_cerrada",
         // Tipos para jugadores
