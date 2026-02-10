@@ -61,11 +61,21 @@ async function obtenerTransaccionesCajero(req, res) {
 
     if (tipo) filtros.categoria = tipo;
 
-    const transacciones = await Transaccion.find(filtros)
+    let transacciones = await Transaccion.find(filtros)
       .populate("jugadorId", "username nickname telegramId")
       .populate("cajeroId", "nombreCompleto email telefonoContacto estado")
       .sort({ fechaCreacion: -1 })
       .limit(parseInt(limite));
+
+    // Para estado pendiente: no mostrar retiros a cajeros que no tienen saldo suficiente
+    if (estado === "pendiente" && transacciones.length > 0) {
+      const cajero = await Cajero.findById(req.user.id).select("saldo").lean();
+      const saldoCajero = cajero?.saldo ?? 0;
+      transacciones = transacciones.filter((t) => {
+        if (t.categoria !== "retiro") return true;
+        return t.monto <= saldoCajero;
+      });
+    }
 
     res.json({
       transacciones,

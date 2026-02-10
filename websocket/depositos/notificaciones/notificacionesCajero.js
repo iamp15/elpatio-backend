@@ -222,7 +222,7 @@ async function notificarCajerosNuevaSolicitudRetiro(
         metodoPago: notificacion.metodoPago,
         categoria: "retiro",
       },
-      eventoId: `solicitud-retiro-${transaccion._id}`,
+      eventoId: `solicitud-retiro-${transaccion._id}-${cajeroId.toString()}`,
     });
   }
 

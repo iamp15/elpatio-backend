@@ -30,6 +30,7 @@ const notificacionSchema = new mongoose.Schema(
         // Tipos para cajeros
         "inicio_sesion",
         "nueva_solicitud",
+        "nueva_solicitud_retiro",
         "solicitud_asignada",
         "pago_realizado",
         "transaccion_completada",
