@@ -205,27 +205,7 @@ class WebSocketHelper {
           console.log(
             `✅ [HTTP→WS] Notificación persistente creada para cajero ${cajeroId}`
           );
-
-          // Emitir evento de nueva notificación al cajero específico
-          const socketId = this.socketManager.connectedCajeros.get(
-            cajeroId.toString()
-          );
-          if (socketId) {
-            const socket = this.socketManager.io.sockets.sockets.get(socketId);
-            if (socket) {
-              socket.emit("nuevaNotificacion", {
-                tipo: "transaccion_cancelada",
-                titulo: "Depósito cancelado por jugador",
-                mensaje: `El jugador ${jugadorNombre} canceló el depósito de ${(
-                  transaccion.monto / 100
-                ).toFixed(2)} Bs`,
-                transaccionId: transaccion._id.toString(),
-              });
-              console.log(
-                `📨 [HTTP→WS] Evento nuevaNotificacion emitido al cajero`
-              );
-            }
-          }
+          // No emitir nuevaNotificacion aquí - el evento específico transaccion-cancelada-por-jugador ya lo maneja
         } catch (notifError) {
           console.error(
             `❌ [HTTP→WS] Error creando notificación persistente:`,
@@ -273,26 +253,9 @@ class WebSocketHelper {
                 monto: transaccion.monto,
                 motivo: motivo || "Cancelada por el usuario",
               },
-              eventoId: `cancelacion-${transaccion._id}`,
+              eventoId: `cancelacion-${transaccion._id}-${cajeroIdStr}`,
             });
-
-            // Emitir evento de nueva notificación al cajero específico
-            const socketId =
-              this.socketManager.connectedCajeros.get(cajeroIdStr);
-            if (socketId) {
-              const socket =
-                this.socketManager.io.sockets.sockets.get(socketId);
-              if (socket) {
-                socket.emit("nuevaNotificacion", {
-                  tipo: "transaccion_cancelada",
-                  titulo: "Solicitud de depósito cancelada",
-                  mensaje: `El jugador ${jugadorNombre} canceló su solicitud de depósito de ${(
-                    transaccion.monto / 100
-                  ).toFixed(2)} Bs`,
-                  transaccionId: transaccion._id.toString(),
-                });
-              }
-            }
+            // No emitir nuevaNotificacion aquí - el evento específico transaccion-cancelada-por-jugador ya lo maneja
           }
 
           console.log(
