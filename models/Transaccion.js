@@ -86,6 +86,7 @@ const transaccionSchema = new mongoose.Schema(
         "revertida", // Transacción revertida
         "cancelada", // Cancelada por el usuario
         "requiere_revision_admin", // Requiere revisión administrativa
+        "retiro_pendiente_asignacion", // Retiro pendiente de asignación manual por admin (sin cajeros con saldo)
       ],
       default: function () {
         // Las transacciones internas se completan inmediatamente
@@ -239,7 +240,7 @@ transaccionSchema.methods.cambiarEstado = function (
   motivo = null
 ) {
   const estadosValidos = {
-    pendiente: ["en_proceso", "cancelada"],
+    pendiente: ["en_proceso", "cancelada", "retiro_pendiente_asignacion"],
     en_proceso: ["realizada", "confirmada", "rechazada", "cancelada"],
     realizada: [
       "confirmada",
@@ -250,6 +251,7 @@ transaccionSchema.methods.cambiarEstado = function (
     completada: ["revertida"],
     completada_con_ajuste: ["revertida"],
     requiere_revision_admin: ["rechazada", "confirmada"],
+    retiro_pendiente_asignacion: ["cancelada", "en_proceso", "rechazada"],
   };
 
   if (!estadosValidos[this.estado]?.includes(nuevoEstado)) {

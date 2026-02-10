@@ -50,10 +50,10 @@ async function cancelarTransaccionJugador(req, res) {
       });
     }
 
-    // Solo se pueden cancelar transacciones en estados pendiente o en_proceso
-    if (!["pendiente", "en_proceso"].includes(transaccion.estado)) {
+    // Solo se pueden cancelar transacciones en estados pendiente, en_proceso o retiro_pendiente_asignacion
+    if (!["pendiente", "en_proceso", "retiro_pendiente_asignacion"].includes(transaccion.estado)) {
       return res.status(400).json({
-        mensaje: `No se puede cancelar una transacción en estado ${transaccion.estado}. Solo se pueden cancelar transacciones pendientes o en proceso.`,
+        mensaje: `No se puede cancelar una transacción en estado ${transaccion.estado}. Solo se pueden cancelar transacciones pendientes, en proceso o pendientes de asignación.`,
       });
     }
 

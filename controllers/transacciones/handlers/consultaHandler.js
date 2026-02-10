@@ -30,6 +30,7 @@ async function obtenerTransaccionesCajero(req, res) {
       "fallida",
       "revertida",
       "requiere_revision_admin",
+      "retiro_pendiente_asignacion",
     ];
     if (!estadosValidos.includes(estado)) {
       return res.status(400).json({

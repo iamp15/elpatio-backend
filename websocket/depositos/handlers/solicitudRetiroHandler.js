@@ -150,12 +150,12 @@ async function solicitarRetiro(context, socket, data) {
         `📢 [RETIRO] Notificados ${cajerosConSaldo.length} cajeros con saldo suficiente`
       );
     } else {
-      // No hay cajeros con saldo: marcar como requiere_revision_admin (transparente para jugador)
-      transaccion.estado = "requiere_revision_admin";
+      // No hay cajeros con saldo: marcar como retiro_pendiente_asignacion (transparente para jugador)
+      transaccion.estado = "retiro_pendiente_asignacion";
       await transaccion.save();
 
       console.log(
-        `⚠️ [RETIRO] No hay cajeros con saldo suficiente. Transacción ${transaccion._id} marcada como requiere_revision_admin`
+        `⚠️ [RETIRO] No hay cajeros con saldo suficiente. Transacción ${transaccion._id} marcada como retiro_pendiente_asignacion`
       );
 
       // Notificar a administradores (crear notificación interna para cada admin)
