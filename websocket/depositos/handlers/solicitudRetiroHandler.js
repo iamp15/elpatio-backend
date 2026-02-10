@@ -177,7 +177,7 @@ async function solicitarRetiro(context, socket, data) {
               jugadorNombre: jugador.nickname || jugador.firstName || "Usuario",
               jugadorTelegramId: jugador.telegramId,
             },
-            eventoId: `retiro-revision-${transaccion._id}`,
+            eventoId: `retiro-revision-${transaccion._id}-${admin._id}`,
           });
         }
       } catch (err) {
