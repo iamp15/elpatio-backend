@@ -54,9 +54,11 @@ async function asignarCajero(req, res) {
       });
     }
 
-    if (transaccion.estado !== "pendiente") {
+    const estadosPermitidos = ["pendiente", "retiro_pendiente_asignacion"];
+    if (!estadosPermitidos.includes(transaccion.estado)) {
       return res.status(400).json({
-        mensaje: "Solo se pueden asignar cajeros a transacciones pendientes",
+        mensaje:
+          "Solo se pueden asignar cajeros a transacciones pendientes o pendientes de asignación",
       });
     }
 
