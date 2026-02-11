@@ -134,6 +134,17 @@ router.put(
   transaccionesController.rechazarTransaccion
 );
 
+/**
+ * Reportar transferencia de retiro (admin como cajero, desde dashboard)
+ * PUT /api/transacciones/:transaccionId/reportar-transferencia
+ */
+router.put(
+  "/:transaccionId/reportar-transferencia",
+  auth,
+  verificarMinimo("admin"),
+  transaccionesController.reportarTransferencia
+);
+
 // ===== RUTAS ADMINISTRATIVAS ADICIONALES =====
 
 /**

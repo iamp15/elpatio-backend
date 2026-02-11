@@ -13,6 +13,7 @@ const { obtenerTransaccionesCajero, obtenerPendientesCajero, obtenerEstadoTransa
 const { confirmarPagoUsuario, confirmarPorCajero } = require("./transacciones/handlers/confirmacionHandler");
 const { cancelarTransaccionJugador } = require("./transacciones/handlers/cancelacionHandler");
 const { rechazarTransaccion } = require("./transacciones/handlers/rechazoHandler");
+const { reportarTransferencia } = require("./transacciones/handlers/reportarTransferenciaHandler");
 const { obtenerHistorial, obtenerEstadisticas } = require("./transacciones/handlers/historialHandler");
 
 // ===== PROCESAMIENTO =====
@@ -37,6 +38,9 @@ exports.cancelarTransaccionJugador = cancelarTransaccionJugador;
 // Endpoints para cajeros
 exports.confirmarPorCajero = confirmarPorCajero;
 exports.rechazarTransaccion = rechazarTransaccion;
+
+// Endpoint para admin reportar transferencia (cuando se asigna como cajero)
+exports.reportarTransferencia = reportarTransferencia;
 
 // Endpoints de consulta
 exports.obtenerHistorial = obtenerHistorial;

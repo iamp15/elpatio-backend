@@ -5,6 +5,7 @@ const {
   loginAdmin,
   obtenerAdmins,
   obtenerMiPerfil,
+  obtenerMiCajero,
   modificarAdmin,
   eliminarAdmin,
 } = require("../controllers/adminController");
@@ -24,6 +25,9 @@ router.post("/login", loginAdmin);
 
 // Obtener perfil del admin autenticado
 router.get("/mi-perfil", auth, obtenerMiPerfil);
+
+// Obtener cajero asociado al admin (por email, para asignarse como cajero)
+router.get("/mi-cajero", auth, verificarMinimo("admin"), obtenerMiCajero);
 
 //Obtener todos los admins (solo superadmin)
 router.get("/", auth, verificarMinimo("superadmin"), obtenerAdmins);

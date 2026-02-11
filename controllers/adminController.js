@@ -80,6 +80,43 @@ exports.loginAdmin = async (req, res) => {
   }
 };
 
+// Obtener cajero asociado al admin (por email)
+// Útil cuando el admin quiere asignarse a sí mismo como cajero
+exports.obtenerMiCajero = async (req, res) => {
+  try {
+    const adminEmail = req.user?.email;
+    if (!adminEmail) {
+      return res.status(400).json({
+        mensaje: "No se pudo obtener el email del administrador",
+      });
+    }
+
+    const Cajero = require("../models/Cajero");
+    const cajero = await Cajero.findOne({
+      email: adminEmail.toLowerCase(),
+      estado: "activo",
+    }).select("_id nombreCompleto email telefonoContacto saldo datosPagoMovil");
+
+    if (!cajero) {
+      return res.status(404).json({
+        mensaje:
+          "No tienes una cuenta de cajero asociada con tu email. Para asignarte como cajero necesitas una cuenta de cajero con el mismo email.",
+        cajero: null,
+      });
+    }
+
+    res.json({
+      mensaje: "Cajero encontrado",
+      cajero: cajero,
+    });
+  } catch (error) {
+    res.status(500).json({
+      mensaje: "Error obteniendo cajero asociado",
+      error: error.message,
+    });
+  }
+};
+
 // Obtener perfil del admin autenticado
 exports.obtenerMiPerfil = async (req, res) => {
   try {

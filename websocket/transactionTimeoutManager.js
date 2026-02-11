@@ -368,10 +368,14 @@ class TransactionTimeoutManager {
    */
   async notifyTransactionTimeout(transaccion, estadoOriginal, minutos) {
     try {
-      const mensaje =
+      const esRetiro = transaccion.categoria === "retiro";
+      const tipoOperacion = esRetiro ? "retiro" : "depósito";
+      const idCorto = transaccion._id.toString().slice(-8);
+
+      const mensajeJugador =
         estadoOriginal === "pendiente"
-          ? `Tu solicitud de depósito fue cancelada automáticamente por inactividad (${minutos} minutos sin respuesta).`
-          : `Tu depósito fue cancelado automáticamente por inactividad (${minutos} minutos sin completar el pago).`;
+          ? `Tu solicitud de ${tipoOperacion} (ID: ${idCorto}) fue cancelada automáticamente por inactividad (${minutos} minutos sin respuesta).`
+          : `Tu ${tipoOperacion} (ID: ${idCorto}) fue cancelado automáticamente por inactividad (${minutos} minutos sin completar el pago).`;
 
       // Notificar al jugador
       if (transaccion.telegramId) {
@@ -383,7 +387,7 @@ class TransactionTimeoutManager {
             estado: "cancelada",
             estadoAnterior: estadoOriginal,
             motivo: "timeout",
-            mensaje: mensaje,
+            mensaje: mensajeJugador,
             tiempoTranscurrido: minutos,
             timestamp: new Date().toISOString(),
           }
@@ -409,18 +413,22 @@ class TransactionTimeoutManager {
               // No enviar notificación a Telegram si tiene la app abierta
               // Continuar con el resto de la función (no hacer return aquí)
             } else {
+              const tipoNotif = esRetiro ? "retiro_cancelado" : "deposito_cancelado";
+              const tituloNotif = esRetiro ? "Retiro cancelado" : "Depósito cancelado";
               const notificacion = await crearNotificacionBot({
                 transaccionId: transaccion._id,
                 jugadorTelegramId: jugador.telegramId,
-                tipo: "deposito_cancelado",
-                titulo: "Depósito cancelado",
-                mensaje: mensaje,
+                tipo: tipoNotif,
+                titulo: tituloNotif,
+                mensaje: mensajeJugador,
                 datos: {
                   monto: transaccion.monto,
                   tiempoTranscurrido: minutos,
                   motivo: "timeout",
+                  transaccionId: transaccion._id.toString(),
+                  categoria: transaccion.categoria,
                 },
-                eventoId: `deposito-cancelado-timeout-${transaccion._id}`,
+                eventoId: `${tipoNotif}-timeout-${transaccion._id}`,
               });
 
               console.log(
@@ -517,21 +525,27 @@ class TransactionTimeoutManager {
         );
 
         // Crear notificación persistente para el cajero
+        const tituloCajero = esRetiro
+          ? "Retiro cancelado por timeout"
+          : "Depósito cancelado por timeout";
+        const textoOperacion = esRetiro ? "retiro" : "depósito";
+        const mensajeCajero = `El ${textoOperacion} de ${jugadorNombre} por ${(
+          transaccion.monto / 100
+        ).toFixed(2)} Bs (ID: ${idCorto}) fue cancelado por inactividad (${minutos} minutos sin pago).`;
         try {
           await crearNotificacionInterna({
             destinatarioId: cajeroId,
             destinatarioTipo: "cajero",
             tipo: "transaccion_cancelada",
-            titulo: "Depósito cancelado por timeout",
-            mensaje: `El depósito de ${jugadorNombre} por ${(
-              transaccion.monto / 100
-            ).toFixed(2)} Bs fue cancelado por inactividad (${minutos} minutos sin pago).`,
+            titulo: tituloCajero,
+            mensaje: mensajeCajero,
             datos: {
               transaccionId: transaccion._id.toString(),
               jugadorNombre: jugadorNombre,
               monto: transaccion.monto,
               motivo: "timeout",
               tiempoTranscurrido: minutos,
+              categoria: transaccion.categoria,
             },
             eventoId: `cancelacion-timeout-${transaccion._id}`,
           });
@@ -549,10 +563,8 @@ class TransactionTimeoutManager {
             if (socket) {
               socket.emit("nuevaNotificacion", {
                 tipo: "transaccion_cancelada",
-                titulo: "Depósito cancelado por timeout",
-                mensaje: `El depósito de ${jugadorNombre} por ${(
-                  transaccion.monto / 100
-                ).toFixed(2)} Bs fue cancelado por inactividad (${minutos} minutos sin pago).`,
+                titulo: tituloCajero,
+                mensaje: mensajeCajero,
                 transaccionId: transaccion._id.toString(),
               });
               console.log(
@@ -578,12 +590,13 @@ class TransactionTimeoutManager {
             cajeroState.socketId
           );
           if (socket) {
+            const mensajeCajeroDirecto = `El ${textoOperacion} (ID: ${idCorto}) fue cancelado por inactividad (${minutos} minutos sin pago).`;
             socket.emit("transaccion-cancelada-por-timeout", {
               transaccionId: transaccion._id,
               estado: "cancelada",
               estadoAnterior: estadoOriginal,
               motivo: "timeout",
-              mensaje: `El depósito fue cancelado por inactividad (${minutos} minutos sin pago).`,
+              mensaje: mensajeCajeroDirecto,
               tiempoTranscurrido: minutos,
               timestamp: new Date().toISOString(),
             });
