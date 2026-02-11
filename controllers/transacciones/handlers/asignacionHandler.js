@@ -3,6 +3,10 @@ const Transaccion = require("../../../models/Transaccion");
 const Jugador = require("../../../models/Jugador");
 const websocketHelper = require("../../../utils/websocketHelper");
 const { registrarLog } = require("../../../utils/logHelper");
+const {
+  crearNotificacionInterna,
+} = require("../../../controllers/notificacionesController");
+const { buscarCajeroConectado } = require("../../../websocket/depositos/utils/socketUtils");
 
 /**
  * Obtener cajeros disponibles para asignar
@@ -11,7 +15,7 @@ async function obtenerCajerosDisponibles(req, res) {
   try {
     const cajeros = await Cajero.find(
       { estado: "activo" },
-      "nombreCompleto email telefonoContacto datosPagoMovil"
+      "nombreCompleto email telefonoContacto datosPagoMovil saldo"
     ).sort({ nombreCompleto: 1 });
 
     res.json({
@@ -92,10 +96,86 @@ async function asignarCajero(req, res) {
 
     // Solo emitir si es una transacción de depósito/retiro
     if (["deposito", "retiro"].includes(transaccion.categoria)) {
-      // Obtener datos del jugador para la notificación
-      const jugador = await Jugador.findById(transaccion.jugadorId);
+      const socketManager = req.app.get("socketManager");
+      const jugador = await Jugador.findById(transaccion.jugadorId).select(
+        "telegramId nickname firstName"
+      );
+
       if (jugador) {
+        // Notificar al jugador (app de retiros/depósitos) para que cambie de pantalla
         await websocketHelper.emitCajeroAsignado(transaccion, cajero);
+
+        // Notificar al bot si el jugador no tiene la app abierta
+        if (socketManager?.depositoController) {
+          const context = socketManager.depositoController.getContext();
+          const {
+            notificarBotSolicitudAceptada,
+          } = require("../../../websocket/depositos/notificaciones/notificacionesBot");
+          await notificarBotSolicitudAceptada(context, transaccion, cajero);
+        }
+
+        // Agregar cajero al room de la transacción si está conectado
+        if (socketManager?.roomsManager) {
+          const cajeroSocketId = buscarCajeroConectado(
+            socketManager,
+            cajero._id
+          );
+          if (cajeroSocketId) {
+            socketManager.roomsManager.agregarParticipanteTransaccion(
+              transaccion._id.toString(),
+              cajeroSocketId
+            );
+          }
+        }
+
+        // Crear notificación persistente para el cajero
+        try {
+          await crearNotificacionInterna({
+            destinatarioId: cajero._id,
+            destinatarioTipo: "cajero",
+            tipo: "solicitud_asignada",
+            titulo:
+              transaccion.categoria === "retiro"
+                ? "Retiro asignado"
+                : "Solicitud asignada",
+            mensaje: `Se te asignó la solicitud de ${
+              jugador.nickname || jugador.firstName || "Usuario"
+            } por ${(transaccion.monto / 100).toFixed(2)} Bs`,
+            datos: {
+              transaccionId: transaccion._id.toString(),
+              monto: transaccion.monto,
+              jugadorNombre:
+                jugador.nickname || jugador.firstName || "Usuario",
+            },
+            eventoId: `asignada-${transaccion._id}-${cajero._id}`,
+          });
+
+          // Emitir evento en tiempo real al cajero si está conectado
+          const cajeroSocketId = socketManager
+            ? buscarCajeroConectado(socketManager, cajero._id)
+            : null;
+          if (cajeroSocketId && socketManager?.io) {
+            const socket = socketManager.io.sockets.sockets.get(cajeroSocketId);
+            if (socket) {
+              socket.emit("nuevaNotificacion", {
+                tipo: "solicitud_asignada",
+                titulo:
+                  transaccion.categoria === "retiro"
+                    ? "Retiro asignado"
+                    : "Solicitud asignada",
+                mensaje: `Se te asignó la solicitud de ${
+                  jugador.nickname || jugador.firstName || "Usuario"
+                } por ${(transaccion.monto / 100).toFixed(2)} Bs`,
+                transaccionId: transaccion._id.toString(),
+              });
+            }
+          }
+        } catch (notifError) {
+          console.error(
+            "❌ Error creando notificación de asignación:",
+            notifError?.message
+          );
+        }
       }
     }
 
