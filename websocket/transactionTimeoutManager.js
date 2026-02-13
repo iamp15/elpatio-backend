@@ -17,6 +17,7 @@ const {
 const {
   crearNotificacionInterna,
 } = require("../controllers/notificacionesController");
+const { notificarTransaccionCancelada } = require("./depositos/notificaciones/notificacionesAdmin");
 
 class TransactionTimeoutManager {
   constructor(socketManager) {
@@ -331,6 +332,10 @@ class TransactionTimeoutManager {
 
       // Notificar a los participantes usando la transacción recargada
       await this.notifyTransactionTimeout(transaccionRecargada, estadoOriginal, minutos);
+
+      // Notificación persistente para admins
+      const motivoTimeout = `Cancelada por inactividad (${minutos} min)`;
+      await notificarTransaccionCancelada(transaccionRecargada, motivoTimeout);
 
       // Limpiar room de la transacción
       this.socketManager.roomsManager.limpiarRoomTransaccion(transaccion._id);

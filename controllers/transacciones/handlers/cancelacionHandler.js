@@ -1,6 +1,7 @@
 const Transaccion = require("../../../models/Transaccion");
 const websocketHelper = require("../../../utils/websocketHelper");
 const { registrarLog } = require("../../../utils/logHelper");
+const { notificarTransaccionCancelada } = require("../../../websocket/depositos/notificaciones/notificacionesAdmin");
 
 /**
  * Cancelar transacción por jugador
@@ -75,6 +76,10 @@ async function cancelarTransaccionJugador(req, res) {
         telegramId: telegramIdFromRequest,
       },
     });
+
+    // Notificación persistente para admins
+    const motivoCancelacion = motivo || "Cancelada por el usuario";
+    await notificarTransaccionCancelada(transaccion, motivoCancelacion);
 
     // Emitir evento WebSocket para notificar al cajero (o cajeros disponibles)
     websocketHelper.initialize(req.app.get("socketManager"));

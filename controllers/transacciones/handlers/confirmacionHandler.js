@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 const websocketHelper = require("../../../utils/websocketHelper");
 const { registrarLog } = require("../../../utils/logHelper");
 const { actualizarSaldoCajero } = require("../../../utils/saldoCajeroHelper");
+const { notificarTransaccionCompletada } = require("../../../websocket/depositos/notificaciones/notificacionesAdmin");
 
 /**
  * Confirmar pago por el usuario (solo para depósitos/retiros)
@@ -221,7 +222,7 @@ async function confirmarPorCajero(req, res) {
     websocketHelper.initialize(req.app.get("socketManager"));
     websocketHelper.logWebSocketStats("Transacción completada por cajero");
 
-    // Notificar a admins del dashboard sobre transacción completada (reutilizar socketManager ya declarado)
+    // Notificar a admins del dashboard sobre transacción completada (tiempo real + persistente)
     if (socketManager?.roomsManager) {
       socketManager.roomsManager.notificarAdmins("transaction-update", {
         transaccionId: transaccion._id,
@@ -231,6 +232,9 @@ async function confirmarPorCajero(req, res) {
         monto: transaccion.monto,
         jugadorId: transaccion.jugadorId,
       });
+    }
+    if (["deposito", "retiro"].includes(transaccion.categoria)) {
+      await notificarTransaccionCompletada(transaccion, jugador);
     }
 
     // Solo emitir si es una transacción de depósito/retiro

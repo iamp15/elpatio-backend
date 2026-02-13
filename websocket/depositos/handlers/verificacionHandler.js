@@ -15,6 +15,7 @@ const {
   notificarBotDepositoRechazado,
   notificarBotRetiroCompletado,
 } = require("../notificaciones/notificacionesBot");
+const { notificarTransaccionCompletada } = require("../notificaciones/notificacionesAdmin");
 const { actualizarSaldoCajero } = require("../../../utils/saldoCajeroHelper");
 
 /**
@@ -190,7 +191,7 @@ async function verificarPagoCajero(context, socket, data) {
 
           await session.commitTransaction();
 
-          // Notificar a admins del dashboard sobre transacción completada
+          // Notificar a admins del dashboard sobre transacción completada (tiempo real + persistente)
           if (context.roomsManager) {
             context.roomsManager.notificarAdmins("transaction-update", {
               transaccionId: transaccion._id,
@@ -200,6 +201,9 @@ async function verificarPagoCajero(context, socket, data) {
               monto: transaccion.monto,
               jugadorId: transaccion.jugadorId,
             });
+          }
+          if (jugadorConSesion) {
+            await notificarTransaccionCompletada(transaccion, jugadorConSesion);
           }
 
           const notificacion = {
@@ -409,7 +413,7 @@ async function verificarPagoCajero(context, socket, data) {
           `✅ [DEPOSITO] Depósito completado: ${transaccionId}, nuevo saldo: ${saldoNuevo}`
         );
 
-        // Notificar a admins del dashboard sobre transacción completada
+        // Notificar a admins del dashboard sobre transacción completada (tiempo real + persistente)
         if (context.roomsManager) {
           context.roomsManager.notificarAdmins("transaction-update", {
             transaccionId: transaccion._id,
@@ -419,6 +423,9 @@ async function verificarPagoCajero(context, socket, data) {
             monto: transaccion.monto,
             jugadorId: transaccion.jugadorId,
           });
+        }
+        if (jugador) {
+          await notificarTransaccionCompletada(transaccion, jugador);
         }
 
         // 2. USAR ROOMS PARA NOTIFICAR A TODOS LOS PARTICIPANTES

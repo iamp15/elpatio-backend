@@ -49,7 +49,21 @@ const notificacionSchema = new mongoose.Schema(
         "juego_iniciado",
         "transaccion_en_revision",
         "cancelacion_sala", // Cancelación de sala
+        // Tipos para admins (dashboard)
+        "nueva_solicitud_deposito",
+        "nueva_solicitud_retiro",
+        "transaccion_completada_admin",
+        "transaccion_rechazada_admin",
+        "transaccion_cancelada_admin",
+        "transaccion_requiere_revision",
       ],
+    },
+
+    // Para admins: si la notificación fue leída
+    leida: {
+      type: Boolean,
+      default: false,
+      index: true,
     },
 
     // Contenido de la notificación

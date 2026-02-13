@@ -14,6 +14,7 @@ const {
 const {
   notificarBotRetiroCompletado,
 } = require("../../../websocket/depositos/notificaciones/notificacionesBot");
+const { notificarTransaccionCompletada } = require("../../../websocket/depositos/notificaciones/notificacionesAdmin");
 const { actualizarSaldoCajero } = require("../../../utils/saldoCajeroHelper");
 const websocketHelper = require("../../../utils/websocketHelper");
 const { buscarJugadorConectado } = require("../../../websocket/depositos/utils/socketUtils");
@@ -207,9 +208,10 @@ async function reportarTransferencia(req, res) {
       }
     }
 
-    // Notificación interna y al bot
+    // Notificación persistente para admins
     const jugador = await Jugador.findById(transaccion.jugadorId._id || transaccion.jugadorId);
     if (jugador) {
+      await notificarTransaccionCompletada(transaccion, jugador);
       await crearNotificacionInterna({
         destinatarioId: jugador._id,
         destinatarioTipo: "jugador",

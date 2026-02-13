@@ -2,6 +2,7 @@ const Transaccion = require("../../../models/Transaccion");
 const Jugador = require("../../../models/Jugador");
 const websocketHelper = require("../../../utils/websocketHelper");
 const { registrarLog } = require("../../../utils/logHelper");
+const { notificarTransaccionRechazada } = require("../../../websocket/depositos/notificaciones/notificacionesAdmin");
 
 /**
  * Rechazar transacción
@@ -55,7 +56,7 @@ async function rechazarTransaccion(req, res) {
         );
       }
 
-      // Notificar a admins del dashboard sobre cambio de estado
+      // Notificar a admins del dashboard sobre cambio de estado (tiempo real + persistente)
       const socketManager = req.app.get("socketManager");
       if (socketManager?.roomsManager) {
         socketManager.roomsManager.notificarAdmins("transaction-update", {
@@ -66,6 +67,9 @@ async function rechazarTransaccion(req, res) {
           monto: transaccion.monto,
           jugadorId: transaccion.jugadorId,
         });
+      }
+      if (jugador) {
+        await notificarTransaccionRechazada(transaccion, jugador, motivo);
       }
     }
 

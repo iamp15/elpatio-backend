@@ -7,6 +7,7 @@ const Jugador = require("../../../models/Jugador");
 const { registrarLog } = require("../../../utils/logHelper");
 const { notificarCajerosNuevaSolicitud } = require("../notificaciones/notificacionesCajero");
 const { notificarBotNuevoDeposito } = require("../notificaciones/notificacionesBot");
+const { notificarNuevaSolicitudDeposito } = require("../notificaciones/notificacionesAdmin");
 
 /**
  * Manejar solicitud de depósito desde jugador
@@ -106,7 +107,7 @@ async function solicitarDeposito(context, socket, data) {
     // Crear y emitir notificación al bot para el jugador
     await notificarBotNuevoDeposito(context, transaccion, jugador);
 
-    // Notificar a admins del dashboard sobre nueva transacción
+    // Notificar a admins del dashboard sobre nueva transacción (tiempo real + persistente)
     if (context.roomsManager) {
       context.roomsManager.notificarAdmins("transaction-update", {
         transaccionId: transaccion._id,
@@ -117,6 +118,7 @@ async function solicitarDeposito(context, socket, data) {
         jugadorId: transaccion.jugadorId,
       });
     }
+    await notificarNuevaSolicitudDeposito(transaccion, jugador);
 
     // Registrar log
     await registrarLog({

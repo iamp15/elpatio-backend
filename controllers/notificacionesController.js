@@ -252,6 +252,135 @@ exports.eliminarNotificacion = async (req, res) => {
 };
 
 /**
+ * Obtener notificaciones del admin autenticado (para dashboard)
+ * GET /api/notificaciones?leida=&tipo=&fechaDesde=&fechaHasta=&limite=
+ */
+exports.obtenerNotificacionesAdmin = async (req, res) => {
+  try {
+    const adminId = req.user._id || req.user.id;
+    const { leida, tipo, fechaDesde, fechaHasta, limite = 50 } = req.query;
+
+    const filtro = {
+      destinatarioId: adminId,
+      destinatarioTipo: "admin",
+    };
+
+    if (leida !== undefined && leida !== null && leida !== "") {
+      filtro.leida = leida === "true";
+    }
+    if (tipo) filtro.tipo = tipo;
+    if (fechaDesde || fechaHasta) {
+      filtro.createdAt = {};
+      if (fechaDesde) filtro.createdAt.$gte = new Date(fechaDesde);
+      if (fechaHasta) filtro.createdAt.$lte = new Date(fechaHasta);
+    }
+
+    const notificaciones = await Notificacion.find(filtro)
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limite, 10))
+      .lean();
+
+    return res.status(200).json({
+      mensaje: "Notificaciones obtenidas exitosamente",
+      notificaciones,
+      total: notificaciones.length,
+    });
+  } catch (error) {
+    console.error("❌ Error obteniendo notificaciones admin:", error);
+    return res.status(500).json({
+      mensaje: "Error obteniendo notificaciones",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Marcar una notificación como leída (solo si pertenece al admin)
+ * PUT /api/notificaciones/:id/marcar-leida
+ */
+exports.marcarNotificacionLeida = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminId = req.user._id || req.user.id;
+
+    const notificacion = await Notificacion.findOneAndUpdate(
+      { _id: id, destinatarioId: adminId, destinatarioTipo: "admin" },
+      { leida: true },
+      { new: true }
+    );
+
+    if (!notificacion) {
+      return res.status(404).json({
+        mensaje: "Notificación no encontrada o no pertenece al usuario",
+      });
+    }
+
+    return res.status(200).json({
+      mensaje: "Notificación marcada como leída",
+      notificacion,
+    });
+  } catch (error) {
+    console.error("❌ Error marcando notificación como leída:", error);
+    return res.status(500).json({
+      mensaje: "Error al actualizar la notificación",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Marcar todas las notificaciones del admin como leídas
+ * PUT /api/notificaciones/marcar-todas-leidas
+ */
+exports.marcarTodasLeidasAdmin = async (req, res) => {
+  try {
+    const adminId = req.user._id || req.user.id;
+
+    const resultado = await Notificacion.updateMany(
+      { destinatarioId: adminId, destinatarioTipo: "admin", leida: false },
+      { leida: true }
+    );
+
+    return res.status(200).json({
+      mensaje: "Todas las notificaciones marcadas como leídas",
+      modificadas: resultado.modifiedCount,
+    });
+  } catch (error) {
+    console.error("❌ Error marcando todas como leídas:", error);
+    return res.status(500).json({
+      mensaje: "Error al actualizar las notificaciones",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Contador de notificaciones no leídas del admin
+ * GET /api/notificaciones/contador-no-leidas
+ */
+exports.contadorNoLeidasAdmin = async (req, res) => {
+  try {
+    const adminId = req.user._id || req.user.id;
+
+    const total = await Notificacion.countDocuments({
+      destinatarioId: adminId,
+      destinatarioTipo: "admin",
+      leida: false,
+    });
+
+    return res.status(200).json({
+      total,
+    });
+  } catch (error) {
+    console.error("❌ Error obteniendo contador de notificaciones:", error);
+    return res.status(500).json({
+      mensaje: "Error obteniendo contador",
+      error: error.message,
+    });
+  }
+};
+
+/**
  * Limpiar notificaciones antiguas
  * Elimina notificaciones con más de X días de antigüedad
  * @param {Number} dias - Número de días (default: 7)

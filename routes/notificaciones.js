@@ -3,7 +3,56 @@ const router = express.Router();
 const notificacionesController = require("../controllers/notificacionesController");
 const auth = require("../middlewares/auth");
 const verificarAdmin = require("../middlewares/verificarAdmin");
+const verificarMinimo = require("../middlewares/verificarMinimo");
 const { telegramAuth } = require("../middlewares/telegramAuth");
+
+// ===== RUTAS PARA ADMINS (dashboard) - rutas específicas primero =====
+
+/**
+ * GET /api/notificaciones/contador-no-leidas
+ * Contador de notificaciones no leídas del admin autenticado
+ */
+router.get(
+  "/contador-no-leidas",
+  auth,
+  verificarMinimo("admin"),
+  notificacionesController.contadorNoLeidasAdmin
+);
+
+/**
+ * PUT /api/notificaciones/marcar-todas-leidas
+ * Marcar todas las notificaciones del admin como leídas
+ */
+router.put(
+  "/marcar-todas-leidas",
+  auth,
+  verificarMinimo("admin"),
+  notificacionesController.marcarTodasLeidasAdmin
+);
+
+/**
+ * PUT /api/notificaciones/:id/marcar-leida
+ * Marcar una notificación como leída
+ */
+router.put(
+  "/:id/marcar-leida",
+  auth,
+  verificarMinimo("admin"),
+  notificacionesController.marcarNotificacionLeida
+);
+
+/**
+ * GET /api/notificaciones
+ * Obtener notificaciones del admin autenticado (query: leida, tipo, fechaDesde, fechaHasta, limite)
+ */
+router.get(
+  "/",
+  auth,
+  verificarMinimo("admin"),
+  notificacionesController.obtenerNotificacionesAdmin
+);
+
+// ===== RUTAS PARA CAJEROS =====
 
 /**
  * GET /api/notificaciones/cajero

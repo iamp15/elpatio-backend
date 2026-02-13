@@ -9,8 +9,9 @@ const ConfiguracionSistema = require("../../../models/ConfiguracionSistema");
 const { registrarLog } = require("../../../utils/logHelper");
 const { notificarCajerosNuevaSolicitudRetiro } = require("../notificaciones/notificacionesCajero");
 const {
-  crearNotificacionInterna,
-} = require("../../../controllers/notificacionesController");
+  notificarNuevaSolicitudRetiro,
+  notificarRetiroPendienteAsignacion,
+} = require("../notificaciones/notificacionesAdmin");
 
 /**
  * Manejar solicitud de retiro desde jugador
@@ -158,37 +159,10 @@ async function solicitarRetiro(context, socket, data) {
         `⚠️ [RETIRO] No hay cajeros con saldo suficiente. Transacción ${transaccion._id} marcada como retiro_pendiente_asignacion`
       );
 
-      // Notificar a administradores (crear notificación interna para cada admin)
-      try {
-        const Admin = require("../../../models/Admin");
-        const admins = await Admin.find({ estado: "activo" });
-        const mensajeNotif = `Retiro de ${(montoNum / 100).toFixed(2)} Bs de ${jugador.nickname || jugador.firstName || "Usuario"} requiere asignación manual. Ningún cajero tiene saldo suficiente.`;
-
-        for (const admin of admins) {
-          await crearNotificacionInterna({
-            destinatarioId: admin._id,
-            destinatarioTipo: "admin",
-            tipo: "retiro_requiere_revision",
-            titulo: "Retiro pendiente por falta de saldo en cajeros",
-            mensaje: mensajeNotif,
-            datos: {
-              transaccionId: transaccion._id.toString(),
-              monto: transaccion.monto,
-              jugadorNombre: jugador.nickname || jugador.firstName || "Usuario",
-              jugadorTelegramId: jugador.telegramId,
-            },
-            eventoId: `retiro-revision-${transaccion._id}-${admin._id}`,
-          });
-        }
-      } catch (err) {
-        console.error(
-          "❌ [RETIRO] Error creando notificación admin:",
-          err.message
-        );
-      }
+      await notificarRetiroPendienteAsignacion(transaccion, jugador);
     }
 
-    // Notificar a admins del dashboard sobre nueva transacción (siempre, independiente de si hay cajeros)
+    // Notificar a admins del dashboard sobre nueva transacción (tiempo real + persistente)
     if (context.roomsManager) {
       context.roomsManager.notificarAdmins("transaction-update", {
         transaccionId: transaccion._id,
@@ -199,6 +173,7 @@ async function solicitarRetiro(context, socket, data) {
         jugadorId: transaccion.jugadorId,
       });
     }
+    await notificarNuevaSolicitudRetiro(transaccion, jugador);
 
     await registrarLog({
       accion: "Solicitud de retiro creada via WebSocket",
