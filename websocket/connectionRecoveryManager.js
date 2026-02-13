@@ -383,11 +383,23 @@ class ConnectionRecoveryManager {
           `ℹ️ [RECOVERY] Transacción ${transaccionId} en estado final: ${transaccion.estado} - No se recupera`
         );
         // Informar al cliente que la transacción ya finalizó
-        socket.emit("transaction-already-finished", {
+        const payload = {
           transaccionId: transaccionId,
           estado: transaccion.estado,
           mensaje: "La transacción ya ha finalizado y no requiere acción",
-        });
+        };
+        // Para retiros completados, incluir datos para mostrar pantalla de éxito
+        if (
+          transaccion.categoria === "retiro" &&
+          (transaccion.estado === "completada" || transaccion.estado === "completada_con_ajuste")
+        ) {
+          payload.target = "jugador";
+          payload.monto = transaccion.monto;
+          payload.saldoNuevo = transaccion.saldoNuevo;
+          payload.saldoAnterior = transaccion.saldoAnterior;
+          payload.mensaje = "¡Retiro completado exitosamente!";
+        }
+        socket.emit("transaction-already-finished", payload);
         return false; // No se recuperó
       }
 

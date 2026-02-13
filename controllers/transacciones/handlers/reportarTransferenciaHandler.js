@@ -181,17 +181,28 @@ async function reportarTransferencia(req, res) {
         target: "cajero",
       });
 
-      const telegramIdJugador = transaccion.telegramId || (jugadorConSesion && jugadorConSesion.telegramId);
-    const jugadorSocketId =
-      socketManager && telegramIdJugador
-        ? buscarJugadorConectado(socketManager, telegramIdJugador)
-        : null;
-    if (jugadorSocketId) {
-        io.to(jugadorSocketId).emit("retiro-completado", {
-          ...notificacion,
-          target: "jugador",
-          mensaje: "¡Retiro completado exitosamente!",
-          saldoAnterior: transaccion.saldoAnterior,
+      const telegramIdJugador = transaccion.telegramId || transaccion.jugadorId?.telegramId || (jugadorConSesion && jugadorConSesion.telegramId);
+      const notificacionJugador = {
+        ...notificacion,
+        target: "jugador",
+        mensaje: "¡Retiro completado exitosamente!",
+        saldoAnterior: transaccion.saldoAnterior,
+      };
+      const jugadorSocketId =
+        socketManager && telegramIdJugador
+          ? buscarJugadorConectado(socketManager, telegramIdJugador)
+          : null;
+      if (jugadorSocketId) {
+        io.to(jugadorSocketId).emit("retiro-completado", notificacionJugador);
+      } else if (telegramIdJugador && socketManager?.roomsManager) {
+        socketManager.roomsManager.notificarJugador(telegramIdJugador, "retiro-completado", notificacionJugador);
+      }
+      // Notificar al dashboard para refrescar lista y opcionalmente mostrar aviso
+      if (socketManager?.roomsManager) {
+        socketManager.roomsManager.notificarAdmins("transaction-update", {
+          transaccionId: transaccion._id,
+          estado: transaccion.estado,
+          tipo: "retiro-completado",
         });
       }
     }
