@@ -8,7 +8,10 @@ const {
 } = require("../../../controllers/notificacionesBotController");
 
 /**
- * Notificar al bot sobre solicitud aceptada
+ * Notificar al bot sobre solicitud aceptada (depósito o retiro)
+ * Distingue el tipo de transacción para enviar el mensaje adecuado.
+ * No envía Telegram si el jugador tiene la app abierta (depósitos o retiros).
+ *
  * @param {Object} context - Contexto con socketManager e io
  * @param {Object} transaccion - Transacción
  * @param {Object} cajero - Cajero
@@ -21,36 +24,40 @@ async function notificarBotSolicitudAceptada(context, transaccion, cajero) {
       return;
     }
 
-    // Verificar si el jugador tiene la app de depósitos abierta
+    // No enviar Telegram si el jugador tiene la app abierta (depósitos o retiros)
     const tieneAppAbierta = context.socketManager.connectedPlayers.has(
       jugador.telegramId
     );
 
     if (tieneAppAbierta) {
       console.log(
-        `ℹ️ [BOT] Jugador ${jugador.telegramId} tiene la app de depósitos abierta, no enviar notificación a Telegram`
+        `ℹ️ [BOT] Jugador ${jugador.telegramId} tiene la app de depósitos o retiros abierta, no enviar notificación a Telegram`
       );
-      return; // No enviar notificación a Telegram si tiene la app abierta
+      return;
     }
+
+    const esRetiro = transaccion.categoria === "retiro";
+    const montoFormato = (transaccion.monto / 100).toFixed(2);
 
     const notificacion = await crearNotificacionBot({
       transaccionId: transaccion._id,
       jugadorTelegramId: jugador.telegramId,
-      tipo: "deposito_aceptado",
-      titulo: "Solicitud de depósito aceptada",
-      mensaje: `El cajero ${
-        cajero.nombreCompleto
-      } aceptó tu solicitud de depósito por ${(
-        transaccion.monto / 100
-      ).toFixed(
-        2
-      )} Bs. Para continuar abre la app de depositos y haz el pago.`,
+      tipo: esRetiro ? "retiro_aceptado" : "deposito_aceptado",
+      titulo: esRetiro
+        ? "Solicitud de retiro aceptada"
+        : "Solicitud de depósito aceptada",
+      mensaje: esRetiro
+        ? `El cajero ${cajero.nombreCompleto} aceptó tu solicitud de retiro por ${montoFormato} Bs. Abre la app de retiros para ver los detalles y esperar la transferencia.`
+        : `El cajero ${cajero.nombreCompleto} aceptó tu solicitud de depósito por ${montoFormato} Bs. Para continuar abre la app de depósitos y haz el pago.`,
       datos: {
         monto: transaccion.monto,
         cajeroNombre: cajero.nombreCompleto,
         referencia: transaccion.referencia,
+        categoria: transaccion.categoria,
       },
-      eventoId: `deposito-aceptado-${transaccion._id}`,
+      eventoId: esRetiro
+        ? `retiro-aceptado-${transaccion._id}`
+        : `deposito-aceptado-${transaccion._id}`,
     });
 
     if (!notificacion) return;
