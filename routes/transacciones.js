@@ -209,6 +209,77 @@ router.get("/admin/todas", auth, verificarMinimo("admin"), async (req, res) => {
 });
 
 /**
+ * Obtener transacciones manejadas por admin (asignadoPorAdmin === true)
+ * GET /api/transacciones/admin/manejadas
+ * @param {string} estado - Estado de las transacciones (pendiente, en_proceso, completada, requiere_revision_admin)
+ * @param {number} limite - Límite de resultados por página (default: 50)
+ * @param {number} pagina - Número de página (default: 1)
+ */
+router.get("/admin/manejadas", auth, verificarMinimo("admin"), async (req, res) => {
+  try {
+    const {
+      estado,
+      limite = 50,
+      pagina = 1,
+    } = req.query;
+
+    // Construir filtros base: siempre filtrar por asignadoPorAdmin === true
+    const filtros = {
+      asignadoPorAdmin: true,
+    };
+
+    // Agregar filtro por estado si se proporciona
+    if (estado) {
+      // Mapear estados del frontend a estados del backend
+      const estadoMap = {
+        'pendientes': 'pendiente',
+        'pendiente': 'pendiente',
+        'en-proceso': 'en_proceso',
+        'en_proceso': 'en_proceso',
+        'completadas': 'completada',
+        'completada': 'completada',
+        'requiere-revision': 'requiere_revision_admin',
+        'requiere_revision_admin': 'requiere_revision_admin'
+      };
+      
+      const estadoBackend = estadoMap[estado] || estado;
+      filtros.estado = estadoBackend;
+    }
+
+    const skip = (parseInt(pagina) - 1) * parseInt(limite);
+
+    const [transacciones, total] = await Promise.all([
+      require("../models/Transaccion")
+        .find(filtros)
+        .populate("jugadorId", "username nickname telegramId")
+        .populate("cajeroId", "nombreCompleto email telefonoContacto")
+        .populate("creadoPor", "username")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limite))
+        .lean(),
+      require("../models/Transaccion").countDocuments(filtros),
+    ]);
+
+    res.json({
+      transacciones,
+      paginacion: {
+        total,
+        pagina: parseInt(pagina),
+        limite: parseInt(limite),
+        totalPaginas: Math.ceil(total / parseInt(limite)),
+      },
+    });
+  } catch (error) {
+    console.error("Error obteniendo transacciones manejadas por admin:", error);
+    res.status(500).json({
+      mensaje: "Error obteniendo transacciones manejadas por admin",
+      error: error.message,
+    });
+  }
+});
+
+/**
  * Obtener transacciones en curso (pendiente + en_proceso + realizada)
  * GET /api/transacciones/admin/en-curso
  * Nota: No incluye "confirmada" porque es un estado temporal que se procesa automáticamente
