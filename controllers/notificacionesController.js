@@ -280,6 +280,9 @@ exports.obtenerNotificacionesAdmin = async (req, res) => {
       .limit(parseInt(limite, 10))
       .lean();
 
+    // Evitar caché para que "marcar todas leídas" y la lista estén siempre coherentes
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate");
+
     return res.status(200).json({
       mensaje: "Notificaciones obtenidas exitosamente",
       notificaciones,
@@ -345,22 +348,16 @@ exports.marcarTodasLeidasAdmin = async (req, res) => {
 
     console.log(`✅ [MARCAR-TODAS] Marcando notificaciones para admin: ${adminId}`);
 
-    // Convertir adminId a ObjectId si es necesario para asegurar comparación correcta
-    const mongoose = require("mongoose");
-    const adminIdObj = mongoose.Types.ObjectId.isValid(adminId) 
-      ? new mongoose.Types.ObjectId(adminId) 
-      : adminId;
-
-    // Verificar cuántas notificaciones no leídas hay antes de actualizar
+    // Usar el mismo adminId que en obtenerNotificacionesAdmin (sin convertir) para que la consulta coincida
     const antes = await Notificacion.countDocuments({
-      destinatarioId: adminIdObj,
+      destinatarioId: adminId,
       destinatarioTipo: "admin",
       leida: false,
     });
     console.log(`🔍 [MARCAR-TODAS] Notificaciones no leídas encontradas: ${antes}`);
 
     const resultado = await Notificacion.updateMany(
-      { destinatarioId: adminIdObj, destinatarioTipo: "admin", leida: false },
+      { destinatarioId: adminId, destinatarioTipo: "admin", leida: false },
       { leida: true }
     );
 
