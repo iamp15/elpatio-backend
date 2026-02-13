@@ -75,6 +75,9 @@ async function asignarCajero(req, res) {
     // Asignar cajero
     transaccion.cajeroId = cajeroId;
     transaccion.fechaAsignacionCajero = new Date();
+    if (["admin", "superadmin"].includes(req.user?.rol)) {
+      transaccion.asignadoPorAdmin = true;
+    }
     transaccion.cambiarEstado("en_proceso");
     await transaccion.save();
 

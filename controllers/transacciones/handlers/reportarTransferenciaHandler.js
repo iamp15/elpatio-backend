@@ -127,15 +127,17 @@ async function reportarTransferencia(req, res) {
       { session }
     );
 
-    // Actualizar saldo del cajero
-    await actualizarSaldoCajero(
-      transaccion.cajeroId,
-      -transaccion.monto,
-      "retiro",
-      transaccion._id,
-      `Retiro de ${(transaccion.monto / 100).toFixed(2)} Bs procesado exitosamente`,
-      session
-    );
+    // No actualizar saldo del cajero cuando fue asignado por admin (no tiene restricciones de saldo)
+    if (!transaccion.asignadoPorAdmin && transaccion.cajeroId) {
+      await actualizarSaldoCajero(
+        transaccion.cajeroId,
+        -transaccion.monto,
+        "retiro",
+        transaccion._id,
+        `Retiro de ${(transaccion.monto / 100).toFixed(2)} Bs procesado exitosamente`,
+        session
+      );
+    }
 
     transaccion.cambiarEstado("completada");
     transaccion.saldoNuevo = saldoNuevo;

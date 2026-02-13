@@ -111,6 +111,14 @@ const transaccionSchema = new mongoose.Schema(
       index: true,
     },
 
+    // Indica que la transacción fue asignada por un admin (no por cajero desde app)
+    // En estos casos no se actualiza el saldo del cajero
+    asignadoPorAdmin: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
     // === FECHAS DE SEGUIMIENTO DEL CAJERO ===
     fechaAsignacionCajero: Date,
     fechaConfirmacionCajero: Date,

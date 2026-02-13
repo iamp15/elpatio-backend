@@ -172,7 +172,7 @@ async function verificarPagoCajero(context, socket, data) {
             { session }
           );
 
-          if (transaccion.cajeroId) {
+          if (!transaccion.asignadoPorAdmin && transaccion.cajeroId) {
             await actualizarSaldoCajero(
               transaccion.cajeroId,
               -transaccion.monto,
@@ -328,8 +328,8 @@ async function verificarPagoCajero(context, socket, data) {
           `🔍 [DEPOSITO] [DEBUG] Saldo del jugador actualizado exitosamente`
         );
 
-        // Actualizar saldo del cajero
-        if (transaccion.cajeroId) {
+        // No actualizar saldo del cajero cuando fue asignado por admin
+        if (!transaccion.asignadoPorAdmin && transaccion.cajeroId) {
           console.log(
             `🔍 [DEPOSITO] [DEBUG] Actualizando saldo del cajero: ${transaccion.cajeroId}`
           );

@@ -133,8 +133,12 @@ async function confirmarPorCajero(req, res) {
       { session }
     );
 
-    // Actualizar saldo del cajero si es un depósito
-    if (transaccion.categoria === "deposito" && transaccion.cajeroId) {
+    // Actualizar saldo del cajero si es un depósito (no cuando fue asignado por admin)
+    if (
+      transaccion.categoria === "deposito" &&
+      !transaccion.asignadoPorAdmin &&
+      transaccion.cajeroId
+    ) {
       try {
         const montoParaCajero = transaccion.monto; // Monto en centavos (positivo para depósito)
         const descripcion = `Depósito de ${(transaccion.monto / 100).toFixed(2)} Bs procesado exitosamente`;
