@@ -413,9 +413,16 @@ class SocketManager {
         }
       });
 
+      // Manejar tipo de desconexión (antes de desconectarse)
+      socket.on("disconnection-type", (data) => {
+        console.log(`📱 [DISCONNECTION] Tipo de desconexión recibido: ${data.tipo} para socket ${socket.id}`);
+        // Guardar el tipo de desconexión en el socket para usarlo cuando se desconecte
+        socket.disconnectionType = data.tipo;
+      });
+
       // Manejar desconexión
       socket.on("disconnect", (reason) => {
-        console.log(`🔌 Cliente desconectado: ${socket.id}, razón: ${reason}`);
+        console.log(`🔌 Cliente desconectado: ${socket.id}, razón: ${reason}, tipo: ${socket.disconnectionType || "unknown"}`);
         this.handleDisconnect(socket);
       });
 

@@ -120,6 +120,13 @@ class ConnectionRecoveryManager {
       `⏳ [RECOVERY] ${userType} ${userId} desconectado con ${activeTransactions.length} transacciones activas. Tiempo de gracia: ${gracePeriod}ms`
     );
 
+    // Obtener tipo de desconexión del socket (si fue establecido antes de desconectarse)
+    const disconnectionType = socket.disconnectionType || "unknown"; // "window_closed", "background", o "unknown"
+    
+    console.log(
+      `📱 [RECOVERY] Tipo de desconexión detectado: ${disconnectionType} para ${userType} ${userId}`
+    );
+
     // Guardar información de desconexión
     const disconnectionInfo = {
       socketId: socket.id,
@@ -128,6 +135,7 @@ class ConnectionRecoveryManager {
       timestamp: disconnectionTime,
       transaccionesActivas: activeTransactions,
       gracePeriod: gracePeriod,
+      disconnectionType: disconnectionType, // Tipo de desconexión: "window_closed", "background", o "unknown"
     };
 
     this.disconnectedUsers.set(socket.id, disconnectionInfo);
@@ -263,12 +271,12 @@ class ConnectionRecoveryManager {
         return { recovered: false };
       }
 
-      // Buscar transacciones activas del jugador
+      // Buscar transacciones activas del jugador (tanto depósitos como retiros)
       const estadosActivos = ["pendiente", "en_proceso", "realizada"];
       const transaccionesActivas = await Transaccion.find({
         jugadorId: jugador._id,
         estado: { $in: estadosActivos },
-        categoria: "deposito",
+        categoria: { $in: ["deposito", "retiro"] }, // Incluir tanto depósitos como retiros
       })
         .populate("cajeroId", "nombreCompleto email datosPagoMovil")
         .sort({ updatedAt: -1 })
@@ -500,26 +508,72 @@ class ConnectionRecoveryManager {
       return;
     }
 
+    const disconnectionType = disconnectionInfo.disconnectionType || "unknown";
+    
     console.log(
-      `⏰ [RECOVERY] Periodo de gracia expirado para ${disconnectionInfo.tipo} ${disconnectionInfo.userId}`
+      `⏰ [RECOVERY] Periodo de gracia expirado para ${disconnectionInfo.tipo} ${disconnectionInfo.userId} (tipo desconexión: ${disconnectionType})`
     );
 
-    // Marcar transacciones como desconectadas
-    for (const transaccionId of disconnectionInfo.transaccionesActivas) {
-      this.handleTransactionDisconnectionTimeout(transaccionId);
-      this.pendingTransactions.delete(transaccionId);
-      // Desproteger el room
-      this.unprotectTransactionRoom(transaccionId);
+    // Manejar según el tipo de desconexión
+    if (disconnectionType === "window_closed") {
+      // Usuario cerró la ventana completamente
+      // Solo enviar notificaciones, no mantener capacidad de actualizar UI
+      console.log(
+        `🪟 [RECOVERY] Usuario cerró ventana - Solo notificaciones, sin actualización de UI`
+      );
+      
+      // Marcar transacciones como desconectadas y enviar notificaciones
+      for (const transaccionId of disconnectionInfo.transaccionesActivas) {
+        await this.handleTransactionDisconnectionTimeout(transaccionId, true); // true = solo notificaciones
+        this.pendingTransactions.delete(transaccionId);
+        this.unprotectTransactionRoom(transaccionId);
+      }
+      
+      // Limpiar completamente
+      this.cleanupImmediately(socketId);
+      this.disconnectedUsers.delete(socketId);
+      this.notifyDisconnectionTimeout(disconnectionInfo);
+      
+    } else if (disconnectionType === "background") {
+      // Usuario apagó pantalla o cambió de app
+      // Enviar notificaciones Y mantener capacidad de actualizar UI cuando vuelva
+      console.log(
+        `📱 [RECOVERY] Usuario en background - Notificaciones + actualización de UI cuando vuelva`
+      );
+      
+      // Marcar transacciones como desconectadas pero mantener información para recovery
+      for (const transaccionId of disconnectionInfo.transaccionesActivas) {
+        await this.handleTransactionDisconnectionTimeout(transaccionId, false); // false = mantener para UI
+        // NO eliminar de pendingTransactions para permitir recovery después del periodo de gracia
+        // NO desproteger el room todavía - mantenerlo protegido más tiempo
+        console.log(
+          `🔄 [RECOVERY] Transacción ${transaccionId} mantenida para recovery (background)`
+        );
+      }
+      
+      // Limpiar socket pero mantener información de desconexión para recovery extendido
+      this.cleanupImmediately(socketId);
+      
+      // NO eliminar de disconnectedUsers todavía - mantenerlo para recovery extendido
+      // El sistema de recovery desde BD se encargará de recuperar cuando vuelva
+      this.notifyDisconnectionTimeout(disconnectionInfo);
+      
+    } else {
+      // Tipo desconocido - comportamiento por defecto (solo notificaciones)
+      console.log(
+        `❓ [RECOVERY] Tipo de desconexión desconocido - Comportamiento por defecto`
+      );
+      
+      for (const transaccionId of disconnectionInfo.transaccionesActivas) {
+        await this.handleTransactionDisconnectionTimeout(transaccionId, true);
+        this.pendingTransactions.delete(transaccionId);
+        this.unprotectTransactionRoom(transaccionId);
+      }
+      
+      this.cleanupImmediately(socketId);
+      this.disconnectedUsers.delete(socketId);
+      this.notifyDisconnectionTimeout(disconnectionInfo);
     }
-
-    // Limpiar socket completamente
-    this.cleanupImmediately(socketId);
-
-    // Remover de usuarios desconectados
-    this.disconnectedUsers.delete(socketId);
-
-    // Notificar timeout
-    this.notifyDisconnectionTimeout(disconnectionInfo);
   }
 
   /**
@@ -543,8 +597,10 @@ class ConnectionRecoveryManager {
 
   /**
    * Manejar transacción que perdió conexión
+   * @param {string} transaccionId - ID de la transacción
+   * @param {boolean} soloNotificaciones - Si es true, solo enviar notificaciones. Si es false, mantener para actualización de UI
    */
-  async handleTransactionDisconnectionTimeout(transaccionId) {
+  async handleTransactionDisconnectionTimeout(transaccionId, soloNotificaciones = true) {
     try {
       const Transaccion = require("../models/Transaccion");
       const transaccion = await Transaccion.findById(transaccionId);
