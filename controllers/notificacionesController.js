@@ -336,10 +336,35 @@ exports.marcarTodasLeidasAdmin = async (req, res) => {
   try {
     const adminId = req.user._id || req.user.id;
 
+    if (!adminId) {
+      console.error("❌ [MARCAR-TODAS] adminId no encontrado en req.user:", req.user);
+      return res.status(400).json({
+        mensaje: "ID de administrador no encontrado",
+      });
+    }
+
+    console.log(`✅ [MARCAR-TODAS] Marcando notificaciones para admin: ${adminId}`);
+
+    // Convertir adminId a ObjectId si es necesario para asegurar comparación correcta
+    const mongoose = require("mongoose");
+    const adminIdObj = mongoose.Types.ObjectId.isValid(adminId) 
+      ? new mongoose.Types.ObjectId(adminId) 
+      : adminId;
+
+    // Verificar cuántas notificaciones no leídas hay antes de actualizar
+    const antes = await Notificacion.countDocuments({
+      destinatarioId: adminIdObj,
+      destinatarioTipo: "admin",
+      leida: false,
+    });
+    console.log(`🔍 [MARCAR-TODAS] Notificaciones no leídas encontradas: ${antes}`);
+
     const resultado = await Notificacion.updateMany(
-      { destinatarioId: adminId, destinatarioTipo: "admin", leida: false },
+      { destinatarioId: adminIdObj, destinatarioTipo: "admin", leida: false },
       { leida: true }
     );
+
+    console.log(`✅ [MARCAR-TODAS] ${resultado.modifiedCount} notificaciones marcadas como leídas`);
 
     return res.status(200).json({
       mensaje: "Todas las notificaciones marcadas como leídas",
