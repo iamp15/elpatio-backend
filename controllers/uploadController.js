@@ -49,7 +49,8 @@ exports.subirImagenRechazo = async (req, res) => {
       });
     }
 
-    if (req.user.rol !== "cajero" && req.user.rol !== "admin") {
+    const rolesPermitidos = ["cajero", "admin", "superadmin"];
+    if (!rolesPermitidos.includes(req.user.rol)) {
       return res.status(403).json({
         mensaje: "Acceso denegado",
         error: "Solo cajeros y administradores pueden subir imágenes",
@@ -112,7 +113,8 @@ exports.subirImagenComprobante = async (req, res) => {
       });
     }
 
-    if (req.user.rol !== "cajero" && req.user.rol !== "admin") {
+    const rolesPermitidos = ["cajero", "admin", "superadmin"];
+    if (!rolesPermitidos.includes(req.user.rol)) {
       return res.status(403).json({
         mensaje: "Acceso denegado",
         error: "Solo cajeros y administradores pueden subir imágenes",
