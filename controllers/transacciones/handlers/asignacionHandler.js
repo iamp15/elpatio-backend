@@ -129,6 +129,16 @@ async function asignarCajero(req, res) {
               cajeroSocketId
             );
           }
+
+          // Notificar a admins del dashboard sobre cambio de estado
+          socketManager.roomsManager.notificarAdmins("transaction-update", {
+            transaccionId: transaccion._id,
+            estado: transaccion.estado,
+            categoria: transaccion.categoria,
+            tipo: "estado-cambiado",
+            monto: transaccion.monto,
+            jugadorId: transaccion.jugadorId,
+          });
         }
 
         // Crear notificación persistente para el cajero

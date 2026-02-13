@@ -84,6 +84,18 @@ async function confirmarPagoJugador(context, socket, data) {
       `✅ [DEPOSITO] Pago confirmado por jugador para transacción ${transaccionId}`
     );
 
+    // Notificar a admins del dashboard sobre cambio de estado
+    if (context.roomsManager) {
+      context.roomsManager.notificarAdmins("transaction-update", {
+        transaccionId: transaccion._id,
+        estado: transaccion.estado,
+        categoria: transaccion.categoria,
+        tipo: "estado-cambiado",
+        monto: transaccion.monto,
+        jugadorId: transaccion.jugadorId,
+      });
+    }
+
     // ASEGURAR QUE EL JUGADOR ESTÉ EN EL ROOM DE LA TRANSACCIÓN
     const jugadorSocketId =
       await context.socketManager.roomsManager.obtenerSocketJugador(

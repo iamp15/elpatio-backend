@@ -52,6 +52,19 @@ async function confirmarPagoUsuario(req, res) {
     // Solo emitir si es una transacción de depósito/retiro
     if (["deposito", "retiro"].includes(transaccion.categoria)) {
       await websocketHelper.emitPagoConfirmadoUsuario(transaccion);
+
+      // Notificar a admins del dashboard sobre cambio de estado
+      const socketManager = req.app.get("socketManager");
+      if (socketManager?.roomsManager) {
+        socketManager.roomsManager.notificarAdmins("transaction-update", {
+          transaccionId: transaccion._id,
+          estado: transaccion.estado,
+          categoria: transaccion.categoria,
+          tipo: "estado-cambiado",
+          monto: transaccion.monto,
+          jugadorId: transaccion.jugadorId,
+        });
+      }
     }
 
     res.json({
@@ -133,6 +146,19 @@ async function confirmarPorCajero(req, res) {
       { session }
     );
 
+    // Notificar a admins del dashboard sobre cambio de estado
+    const socketManager = req.app.get("socketManager");
+    if (socketManager?.roomsManager) {
+      socketManager.roomsManager.notificarAdmins("transaction-update", {
+        transaccionId: transaccion._id,
+        estado: transaccion.estado,
+        categoria: transaccion.categoria,
+        tipo: "estado-cambiado",
+        monto: transaccion.monto,
+        jugadorId: transaccion.jugadorId,
+      });
+    }
+
     // Actualizar saldo del cajero si es un depósito (no cuando fue asignado por admin)
     if (
       transaccion.categoria === "deposito" &&
@@ -194,6 +220,19 @@ async function confirmarPorCajero(req, res) {
     // Emitir evento WebSocket si hay usuarios conectados
     websocketHelper.initialize(req.app.get("socketManager"));
     websocketHelper.logWebSocketStats("Transacción completada por cajero");
+
+    // Notificar a admins del dashboard sobre transacción completada
+    const socketManager = req.app.get("socketManager");
+    if (socketManager?.roomsManager) {
+      socketManager.roomsManager.notificarAdmins("transaction-update", {
+        transaccionId: transaccion._id,
+        estado: transaccion.estado,
+        categoria: transaccion.categoria,
+        tipo: "transaccion-completada",
+        monto: transaccion.monto,
+        jugadorId: transaccion.jugadorId,
+      });
+    }
 
     // Solo emitir si es una transacción de depósito/retiro
     if (["deposito", "retiro"].includes(transaccion.categoria)) {

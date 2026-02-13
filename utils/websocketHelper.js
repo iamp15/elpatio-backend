@@ -26,6 +26,24 @@ class WebSocketHelper {
   }
 
   /**
+   * Notificar a administradores del dashboard sobre cambios en transacciones
+   */
+  async notificarAdminsTransaccion(evento, datos) {
+    if (!this.socketManager) return;
+
+    try {
+      if (this.socketManager.roomsManager) {
+        this.socketManager.roomsManager.notificarAdmins(evento, datos);
+        console.log(
+          `📡 [HTTP→WS] Notificación enviada a admins: ${evento}`
+        );
+      }
+    } catch (error) {
+      console.error("❌ [HTTP→WS] Error notificando admins:", error);
+    }
+  }
+
+  /**
    * Emitir evento de nueva solicitud de depósito
    */
   async emitNuevaSolicitudDeposito(transaccion, jugador) {
@@ -42,6 +60,16 @@ class WebSocketHelper {
           "📡 [HTTP→WS] Nueva solicitud de depósito emitida via WebSocket"
         );
       }
+
+      // Notificar a admins del dashboard
+      await this.notificarAdminsTransaccion("transaction-update", {
+        transaccionId: transaccion._id,
+        estado: transaccion.estado,
+        categoria: transaccion.categoria,
+        tipo: "nueva-transaccion",
+        monto: transaccion.monto,
+        jugadorId: transaccion.jugadorId,
+      });
     } catch (error) {
       console.error("❌ [HTTP→WS] Error emitiendo nueva solicitud:", error);
     }

@@ -190,6 +190,18 @@ async function verificarPagoCajero(context, socket, data) {
 
           await session.commitTransaction();
 
+          // Notificar a admins del dashboard sobre transacción completada
+          if (context.roomsManager) {
+            context.roomsManager.notificarAdmins("transaction-update", {
+              transaccionId: transaccion._id,
+              estado: transaccion.estado,
+              categoria: transaccion.categoria,
+              tipo: "transaccion-completada",
+              monto: transaccion.monto,
+              jugadorId: transaccion.jugadorId,
+            });
+          }
+
           const notificacion = {
             transaccionId: transaccion._id,
             monto: transaccion.monto,
@@ -298,6 +310,18 @@ async function verificarPagoCajero(context, socket, data) {
           `🔍 [DEPOSITO] [DEBUG] Transacción guardada en estado "confirmada" exitosamente`
         );
 
+        // Notificar a admins del dashboard sobre cambio de estado
+        if (context.roomsManager) {
+          context.roomsManager.notificarAdmins("transaction-update", {
+            transaccionId: transaccion._id,
+            estado: transaccion.estado,
+            categoria: transaccion.categoria,
+            tipo: "estado-cambiado",
+            monto: transaccion.monto,
+            jugadorId: transaccion.jugadorId,
+          });
+        }
+
         // Procesar saldo del jugador
         console.log(
           `🔍 [DEPOSITO] [DEBUG] Obteniendo jugador para procesar saldo: ${transaccion.jugadorId}`
@@ -384,6 +408,18 @@ async function verificarPagoCajero(context, socket, data) {
         console.log(
           `✅ [DEPOSITO] Depósito completado: ${transaccionId}, nuevo saldo: ${saldoNuevo}`
         );
+
+        // Notificar a admins del dashboard sobre transacción completada
+        if (context.roomsManager) {
+          context.roomsManager.notificarAdmins("transaction-update", {
+            transaccionId: transaccion._id,
+            estado: transaccion.estado,
+            categoria: transaccion.categoria,
+            tipo: "transaccion-completada",
+            monto: transaccion.monto,
+            jugadorId: transaccion.jugadorId,
+          });
+        }
 
         // 2. USAR ROOMS PARA NOTIFICAR A TODOS LOS PARTICIPANTES
         const notificacion = {
@@ -623,6 +659,18 @@ async function verificarPagoCajero(context, socket, data) {
         await transaccion.save({ session });
 
         await session.commitTransaction();
+
+        // Notificar a admins del dashboard sobre cambio de estado
+        if (context.roomsManager) {
+          context.roomsManager.notificarAdmins("transaction-update", {
+            transaccionId: transaccion._id,
+            estado: transaccion.estado,
+            categoria: transaccion.categoria,
+            tipo: "estado-cambiado",
+            monto: transaccion.monto,
+            jugadorId: transaccion.jugadorId,
+          });
+        }
 
         console.log(`❌ [DEPOSITO] Depósito rechazado: ${transaccionId}`, {
           descripcionDetallada: transaccion.motivoRechazo.descripcionDetallada,

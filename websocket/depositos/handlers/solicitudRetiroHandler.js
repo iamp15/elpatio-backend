@@ -188,6 +188,18 @@ async function solicitarRetiro(context, socket, data) {
       }
     }
 
+    // Notificar a admins del dashboard sobre nueva transacción (siempre, independiente de si hay cajeros)
+    if (context.roomsManager) {
+      context.roomsManager.notificarAdmins("transaction-update", {
+        transaccionId: transaccion._id,
+        estado: transaccion.estado,
+        categoria: transaccion.categoria,
+        tipo: "nueva-transaccion",
+        monto: transaccion.monto,
+        jugadorId: transaccion.jugadorId,
+      });
+    }
+
     await registrarLog({
       accion: "Solicitud de retiro creada via WebSocket",
       usuario: jugadorId,

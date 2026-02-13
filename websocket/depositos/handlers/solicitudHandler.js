@@ -106,6 +106,18 @@ async function solicitarDeposito(context, socket, data) {
     // Crear y emitir notificación al bot para el jugador
     await notificarBotNuevoDeposito(context, transaccion, jugador);
 
+    // Notificar a admins del dashboard sobre nueva transacción
+    if (context.roomsManager) {
+      context.roomsManager.notificarAdmins("transaction-update", {
+        transaccionId: transaccion._id,
+        estado: transaccion.estado,
+        categoria: transaccion.categoria,
+        tipo: "nueva-transaccion",
+        monto: transaccion.monto,
+        jugadorId: transaccion.jugadorId,
+      });
+    }
+
     // Registrar log
     await registrarLog({
       accion: "Solicitud de depósito creada via WebSocket",

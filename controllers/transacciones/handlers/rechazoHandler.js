@@ -54,6 +54,19 @@ async function rechazarTransaccion(req, res) {
           motivo
         );
       }
+
+      // Notificar a admins del dashboard sobre cambio de estado
+      const socketManager = req.app.get("socketManager");
+      if (socketManager?.roomsManager) {
+        socketManager.roomsManager.notificarAdmins("transaction-update", {
+          transaccionId: transaccion._id,
+          estado: transaccion.estado,
+          categoria: transaccion.categoria,
+          tipo: "estado-cambiado",
+          monto: transaccion.monto,
+          jugadorId: transaccion.jugadorId,
+        });
+      }
     }
 
     // Limpiar room de transacción cuando finaliza
