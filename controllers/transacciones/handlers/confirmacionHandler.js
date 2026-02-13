@@ -221,8 +221,7 @@ async function confirmarPorCajero(req, res) {
     websocketHelper.initialize(req.app.get("socketManager"));
     websocketHelper.logWebSocketStats("Transacción completada por cajero");
 
-    // Notificar a admins del dashboard sobre transacción completada
-    const socketManager = req.app.get("socketManager");
+    // Notificar a admins del dashboard sobre transacción completada (reutilizar socketManager ya declarado)
     if (socketManager?.roomsManager) {
       socketManager.roomsManager.notificarAdmins("transaction-update", {
         transaccionId: transaccion._id,
