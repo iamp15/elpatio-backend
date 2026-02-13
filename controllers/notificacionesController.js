@@ -348,18 +348,16 @@ exports.marcarTodasLeidasAdmin = async (req, res) => {
 
     console.log(`✅ [MARCAR-TODAS] Marcando notificaciones para admin: ${adminId}`);
 
-    // Usar el mismo adminId que en obtenerNotificacionesAdmin (sin convertir) para que la consulta coincida
-    const antes = await Notificacion.countDocuments({
+    // Incluir tanto leida: false como documentos sin campo leida (notificaciones antiguas)
+    const filtroNoLeidas = {
       destinatarioId: adminId,
       destinatarioTipo: "admin",
-      leida: false,
-    });
+      $or: [{ leida: false }, { leida: { $exists: false } }],
+    };
+    const antes = await Notificacion.countDocuments(filtroNoLeidas);
     console.log(`🔍 [MARCAR-TODAS] Notificaciones no leídas encontradas: ${antes}`);
 
-    const resultado = await Notificacion.updateMany(
-      { destinatarioId: adminId, destinatarioTipo: "admin", leida: false },
-      { leida: true }
-    );
+    const resultado = await Notificacion.updateMany(filtroNoLeidas, { leida: true });
 
     console.log(`✅ [MARCAR-TODAS] ${resultado.modifiedCount} notificaciones marcadas como leídas`);
 
@@ -384,10 +382,11 @@ exports.contadorNoLeidasAdmin = async (req, res) => {
   try {
     const adminId = req.user._id || req.user.id;
 
+    // Incluir documentos sin campo leida (notificaciones antiguas) como no leídas
     const total = await Notificacion.countDocuments({
       destinatarioId: adminId,
       destinatarioTipo: "admin",
-      leida: false,
+      $or: [{ leida: false }, { leida: { $exists: false } }],
     });
 
     return res.status(200).json({
