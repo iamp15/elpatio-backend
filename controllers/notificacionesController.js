@@ -340,13 +340,10 @@ exports.marcarTodasLeidasAdmin = async (req, res) => {
     const adminId = req.user._id || req.user.id;
 
     if (!adminId) {
-      console.error("❌ [MARCAR-TODAS] adminId no encontrado en req.user:", req.user);
       return res.status(400).json({
         mensaje: "ID de administrador no encontrado",
       });
     }
-
-    console.log(`✅ [MARCAR-TODAS] Marcando notificaciones para admin: ${adminId}`);
 
     // Incluir tanto leida: false como documentos sin campo leida (notificaciones antiguas)
     const filtroNoLeidas = {
@@ -354,12 +351,8 @@ exports.marcarTodasLeidasAdmin = async (req, res) => {
       destinatarioTipo: "admin",
       $or: [{ leida: false }, { leida: { $exists: false } }],
     };
-    const antes = await Notificacion.countDocuments(filtroNoLeidas);
-    console.log(`🔍 [MARCAR-TODAS] Notificaciones no leídas encontradas: ${antes}`);
 
     const resultado = await Notificacion.updateMany(filtroNoLeidas, { leida: true });
-
-    console.log(`✅ [MARCAR-TODAS] ${resultado.modifiedCount} notificaciones marcadas como leídas`);
 
     return res.status(200).json({
       mensaje: "Todas las notificaciones marcadas como leídas",
