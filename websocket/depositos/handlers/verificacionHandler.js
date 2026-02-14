@@ -62,6 +62,7 @@ async function verificarPagoCajero(context, socket, data) {
 
   while (retryCount < maxRetries) {
     const session = await mongoose.startSession();
+    let transactionCommitted = false;
 
     try {
       console.log(
@@ -190,6 +191,7 @@ async function verificarPagoCajero(context, socket, data) {
           await transaccion.save({ session });
 
           await session.commitTransaction();
+          transactionCommitted = true;
 
           // Notificar a admins del dashboard sobre transacción completada (tiempo real + persistente)
           if (context.roomsManager) {
@@ -336,6 +338,7 @@ async function verificarPagoCajero(context, socket, data) {
         if (!jugadorConSesion) {
           throw new Error(`Jugador ${transaccion.jugadorId} no encontrado`);
         }
+        const jugador = jugadorConSesion;
         console.log(
           `🔍 [DEPOSITO] [DEBUG] Saldo actual del jugador: ${jugadorConSesion.saldo}`
         );
@@ -405,6 +408,7 @@ async function verificarPagoCajero(context, socket, data) {
           `🔍 [DEPOSITO] [DEBUG] Haciendo commit de la transacción de BD`
         );
         await session.commitTransaction();
+        transactionCommitted = true;
         console.log(
           `🔍 [DEPOSITO] [DEBUG] Commit de transacción de BD exitoso`
         );
@@ -524,10 +528,7 @@ async function verificarPagoCajero(context, socket, data) {
           console.log(`📢 [DEPOSITO] Jugador no conectado`);
         }
 
-        // Obtener datos del jugador (una sola vez)
-        const jugador = await Jugador.findById(transaccion.jugadorId);
-
-        // Crear notificación persistente para el JUGADOR
+        // Crear notificación persistente para el JUGADOR (jugador ya definido arriba)
         try {
           if (jugador) {
             await crearNotificacionInterna({
@@ -666,6 +667,7 @@ async function verificarPagoCajero(context, socket, data) {
         await transaccion.save({ session });
 
         await session.commitTransaction();
+        transactionCommitted = true;
 
         // Notificar a admins del dashboard sobre cambio de estado
         if (context.roomsManager) {
@@ -782,7 +784,15 @@ async function verificarPagoCajero(context, socket, data) {
         error.message
       );
 
-      await session.abortTransaction();
+      if (!transactionCommitted) {
+        try {
+          await session.abortTransaction();
+        } catch (abortErr) {
+          if (abortErr.message && !abortErr.message.includes("commitTransaction")) {
+            console.error("❌ [DEPOSITO] Error en abortTransaction:", abortErr.message);
+          }
+        }
+      }
       await session.endSession();
 
       // Verificar si es un error de concurrencia que se puede reintentar
