@@ -143,7 +143,7 @@ async function obtenerEstadoTransaccion(req, res) {
       .populate("cajeroId", "nombreCompleto telefonoContacto datosPagoMovil")
       .populate("jugadorId", "telegramId")
       .select(
-        "estado cajeroId fechaAsignacionCajero monto referencia categoria tipo jugadorId"
+        "estado cajeroId fechaAsignacionCajero monto referencia categoria tipo jugadorId saldoNuevo saldoAnterior"
       )
       .lean();
 
@@ -173,6 +173,11 @@ async function obtenerEstadoTransaccion(req, res) {
       tipo: transaccion.tipo,
       fechaAsignacion: transaccion.fechaAsignacionCajero,
     };
+
+    if (["completada", "completada_con_ajuste"].includes(transaccion.estado)) {
+      respuesta.saldoNuevo = transaccion.saldoNuevo;
+      respuesta.saldoAnterior = transaccion.saldoAnterior;
+    }
 
     // Si hay cajero asignado, incluir sus datos bancarios
     if (transaccion.cajeroId) {
