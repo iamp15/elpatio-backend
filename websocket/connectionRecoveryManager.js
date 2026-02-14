@@ -154,7 +154,9 @@ class ConnectionRecoveryManager {
 
     // Configurar timer para limpieza después del periodo de gracia
     const timer = setTimeout(() => {
-      this.handleGracePeriodExpired(socket.id);
+      this.handleGracePeriodExpired(socket.id).catch((err) => {
+        console.error("❌ [RECOVERY] Error en handleGracePeriodExpired:", err);
+      });
     }, gracePeriod);
 
     disconnectionInfo.timer = timer;
@@ -476,7 +478,7 @@ class ConnectionRecoveryManager {
   /**
    * Manejar expiración del periodo de gracia
    */
-  handleGracePeriodExpired(socketId) {
+  async handleGracePeriodExpired(socketId) {
     const disconnectionInfo = this.disconnectedUsers.get(socketId);
 
     if (!disconnectionInfo) {
