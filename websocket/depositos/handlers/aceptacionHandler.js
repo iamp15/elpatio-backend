@@ -5,9 +5,6 @@
 const Transaccion = require("../../../models/Transaccion");
 const Cajero = require("../../../models/Cajero");
 const { registrarLog } = require("../../../utils/logHelper");
-const {
-  crearNotificacionInterna,
-} = require("../../../controllers/notificacionesController");
 const { notificarJugadorSolicitudAceptada } = require("../notificaciones/notificacionesJugador");
 const { notificarBotSolicitudAceptada } = require("../notificaciones/notificacionesBot");
 
@@ -95,46 +92,9 @@ async function aceptarSolicitud(context, socket, data) {
     // Crear y emitir notificación al bot sobre aceptación de solicitud
     await notificarBotSolicitudAceptada(context, transaccion, cajero);
 
-    // Crear notificación persistente para el cajero
-    try {
-      await crearNotificacionInterna({
-        destinatarioId: cajeroId,
-        destinatarioTipo: "cajero",
-        tipo: "solicitud_asignada",
-        titulo: "Solicitud asignada",
-        mensaje: `Se te asignó la solicitud de ${
-          transaccion.jugadorId.nickname ||
-          transaccion.jugadorId.firstName ||
-          "Usuario"
-        } por ${(transaccion.monto / 100).toFixed(2)} Bs`,
-        datos: {
-          transaccionId: transaccion._id.toString(),
-          monto: transaccion.monto,
-          jugadorNombre:
-            transaccion.jugadorId.nickname ||
-            transaccion.jugadorId.firstName ||
-            "Usuario",
-        },
-        eventoId: `asignada-${transaccion._id}-${cajeroId}`,
-      });
-
-      // Emitir evento de nueva notificación al cajero
-      socket.emit("nuevaNotificacion", {
-        tipo: "solicitud_asignada",
-        titulo: "Solicitud asignada",
-        mensaje: `Se te asignó la solicitud de ${
-          transaccion.jugadorId.nickname ||
-          transaccion.jugadorId.firstName ||
-          "Usuario"
-        } por ${(transaccion.monto / 100).toFixed(2)} Bs`,
-        transaccionId: transaccion._id.toString(),
-      });
-    } catch (error) {
-      console.error(
-        "❌ Error creando notificación de asignación:",
-        error.message
-      );
-    }
+    // No crear ni emitir notificación "solicitud_asignada" aquí: la asignación se hace
+    // primero por HTTP (PUT asignar-cajero) y ese handler ya crea la notificación
+    // y emite nuevaNotificacion al cajero. Evitar duplicado.
 
     // Registrar log
     await registrarLog({
