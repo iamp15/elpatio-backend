@@ -699,7 +699,8 @@ async function verificarPagoCajero(context, socket, data) {
           .to(`transaccion-${transaccionId}`)
           .emit("deposito-rechazado", {
             ...notificacion,
-            target: "cajero", // Solo cajero procesa
+            target: "cajero",
+            monto: transaccion.monto, // Para mostrar en el popup del cajero
           });
 
         context.io
