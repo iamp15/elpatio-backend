@@ -34,4 +34,17 @@ router.post(
   uploadController.subirImagenComprobante
 );
 
+/**
+ * Subir imagen de soporte para ajuste de monto
+ * POST /api/upload/imagen-ajuste-monto
+ * Requiere autenticación y rol mínimo de cajero
+ */
+router.post(
+  "/imagen-ajuste-monto",
+  auth,
+  verificarMinimo("cajero"),
+  uploadController.uploadMiddleware,
+  uploadController.subirImagenAjusteMonto
+);
+
 module.exports = router;

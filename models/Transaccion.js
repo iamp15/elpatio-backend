@@ -155,6 +155,7 @@ const transaccionSchema = new mongoose.Schema(
       montoOriginal: Number, // Monto solicitado originalmente
       montoReal: Number, // Monto realmente depositado
       razon: String, // Razón del ajuste
+      imagenAjusteUrl: String, // URL de imagen de soporte del ajuste (opcional)
       fechaAjuste: Date,
       ajustadoPor: {
         type: mongoose.Schema.Types.ObjectId,

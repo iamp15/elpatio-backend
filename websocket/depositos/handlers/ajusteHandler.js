@@ -20,7 +20,7 @@ async function ajustarMontoDeposito(context, socket, data) {
   try {
     console.log("💰 [DEPOSITO] Ajustar monto:", data);
 
-    const { transaccionId, montoReal, razon } = data;
+    const { transaccionId, montoReal, razon, imagenAjusteUrl } = data;
 
     // Validar datos requeridos
     if (!transaccionId || !montoReal) {
@@ -114,6 +114,7 @@ async function ajustarMontoDeposito(context, socket, data) {
       montoOriginal: transaccion.monto,
       montoReal: montoReal,
       razon: razon || "Ajuste de monto por discrepancia",
+      imagenAjusteUrl: imagenAjusteUrl || undefined,
       fechaAjuste: new Date(),
       ajustadoPor: socket.cajeroId,
     };

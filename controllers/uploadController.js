@@ -163,5 +163,68 @@ exports.subirImagenComprobante = async (req, res) => {
   }
 };
 
+/**
+ * Subir imagen de soporte para ajuste de monto
+ * POST /api/upload/imagen-ajuste-monto
+ */
+exports.subirImagenAjusteMonto = async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        mensaje: "No autorizado",
+        error: "Debes estar autenticado para subir imágenes",
+      });
+    }
+
+    const rolesPermitidos = ["cajero", "admin", "superadmin"];
+    if (!rolesPermitidos.includes(req.user.rol)) {
+      return res.status(403).json({
+        mensaje: "Acceso denegado",
+        error: "Solo cajeros y administradores pueden subir imágenes",
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        mensaje: "Error de validación",
+        error: "Debes proporcionar una imagen",
+      });
+    }
+
+    if (req.file.size > 5 * 1024 * 1024) {
+      return res.status(400).json({
+        mensaje: "Error de validación",
+        error: "La imagen no puede ser mayor a 5MB",
+      });
+    }
+
+    const resultado = await subirImagen(
+      req.file.buffer,
+      req.file.originalname,
+      "ajustes-monto"
+    );
+
+    console.log(
+      `✅ Imagen de ajuste de monto subida exitosamente: ${resultado.url}`
+    );
+
+    res.json({
+      mensaje: "Imagen subida exitosamente",
+      imagen: {
+        url: resultado.url,
+        fileId: resultado.fileId,
+        nombre: resultado.name,
+        tamaño: resultado.size,
+      },
+    });
+  } catch (error) {
+    console.error("❌ Error subiendo imagen de ajuste de monto:", error);
+    res.status(500).json({
+      mensaje: "Error al subir imagen",
+      error: error.message,
+    });
+  }
+};
+
 // Middleware de multer para usar en la ruta
 exports.uploadMiddleware = upload.single("imagen");
